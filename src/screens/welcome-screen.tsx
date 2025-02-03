@@ -8,9 +8,14 @@ import {
   ScreenTitle,
 } from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
+import { LoadingScreen } from "./loading-screen";
 
 export const WelcomeScreen = observer(() => {
   const { ticket, loading } = useGrispi();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <Screen>
@@ -18,27 +23,23 @@ export const WelcomeScreen = observer(() => {
         <ScreenTitle>Grispi</ScreenTitle>
       </ScreenHeader>
       <ScreenContent>
-        {loading ? (
-          <LoadingWrapper />
-        ) : (
-          <div className="flex flex-col gap-3 p-6">
-            <span className="text-center text-xs font-bold uppercase text-primary">
-              Welcome to starter
-            </span>
-            <div className="flex flex-col divide-y *:py-2 *:text-xs">
-              <div className="flex items-center justify-between">
-                <span>Key</span>
-                <span className="font-bold">{ticket?.key}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Time</span>
-                <span className="font-bold">
-                  {new Date().toLocaleTimeString()}
-                </span>
-              </div>
+        <div className="flex flex-col gap-3 p-6">
+          <span className="text-xs font-bold text-center uppercase text-primary">
+            Welcome to starter
+          </span>
+          <div className="flex flex-col divide-y *:py-2 *:text-xs">
+            <div className="flex justify-between items-center">
+              <span>Key</span>
+              <span className="font-bold">{ticket?.key}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Time</span>
+              <span className="font-bold">
+                {new Date().toLocaleTimeString()}
+              </span>
             </div>
           </div>
-        )}
+        </div>
       </ScreenContent>
     </Screen>
   );
