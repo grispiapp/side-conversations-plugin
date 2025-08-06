@@ -146,7 +146,7 @@ This starter kit is released under the **MIT License**—see `LICENSE` for detai
 ## 9 · Acknowledgements / Sources
 
 - [Tailwind CSS](https://tailwindcss.com/)
-- [shadcn/ui](https://shadcn.dev/)
+- [shadcn/ui](https://ui.shadcn.com/)
 - [React](https://reactjs.org/) + [Create React App](https://create-react-app.dev/)
 - [Craco](https://github.com/gsoft-inc/craco) (for CRA compatibility)
 - [MobX](https://mobx.js.org/) (for state management)
