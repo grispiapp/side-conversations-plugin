@@ -30,7 +30,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Hiç yan görüşme yoksa, gizlilik açıklaması ("talep sahibi bu yazışmayı görmez") ve tek CTA içeren boş durum ekranı görünür
   4. Temsilci aktif talebi değiştirdiğinde liste otomatik olarak yeni talebin görüşmelerini gösterir
   5. Kritik field/ayar eksikse anlaşılır bir kurulum uyarısı; API hatasında Türkçe mesaj ile "yeniden dene" seçeneği gösterilir
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 01-01-PLAN.md — Walking Skeleton: gerçek advanced-search okumasıyla yan görüşme listesi uçtan uca render (alıcı·zaman·konu·özet), typed HTTP hataları, skeleton yükleme
+- [ ] 01-02-PLAN.md — Rozet türetme (Yeni yanıt/Yanıt bekleniyor/Kapalı) + gruplama/sıralama + mor okunmamış ray; canlı API şekli doğrulama checkpoint'i
+- [ ] 01-03-PLAN.md — Boş durum (gizlilik CTA'sı), katmanlı Türkçe hata + yeniden dene, sayfalama, talep-değişimi tazeleme; faz sonu UAT
 **UI hint**: yes
 
 ### Phase 2: Yeni Yan Görüşme Başlatma
@@ -80,7 +83,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Temel ve Salt Okunur Görüşme Listesi | 0/TBD | Not started | - |
+| 1. Temel ve Salt Okunur Görüşme Listesi | 0/3 | Not started | - |
 | 2. Yeni Yan Görüşme Başlatma | 0/TBD | Not started | - |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 0/TBD | Not started | - |
 | 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
