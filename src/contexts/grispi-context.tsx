@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 
+import { HttpError, NetworkError } from "@/grispi/client/http-handler";
 import { grispiAPI } from "@/grispi/client/api";
 import { GrispiBundle, Settings, Ticket } from "@/types/grispi.type";
 
@@ -33,11 +34,38 @@ export const GrispiProvider: React.FC<{
       grispiAPI.authentication.setTenantId(bundle.context.tenantId);
       grispiAPI.authentication.setToken(bundle.context.token);
 
-      const ticket = await grispiAPI.tickets.getTicket(
-        bundle.context.ticketKey
-      );
+      try {
+        const ticket = await grispiAPI.tickets.getTicket(
+          bundle.context.ticketKey
+        );
 
-      setTicket(ticket);
+        setTicket(ticket);
+      } catch (err) {
+        if (err instanceof NetworkError) {
+          console.error(
+            "grispi-context",
+            "_init",
+            "Network error when fetching initial ticket",
+            bundle.context.ticketKey
+          );
+        } else if (err instanceof HttpError) {
+          console.error(
+            "grispi-context",
+            "_init",
+            "HTTP error when fetching initial ticket",
+            bundle.context.ticketKey,
+            err.status
+          );
+        } else {
+          console.error(
+            "grispi-context",
+            "_init",
+            "Unexpected error when fetching initial ticket",
+            bundle.context.ticketKey
+          );
+        }
+      }
+
       setSettings(bundle.settings);
       setLoading(false);
     });
@@ -49,12 +77,29 @@ export const GrispiProvider: React.FC<{
         const response = await grispiAPI.tickets.getTicket(ticket.key);
         setTicket(response);
       } catch (err) {
-        console.error(
-          "grispi-context",
-          "currentTicketUpdated",
-          "Error when fetching ticket details",
-          ticket.key
-        );
+        if (err instanceof NetworkError) {
+          console.error(
+            "grispi-context",
+            "currentTicketUpdated",
+            "Network error when fetching ticket details",
+            ticket.key
+          );
+        } else if (err instanceof HttpError) {
+          console.error(
+            "grispi-context",
+            "currentTicketUpdated",
+            "HTTP error when fetching ticket details",
+            ticket.key,
+            err.status
+          );
+        } else {
+          console.error(
+            "grispi-context",
+            "currentTicketUpdated",
+            "Unexpected error when fetching ticket details",
+            ticket.key
+          );
+        }
       }
 
       setLoading(false);

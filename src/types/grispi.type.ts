@@ -135,3 +135,38 @@ export interface GrispiBundle {
   settings: Settings;
   context: Context;
 }
+
+/**
+ * The following three types describe `POST /public/v1/tickets/advanced-search`
+ * — an endpoint ABSENT from Grispi's public OpenAPI spec. Their shape is
+ * ASSUMED from prior (unverified-live) project research, modeled on the
+ * public spec's `PagedCommentDigest` paging envelope. Confirm against a real
+ * response before relying on any field here beyond what Plan 01-01 needs
+ * (RESEARCH.md Open Question #1; Plan 02's first task is the live-probe
+ * checkpoint that corrects these if wrong).
+ */
+export interface AdvancedSearchCondition {
+  fieldKey: string;
+  operator: string;
+  value: string;
+}
+
+export interface AdvancedSearchRequest {
+  allConditions: AdvancedSearchCondition[];
+  anyConditions: AdvancedSearchCondition[];
+}
+
+/** ASSUMED — lean summary shape; only `key` is relied upon this phase. */
+export interface SideTicketSummary {
+  key: string;
+  [extra: string]: unknown;
+}
+
+/** ASSUMED — paging envelope, modeled on PagedCommentDigest. */
+export interface AdvancedSearchResponse {
+  content: SideTicketSummary[];
+  totalPages: number;
+  totalSize: number;
+  pageNumber: number;
+  numberOfElements: number;
+}
