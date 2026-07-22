@@ -25,6 +25,7 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 - [ ] Talebe bağlı yan görüşmeleri durum rozetleriyle listeleme (boş durum ve sayfalama dahil)
 - [ ] Yeni yan görüşme başlatma: alıcı autocomplete, prefill konu, mesaj, ek dosya, talep özeti ekleme
 - [ ] Görüşme detayı: mesajları yön ayrımıyla görüntüleme, yanıtlama, kapatma/yeniden açma, okundu takibi
+- [ ] Alıcı seçilince o alıcıyla önceki yan görüşmelerin gösterimi
 - [ ] Ayarlanabilir custom field key'leri (settings) ve anlaşılır hata durumları
 
 ### Out of Scope
@@ -46,7 +47,7 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 - `GET /customers/search?searchTerm=` — alıcı autocomplete
 - `GET /digests/tickets/{key}/comments` — public yorum özeti ("talep özetini ekle")
 - `GET /fields?type=TICKET`, `GET /tickets/{key}`
-- `GET /public/v2/tickets?requesterEmail=…` — **V2 preview, değişebilir**; core akışta kullanılmayacak
+- `GET /public/v2/tickets?requesterEmail=…` — **V2 preview, değişebilir**; yalnızca "alıcıyla önceki görüşmeler" özelliğinde kullanılır, core listeleme akışı advanced-search'te kalır (Grispi değişiklikleri önceden bildirir)
 
 **Doğrulanmış davranış (Davut, 22 Tem 2026):** `publicVisible: true` olan her yorum requester'a e-posta olarak gider; `comment.creator` ≠ `ticket.requester` ayrıştırılabilir.
 
@@ -74,6 +75,7 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 | Durum rozetleri "sıra kimde" semantiği: Yanıt bekleniyor / Yeni yanıt / Kapalı | Temsilcinin gerçek sorusu "beklediğim cevap geldi mi?"; son yorumun yazar rolünden türetilir | — Pending |
 | Okunmamışlık localStorage'da (`ticketKey → lastSeenAt`) | Server-side görülme takibi yok; cihaz bazlı kısıt kabul edildi | — Pending |
 | UI: chat balonu değil sol-raylı yazışma blokları + kesikli "posta hattı" | E-posta gecikmeli/resmi kanal; mockup ile onaylandı | — Pending |
+| "Alıcıyla önceki görüşmeler" v1'de, v2 preview endpoint'iyle | Davut'un isteği; ekip Grispi ile doğrudan iletişimde, API değişiklikleri önceden bildiriliyor | — Pending |
 
 ## Evolution
 

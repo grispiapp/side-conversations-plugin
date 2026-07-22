@@ -40,9 +40,11 @@ Stack starter tarafından sabitlenmiş durumda; yeni bağımlılık ihtiyacı mi
 - "Talep özetini ekle" (digest endpoint'i) — Zendesk'in "insert ticket comments" muadili
 - Ek dosya (Base64 JSON — 03.06.2026 PDF'i ile kolaylaştı)
 
+**Should have (competitive) — devam:**
+- Alıcıyla önceki yan görüşmeler (compose'da alıcı seçilince; `GET /public/v2/tickets?requesterEmail=` preview endpoint'i — yalnızca bu özellikte kullanılır)
+
 **Defer (v2+):**
 - CC/BCC ve çoklu alıcı (API kazanınca)
-- Alıcıyla önceki görüşmeler (`GET /public/v2/tickets` stabilleşince)
 - Şablonlar/makrolar, seçmeli yorum alıntılama, cihazlar arası okunmuşluk senkronu
 
 ### Architecture Approach
@@ -61,7 +63,7 @@ Backend'siz, tamamen client-side eklenti: SDK bundle'ından bağlam alınır, Gr
 2. **advanced-search `size` ≤ 10** — sayfalamayı liste ekranının ilk sürümünde tasarla, sona bırakma
 3. **Requester set mekanizması** — `ts.requester` benzeri field'ın kabul ettiği değer (email vs id) ve kayıtsız alıcıda `POST /customers` ihtiyacı; Faz 2 başında tek denemeyle doğrula, akışı `search → yoksa create → set` kur
 4. **Polling disiplinsizliği** — yalnızca panel görünürken 30-60 sn aralık; ticket değişiminde sıfırla; her yazma sonrası anlık tazele
-5. **V2 preview endpoint'ine bağımlılık** — `GET /public/v2/tickets` değişebilir; core akışta kullanma
+5. **V2 preview endpoint'ine bağımlılık** — `GET /public/v2/tickets` değişebilir; yalnızca "önceki görüşmeler" özelliğinde izole kullan (özellik bayrağıyla kapatılabilir olsun), core listeleme akışına sokma
 6. **Türetilmiş durumun yanlış hesaplanması** — "son yorum" kıyasında yalnızca `publicVisible` yorumları say; internal notlar sırayı bozmasın
 
 ## Implications for Roadmap
@@ -87,8 +89,8 @@ Based on research, suggested phase structure (Vertical MVP — her faz uçtan uc
 
 ### Phase 4: Cila ve Dayanıklılık
 **Rationale:** Uçtan uca akış çalıştıktan sonra deneyim tamamlanır
-**Delivers:** Polling, ek dosya (Base64), "talep özetini ekle", sayfalama ("daha fazla yükle"), hata/yükleme durumları, boş durum mikrocopy'leri, son UI cilası
-**Addresses:** Should-have'ler (digest, attachment) + pitfall 4-6
+**Delivers:** Polling, ek dosya (Base64), "talep özetini ekle", alıcıyla önceki görüşmeler (v2 preview endpoint'i), sayfalama ("daha fazla yükle"), hata/yükleme durumları, boş durum mikrocopy'leri, son UI cilası
+**Addresses:** Should-have'ler (digest, attachment, önceki görüşmeler) + pitfall 4-6
 
 ### Phase Ordering Rationale
 
