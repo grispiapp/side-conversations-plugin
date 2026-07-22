@@ -26,7 +26,7 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 - [ ] Yeni yan görüşme başlatma: alıcı autocomplete, prefill konu, mesaj, ek dosya, talep özeti ekleme
 - [ ] Görüşme detayı: mesajları yön ayrımıyla görüntüleme, yanıtlama, kapatma/yeniden açma, okundu takibi
 - [ ] Alıcı seçilince o alıcıyla önceki yan görüşmelerin gösterimi
-- [ ] Ayarlanabilir custom field key'leri (settings) ve anlaşılır hata durumları
+- [ ] Sabit ilişki field'ı (kurulumda otomatik oluşur) ve anlaşılır hata durumları
 
 ### Out of Scope
 
@@ -60,8 +60,8 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 - **Tech stack**: Starter'ın yapısı korunur (CRA+craco, React 18, TS 4.9, Tailwind 3, shadcn, MobX) — mevcut Grispi plugin ekosistemiyle tutarlılık
 - **Platform**: ~372px genişlik iframe, Grispi sağ paneli, her zaman açık tema, UI dili Türkçe
 - **API**: advanced-search `size` ≤ 10 → sayfalama şart; CC/BCC yok → tek alıcı; webhook yok → polling; SDK köprüsü salt okunur → tüm yazmalar REST
-- **Dependencies**: Custom field'ların tenant'ta tanımlanması (Grispi admin) ve plugin manifest kaydı (Grispi ekibi onayı) dış bağımlılık
-- **Security**: Token bundle'dan gelir, saklanmaz; field key'leri settings'ten okunur, hardcode edilmez
+- **Dependencies**: İlişki field'ı prod'da plugin kurulumuyla otomatik oluşur; geliştirme tenant'ında elle oluşturulur. Plugin manifest kaydı Grispi ekibi onayı gerektirir
+- **Security**: Token bundle'dan gelir, saklanmaz
 
 ## Key Decisions
 
@@ -70,7 +70,7 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 | Yan görüşme = ayrı Grispi ticket'ı ("side ticket"); requester = harici alıcı | E-posta gidiş/dönüşü Grispi'nin native ticket mail kanalıyla akar; ek backend gerekmez | — Pending |
 | İlk yorum: creator = temsilci, publicVisible = true | Alıcıya mail otomatik gider; Davut davranışı doğruladı | ✓ Good |
 | İlişki: side ticket'ta `tu.*` parent-key field'ı; listeleme advanced-search ile | Parent'ta registry field gereksizleşti; tek doğruluk kaynağı, race yok | — Pending |
-| Field key'leri plugin settings'ten okunur (varsayılanlarla) | Key isimleri henüz kesinleşmedi; tenant bazlı esneklik | — Pending |
+| Field key sabit: `tu.side_conversation_parent`; field plugin kurulumunda otomatik oluşturulur | Davut kararı (Faz 1 tartışması, 22 Tem): provisioning Grispi kurulum tarafında; settings'e gerek yok | — Pending |
 | Kapalı durumu = side ticket `ts.status` (SOLVED/CLOSED) | Ayrı state field'ı gerektirmez; Grispi'nin native reopen davranışından yararlanır | — Pending |
 | Durum rozetleri "sıra kimde" semantiği: Yanıt bekleniyor / Yeni yanıt / Kapalı | Temsilcinin gerçek sorusu "beklediğim cevap geldi mi?"; son yorumun yazar rolünden türetilir | — Pending |
 | Okunmamışlık localStorage'da (`ticketKey → lastSeenAt`) | Server-side görülme takibi yok; cihaz bazlı kısıt kabul edildi | — Pending |
