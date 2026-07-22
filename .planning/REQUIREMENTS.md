@@ -74,13 +74,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (roadmap oluşturulunca doldurulur) | | |
+| CORE-01 | Phase 1 | Pending |
+| CORE-02 | Phase 1 | Pending |
+| CORE-03 | Phase 1 | Pending |
+| LIST-01 | Phase 1 | Pending |
+| LIST-02 | Phase 1 | Pending |
+| LIST-03 | Phase 1 | Pending |
+| LIST-04 | Phase 1 | Pending |
+| LIST-05 | Phase 1 | Pending |
+| LIST-06 | Phase 1 | Pending |
+| COMP-01 | Phase 2 | Pending |
+| COMP-02 | Phase 2 | Pending |
+| COMP-03 | Phase 2 | Pending |
+| COMP-04 | Phase 2 | Pending |
+| SYNC-02 | Phase 2 | Pending |
+| THRD-01 | Phase 3 | Pending |
+| THRD-02 | Phase 3 | Pending |
+| THRD-03 | Phase 3 | Pending |
+| THRD-04 | Phase 3 | Pending |
+| COMP-05 | Phase 4 | Pending |
+| COMP-06 | Phase 4 | Pending |
+| COMP-07 | Phase 4 | Pending |
+| THRD-05 | Phase 4 | Pending |
+| SYNC-01 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20 ⚠️
+- v1 requirements: 23 total
+- Mapped to phases: 23
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-22*
-*Last updated: 2026-07-22 after initial definition*
+*Last updated: 2026-07-22 after roadmap creation*
