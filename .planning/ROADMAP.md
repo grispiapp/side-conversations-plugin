@@ -13,7 +13,7 @@ Temsilcinin talepten hiç ayrılmadan üçüncü taraflarla gizli e-posta yazı�
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Temel ve Salt Okunur Görüşme Listesi** - Panel, aktif talebe bağlı yan görüşmeleri rozetleriyle, doğru sırayla ve sayfalanmış olarak gösterir
+- [x] **Phase 1: Temel ve Salt Okunur Görüşme Listesi** - Panel, aktif talebe bağlı yan görüşmeleri rozetleriyle, doğru sırayla ve sayfalanmış olarak gösterir (completed 2026-07-23)
 - [ ] **Phase 2: Yeni Yan Görüşme Başlatma** - Temsilci alıcı/konu/mesaj ile yeni görüşme açar; side ticket oluşur ve alıcıya gerçek e-posta gider
 - [ ] **Phase 3: Görüşme Detayı ve Yaşam Döngüsü** - Temsilci mesajları yön ayrımıyla görür, yanıtlar, kapatır/yeniden açar ve okundu işaretler
 - [ ] **Phase 4: Zenginleştirmeler ve Dayanıklılık** - Dosya ekleme, talep özeti, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Temsilci aktif talebi değiştirdiğinde liste otomatik olarak yeni talebin görüşmelerini gösterir
   5. Kritik field/ayar eksikse anlaşılır bir kurulum uyarısı; API hatasında Türkçe mesaj ile "yeniden dene" seçeneği gösterilir
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans complete
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Walking Skeleton: gerçek advanced-search okumasıyla yan görüşme listesi uçtan uca render (alıcı·zaman·konu·özet), typed HTTP hataları, skeleton yükleme
@@ -45,7 +45,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-03-PLAN.md — Boş durum (gizlilik CTA'sı), katmanlı Türkçe hata + yeniden dene, sayfalama, talep-değişimi tazeleme; faz sonu UAT
+- [x] 01-03-PLAN.md — Boş durum (gizlilik CTA'sı), katmanlı Türkçe hata + yeniden dene, sayfalama, talep-değişimi tazeleme; faz sonu UAT
 
 **UI hint**: yes
 
@@ -105,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Temel ve Salt Okunur Görüşme Listesi | 2/3 | In Progress|  |
+| 1. Temel ve Salt Okunur Görüşme Listesi | 3/3 | Complete   | 2026-07-23 |
 | 2. Yeni Yan Görüşme Başlatma | 0/TBD | Not started | - |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 0/TBD | Not started | - |
 | 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |

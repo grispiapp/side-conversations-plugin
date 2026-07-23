@@ -18,9 +18,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **LIST-01**: Temsilci, aktif talebe bağlı tüm yan görüşmeleri panelde görür (alıcı, konu, son mesaj özeti, göreli zaman)
 - [x] **LIST-02**: Her görüşme "sıra kimde" rozeti taşır: Yanıt bekleniyor / Yeni yanıt / Kapalı (son public yorumun yazar rolü + ts.status'tan türetilir)
 - [x] **LIST-03**: Yeni yanıt içeren görüşmeler görsel olarak vurgulanır ve listenin en üstünde yer alır
-- [ ] **LIST-04**: Hiç yan görüşme yoksa, gizlilik açıklaması ve tek CTA içeren boş durum ekranı gösterilir
-- [ ] **LIST-05**: Temsilci aktif talebi değiştirdiğinde liste otomatik yenilenir
-- [ ] **LIST-06**: 10'dan fazla görüşmede "daha fazla yükle" ile sonraki sayfalar çekilir
+- [x] **LIST-04**: Hiç yan görüşme yoksa, gizlilik açıklaması ve tek CTA içeren boş durum ekranı gösterilir
+- [x] **LIST-05**: Temsilci aktif talebi değiştirdiğinde liste otomatik yenilenir
+- [x] **LIST-06**: 10'dan fazla görüşmede "daha fazla yükle" ile sonraki sayfalar çekilir
 
 ### Yeni Görüşme (COMP)
 
@@ -80,9 +80,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIST-01 | Phase 1 | Complete |
 | LIST-02 | Phase 1 | Complete |
 | LIST-03 | Phase 1 | Complete |
-| LIST-04 | Phase 1 | Pending |
-| LIST-05 | Phase 1 | Pending |
-| LIST-06 | Phase 1 | Pending |
+| LIST-04 | Phase 1 | Complete |
+| LIST-05 | Phase 1 | Complete |
+| LIST-06 | Phase 1 | Complete |
 | COMP-01 | Phase 2 | Pending |
 | COMP-02 | Phase 2 | Pending |
 | COMP-03 | Phase 2 | Pending |

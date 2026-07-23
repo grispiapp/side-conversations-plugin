@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 01
 current_phase_name: temel-ve-salt-okunur-g-r-me-listesi
-status: executing
+status: verifying
 stopped_at: Phase 01 Plan 02 complete (Badge derivation + grouped/sorted list)
-last_updated: "2026-07-23T09:47:40.226Z"
+last_updated: "2026-07-23T11:12:44.770Z"
 last_activity: 2026-07-23
 last_activity_desc: Completed 01-02-PLAN.md (Badge derivation + grouped/sorted list)
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 25
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 Phase: 01 (temel-ve-salt-okunur-g-r-me-listesi) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-23 — Completed 01-02-PLAN.md (Badge derivation + grouped/sorted list)
 
 Progress: [███████░░░] 67%
@@ -57,6 +57,7 @@ Progress: [███████░░░] 67%
 *Updated after each plan completion*
 | Phase 01 P01 | 45min | 3 tasks | 18 files |
 | Phase 01 P02 | 20min | 3 tasks | 9 files |
+| Phase 01 P03 | 40min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Requester email resolved via comments[].creator.id match against fieldMap['ts.requester'].value (a user id), not a new /users/{id} API call — out of Plan 02's scope (Rule 4)
 - [Phase 01]: Agent-vs-external authorship derived from creator.role.authority !== 'ROLE_END_USER', not teamUser alone — CONFIRMED live that integration/AI users also report teamUser:false
 - [Phase 01]: Badge statusId sourced from the advanced-search summary's inline status.id, not the hydrated ticket's fieldMap — survives partial hydration failure
+- [Phase 01]: Alıcı asla ham ticket key olarak gösterilmez: comment-match → GET /users/{id} primaryEmail → '—' (LIST-01 gap closure, Plan 01-03)
+- [Phase 01]: Standalone dev mode (NODE_ENV=development + REACT_APP_DEV_TOKEN) SDK köprüsünü bypass eder; plugin mode değişmedi — lokal UAT bununla yapıldı
+- [Phase 01]: Store'un sessiz satır upgrade'leri immutable replacement ile yapılır (in-place mutation non-observer satır bileşenine görünmez); ConversationRow observer'a alındı
 
 ### Pending Todos
 
@@ -98,6 +102,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T09:46:26.554Z
+Last session: 2026-07-23T11:12:34.077Z
 Stopped at: Phase 01 Plan 02 complete (Badge derivation + grouped/sorted list)
 Resume file: .planning/phases/01-temel-ve-salt-okunur-g-r-me-listesi/01-03-PLAN.md
