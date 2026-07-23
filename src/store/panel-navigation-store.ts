@@ -26,7 +26,19 @@ export class PanelNavigationStore {
     this.rootStore = rootStore;
   }
 
+  /**
+   * M-2/M-3a (UAT fix, 02-06): this is the FRESH-open seam — the only two
+   * call sites are the list header "+" and the empty-state CTA, never a
+   * "resume the current draft" path (D-03's "Kalsın" keeps `screen`
+   * unchanged and never calls this again). `compose.reset()` here
+   * guarantees a pristine `ComposeStore` every time compose is opened from
+   * the list: without it, a non-dirty back (which does NOT reset — only
+   * Vazgeç/submit do) left stale recipient-search text/hint (M-2) and a
+   * stale prefilled subject from the PREVIOUS parent ticket (M-3a, since
+   * `subjectInitialized` was never cleared).
+   */
   openCompose(): void {
+    this.rootStore.compose.reset();
     this.screen = "compose";
   }
 
