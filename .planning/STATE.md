@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: temel-ve-salt-okunur-g-r-me-listesi
 status: executing
-stopped_at: Phase 01 Plan 01 complete (Walking Skeleton)
-last_updated: "2026-07-23T00:05:58.762Z"
-last_activity: 2026-07-22
-last_activity_desc: Completed 01-01-PLAN.md (Walking Skeleton)
+stopped_at: Phase 01 Plan 02 complete (Badge derivation + grouped/sorted list)
+last_updated: "2026-07-23T09:47:40.226Z"
+last_activity: 2026-07-23
+last_activity_desc: Completed 01-02-PLAN.md (Badge derivation + grouped/sorted list)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -29,33 +29,34 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 01 (temel-ve-salt-okunur-g-r-me-listesi) — EXECUTING
-Plan: 2 of 3
-Status: Executing Phase 01
-Last activity: 2026-07-22 — Completed 01-01-PLAN.md (Walking Skeleton)
+Plan: 3 of 3
+Status: Ready to execute
+Last activity: 2026-07-23 — Completed 01-02-PLAN.md (Badge derivation + grouped/sorted list)
 
-Progress: [███░░░░░░░] 33%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 1
-- Average duration: 45 min
-- Total execution time: 0.75 hours
+- Total plans completed: 2
+- Average duration: ~33 min
+- Total execution time: ~1.08 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 1 | 45min | 45min |
+| 01 | 2 | 65min | ~33min |
 
 **Recent Trend:**
 
-- Last 5 plans: 45min
-- Trend: —
+- Last 5 plans: 45min, 20min
+- Trend: down
 
 *Updated after each plan completion*
 | Phase 01 P01 | 45min | 3 tasks | 18 files |
+| Phase 01 P02 | 20min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,9 @@ Recent decisions affecting current work:
 - Field key'leri plugin settings'ten okunur (varsayılanlarla); "sıra kimde" rozetleri son public yorumun yazar rolü + ts.status'tan türetilir
 - [Phase ?]: Recipient/subject field lookups centralized in SideConversationsStore's toRow() mapper — single point of correction once Plan 02's live probe confirms real field paths
 - [Phase ?]: advancedSearch + encoded getTicket are the only two API methods added in Plan 01-01 (CORE-02 Phase-1 narrowing; createTicket/patchTicket/searchCustomers/getDigest deferred to Phases 2-4)
+- [Phase 01]: Requester email resolved via comments[].creator.id match against fieldMap['ts.requester'].value (a user id), not a new /users/{id} API call — out of Plan 02's scope (Rule 4)
+- [Phase 01]: Agent-vs-external authorship derived from creator.role.authority !== 'ROLE_END_USER', not teamUser alone — CONFIRMED live that integration/AI users also report teamUser:false
+- [Phase 01]: Badge statusId sourced from the advanced-search summary's inline status.id, not the hydrated ticket's fieldMap — survives partial hydration failure
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T00:03:17.542Z
-Stopped at: Phase 01 Plan 01 complete (Walking Skeleton)
-Resume file: .planning/phases/01-temel-ve-salt-okunur-g-r-me-listesi/01-02-PLAN.md
+Last session: 2026-07-23T09:46:26.554Z
+Stopped at: Phase 01 Plan 02 complete (Badge derivation + grouped/sorted list)
+Resume file: .planning/phases/01-temel-ve-salt-okunur-g-r-me-listesi/01-03-PLAN.md
