@@ -203,3 +203,73 @@ export interface GrispiUserProfile {
   id: number;
   primaryEmail: string | null;
 }
+
+/**
+ * `POST /public/v1/tickets` request body — CONFIRMED live against the
+ * gsocial-test tenant (Phase 02 Plan 01 Task 1 checkpoint probe, human-run
+ * 2026-07-23; see `02-01-SUMMARY.md` "Probe Findings" A1/A5, Pitfall #1).
+ * `ts.subject`'s `value` MUST be a real non-empty string — the live API
+ * returns 422 ("Subject is required when creating a ticket.") when the key
+ * is present but the value is `""`; the key itself must never be omitted.
+ * `publicVisible` is deliberately narrowed to the `true` literal (never
+ * `boolean`) because this is the one field that turns the side ticket into
+ * a real outbound email (D-13) — a caller cannot accidentally construct a
+ * silent/internal-only side ticket.
+ */
+export interface CreateTicketRequest {
+  comment: {
+    body: string;
+    publicVisible: true;
+    creator: [{ key: "us.email"; value: string }];
+  };
+  fields: Array<{ key: string; value: string }>;
+}
+
+/**
+ * `customers.search` record shape — CONFIRMED live (Phase 02 Plan 01 Task 1
+ * checkpoint probe, see `02-01-SUMMARY.md` "Probe Findings" A3). Only the
+ * fields this codebase actually consumes (`fullName`, `email`) are relied
+ * upon by callers; the rest are kept for completeness/debugging since the
+ * live response carries them but they are not part of this phase's surface.
+ */
+export interface Customer {
+  id: number;
+  email: string;
+  emails: string[];
+  fullName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  phones: string[];
+  organization: unknown;
+  language: unknown;
+  tags: unknown[];
+  fieldMap: Record<string, unknown>;
+  role: string;
+  createdAt: number;
+  updatedAt: number;
+  groups: unknown;
+  enabled: boolean;
+}
+
+/**
+ * `GET /public/v1/customers/search` response envelope — CONFIRMED live
+ * (Phase 02 Plan 01 Task 1 checkpoint probe, see `02-01-SUMMARY.md` "Probe
+ * Findings" A2 — CORRECTED from the RESEARCH.md assumption of a plain
+ * array to the same content-wrapped Spring-page family as
+ * `AdvancedSearchResponse`). NOTE: the live endpoint also 422s when
+ * `searchTerm` is shorter than 3 characters ("Search term must be at least
+ * '3' characters long.") — callers must not fire a search below that
+ * length.
+ */
+export interface CustomerSearchResponse {
+  content: Customer[];
+  totalPages: number;
+  totalSize: number;
+  pageNumber: number;
+  numberOfElements: number;
+  pageable?: unknown;
+  empty?: boolean;
+  size?: number;
+  offset?: number;
+}

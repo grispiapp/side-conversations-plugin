@@ -4,6 +4,7 @@ import { HttpHandler } from "./http-handler";
 import {
   AdvancedSearchRequest,
   AdvancedSearchResponse,
+  CreateTicketRequest,
   Ticket,
 } from "@/types/grispi.type";
 
@@ -27,10 +28,10 @@ export class Tickets {
   }
 
   /**
-   * Search tickets by custom-field conditions. Only `advancedSearch` +
-   * `getTicket` are built in Phase 1 — createTicket/patchTicket/
-   * searchCustomers/getDigest belong to Phases 2-4 (CORE-02 narrowing, see
-   * RESEARCH.md Open Question #6).
+   * Search tickets by custom-field conditions. `advancedSearch` + `getTicket`
+   * were built in Phase 1; `createTicket` was added in Phase 2 (CORE-02
+   * narrowing, see RESEARCH.md Open Question #6) — patchTicket/getDigest
+   * remain deferred to Phases 3-4.
    */
   async advancedSearch(
     body: AdvancedSearchRequest,
@@ -45,5 +46,22 @@ export class Tickets {
         body: JSON.stringify(body),
       }
     );
+  }
+
+  /**
+   * Creates a side ticket (a "yan görüşme"). Response shape is CONFIRMED
+   * live to be the same full `Ticket` object family as `getTicket` (Phase 02
+   * Plan 01 Task 1 checkpoint probe; see `02-01-SUMMARY.md` "Probe
+   * Findings" A1) — the caller only needs the returned `.key`. Body
+   * construction (subject/requester/creator/parent-link) is the caller's
+   * responsibility (Plan 04's ComposeStore); this method only sends it.
+   */
+  async createTicket(body: CreateTicketRequest) {
+    return this.http.send<Ticket>("public/v1/tickets", {
+      method: "POST",
+      cache: "no-cache",
+      headers: this.auth.headers,
+      body: JSON.stringify(body),
+    });
   }
 }
