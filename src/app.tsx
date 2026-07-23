@@ -1,12 +1,12 @@
 import { GrispiProvider } from "./contexts/grispi-context";
 import { StoreProvider } from "./contexts/store-context";
-import { WelcomeScreen } from "./screens/welcome-screen";
+import { ConversationsListScreen } from "./screens/conversations-list-screen";
 
 const App = () => {
   return (
     <StoreProvider>
       <GrispiProvider>
-        <WelcomeScreen />
+        <ConversationsListScreen />
       </GrispiProvider>
     </StoreProvider>
   );
