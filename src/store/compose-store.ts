@@ -1,8 +1,8 @@
 import { makeAutoObservable, runInAction } from "mobx";
 
 import { grispiAPI } from "@/grispi/client/api";
-import { isValidEmail } from "@/lib/side-conversation";
-import { Customer } from "@/types/grispi.type";
+import { formatRequesterField, isValidEmail } from "@/lib/side-conversation";
+import { Customer, CreateTicketRequest } from "@/types/grispi.type";
 
 import { RootStore } from "./root-store";
 
@@ -68,9 +68,20 @@ export class ComposeStore {
 
   subject = "";
 
+  message = "";
+  submitting = false;
+
   private searchGeneration = 0;
   private debounceHandle: ReturnType<typeof setTimeout> | null = null;
   private subjectInitialized = false;
+  /** The value `initSubject` first set — `isDirty` compares against this,
+   * NOT `""`, so an untouched prefill never counts as a dirty edit. */
+  private initialSubject = "";
+  /** Reserved generation counter for `submit`, mirroring the same
+   * generation-guard convention used by `runSearch`/`load` elsewhere in the
+   * codebase — the actual reentrancy gate is the synchronous `submitting`
+   * check below (D-17), since only one submit can ever be in flight. */
+  private submitGeneration = 0;
 
   constructor(rootStore: RootStore) {
     makeAutoObservable(this);
@@ -180,6 +191,101 @@ export class ComposeStore {
   initSubject(value: string): void {
     if (this.subjectInitialized) return;
     this.subject = value;
+    this.initialSubject = value;
     this.subjectInitialized = true;
+  }
+
+  /** Drives the message textarea (COMP-04). */
+  setMessage(value: string): void {
+    this.message = value;
+  }
+
+  /**
+   * True once the agent has entered anything beyond the untouched prefill —
+   * recipient selected, a message typed, or the subject edited away from
+   * whatever `initSubject` first set (D-02's dirty-guard reads this).
+   */
+  get isDirty(): boolean {
+    if (this.recipientEmail.trim() !== "") return true;
+    if (this.message.trim() !== "") return true;
+    if (this.subject.trim() !== "" && this.subject !== this.initialSubject) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Builds the `createTicket` request and hands it to
+   * `ActiveConversationStore.startNew` (COMP-04). `agentEmail`/`parentKey`
+   * come from `useGrispi()` — the store never reads React context itself,
+   * so the caller (MessageField's Shift+Enter / Plan 05's "Gönder" button)
+   * passes them through (T-02-05: `agentEmail` only ever flows FROM the
+   * trusted SDK context, never from a form field).
+   *
+   * D-17 (locked): the reentrancy guard is a SYNCHRONOUS check before any
+   * `await` — a second call made in the same tick (before the first call's
+   * `await Promise.resolve()` yields) is a no-op. That single microtask
+   * yield is deliberate: `activeConversation.startNew` is fire-and-forget
+   * (it does not block on the network POST — see its own doc-comment), so
+   * navigating to the chat screen happens right after the optimistic
+   * pending bubble is created, not after the POST settles (UI-SPEC "Chat
+   * screen anatomy").
+   */
+  async submit(agentEmail: string | null, parentKey: string): Promise<void> {
+    if (this.submitting) return; // D-17 — before any await
+    this.submitting = true;
+
+    // D-10: recipient + message are required; subject may be empty (the
+    // live API rejects an EMPTY VALUE, not an empty subject that was never
+    // typed — `ts.subject`'s key is still always sent below, Pitfall #1).
+    if (!this.recipientEmail || !this.message.trim()) {
+      this.submitting = false;
+      return;
+    }
+
+    this.submitGeneration += 1;
+
+    const request: CreateTicketRequest = {
+      comment: {
+        body: this.message,
+        publicVisible: true,
+        creator: [{ key: "us.email", value: agentEmail ?? "" }],
+      },
+      fields: [
+        { key: "ts.subject", value: this.subject },
+        {
+          key: "ts.requester",
+          value: formatRequesterField(this.recipientEmail),
+        },
+        { key: "tu.side_conversation_parent", value: parentKey },
+      ],
+    };
+
+    this.rootStore.activeConversation.startNew({
+      recipientLabel: this.recipientLabel,
+      subject: this.subject,
+      body: this.message,
+      request,
+      parentKey,
+    });
+
+    await Promise.resolve();
+
+    this.rootStore.panelNavigation.openChat();
+    this.reset();
+  }
+
+  /** Clears the entire form back to its pristine state (post-submit). */
+  private reset(): void {
+    this.query = "";
+    this.searchStatus = "idle";
+    this.results = [];
+    this.recipientEmail = "";
+    this.recipientLabel = "";
+    this.subject = "";
+    this.initialSubject = "";
+    this.subjectInitialized = false;
+    this.message = "";
+    this.submitting = false;
   }
 }

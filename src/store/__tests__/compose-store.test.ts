@@ -207,6 +207,127 @@ describe("ComposeStore", () => {
     store.setSubject("Temsilcinin düzenlediği konu");
     expect(store.subject).toBe("Temsilcinin düzenlediği konu");
   });
+
+  describe("isDirty", () => {
+    it("is false for an untouched form and stays false after only a prefill", () => {
+      expect(store.isDirty).toBe(false);
+
+      store.initSubject("[DESTEK-1] Kargo sorunu");
+      expect(store.isDirty).toBe(false);
+    });
+
+    it("is true once a recipient is selected", () => {
+      store.selectFreeEmail("vendor@example.com");
+      expect(store.isDirty).toBe(true);
+    });
+
+    it("is true once a message is typed", () => {
+      store.setMessage("merhaba");
+      expect(store.isDirty).toBe(true);
+    });
+
+    it("is true once the subject is edited away from its prefill", () => {
+      store.initSubject("[DESTEK-1] Kargo sorunu");
+      expect(store.isDirty).toBe(false);
+
+      store.setSubject("Değiştirilmiş konu");
+      expect(store.isDirty).toBe(true);
+    });
+  });
+
+  describe("submit (COMP-04)", () => {
+    let startNewMock: jest.Mock;
+    let openChatMock: jest.Mock;
+
+    beforeEach(() => {
+      startNewMock = jest.fn();
+      openChatMock = jest.fn();
+      const rootStore = {
+        activeConversation: { startNew: startNewMock },
+        panelNavigation: { openChat: openChatMock },
+      } as unknown as RootStore;
+      store = new ComposeStore(rootStore);
+    });
+
+    function fillValidForm(): void {
+      store.selectFreeEmail("vendor@example.com");
+      store.setSubject("[DESTEK-1] Kargo sorunu");
+      store.setMessage("Merhaba, kargo durumu nedir?");
+    }
+
+    it("D-17: a second submit() call before the first await resolves is a no-op", async () => {
+      fillValidForm();
+
+      const first = store.submit("agent@grispi.com", "DESTEK-1");
+      const second = store.submit("agent@grispi.com", "DESTEK-1"); // synchronous — before the first call's await yields
+
+      await Promise.all([first, second]);
+
+      expect(startNewMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("D-10: does not start a send when recipient or message is empty", async () => {
+      store.setSubject("konu");
+      store.setMessage("");
+      await store.submit("agent@grispi.com", "DESTEK-1");
+      expect(startNewMock).not.toHaveBeenCalled();
+      expect(store.submitting).toBe(false);
+
+      store.selectFreeEmail("vendor@example.com");
+      store.setMessage("   "); // whitespace-only
+      await store.submit("agent@grispi.com", "DESTEK-1");
+      expect(startNewMock).not.toHaveBeenCalled();
+    });
+
+    it("builds the CreateTicketRequest per the confirmed live shape (A1/A4/A5, Pitfall #1-#3)", async () => {
+      fillValidForm();
+
+      await store.submit("agent@grispi.com", "DESTEK-1");
+
+      expect(startNewMock).toHaveBeenCalledTimes(1);
+      const call = startNewMock.mock.calls[0][0];
+      expect(call.parentKey).toBe("DESTEK-1");
+      expect(call.request).toEqual({
+        comment: {
+          body: "Merhaba, kargo durumu nedir?",
+          publicVisible: true,
+          creator: [{ key: "us.email", value: "agent@grispi.com" }],
+        },
+        fields: [
+          { key: "ts.subject", value: "[DESTEK-1] Kargo sorunu" },
+          { key: "ts.requester", value: ":vendor@example.com" },
+          { key: "tu.side_conversation_parent", value: "DESTEK-1" },
+        ],
+      });
+    });
+
+    it("ts.subject key is always present even when the subject was left empty (Pitfall #1, D-10 non-blocking)", async () => {
+      store.selectFreeEmail("vendor@example.com");
+      store.setMessage("Merhaba");
+      // subject intentionally left empty
+
+      await store.submit("agent@grispi.com", "DESTEK-1");
+
+      const call = startNewMock.mock.calls[0][0];
+      const subjectField = call.request.fields.find(
+        (f: { key: string }) => f.key === "ts.subject"
+      );
+      expect(subjectField).toEqual({ key: "ts.subject", value: "" });
+    });
+
+    it("navigates to chat and resets the whole form after a successful submit", async () => {
+      fillValidForm();
+
+      await store.submit("agent@grispi.com", "DESTEK-1");
+
+      expect(openChatMock).toHaveBeenCalledTimes(1);
+      expect(store.recipientEmail).toBe("");
+      expect(store.recipientLabel).toBe("");
+      expect(store.subject).toBe("");
+      expect(store.message).toBe("");
+      expect(store.submitting).toBe(false);
+    });
+  });
 });
 
 // Named for readability at call sites above — matches ComposeStore's
