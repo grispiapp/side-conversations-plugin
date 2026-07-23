@@ -62,12 +62,20 @@ interface Group {
   name: string;
 }
 
+/**
+ * CONFIRMED live (Plan 02 / Task 1 probe, 2026-07-23, see
+ * `.planning/phases/01-.../01-02-probe-findings.md`): a real `fieldMap` entry
+ * only ever carries `{key, value}` — `serializedValue`/`userFriendlyValue`/
+ * `id`/`type` were never observed present on any entry in the live tenant.
+ * They are kept as optional (rather than removed) in case another endpoint
+ * populates them; do not rely on them without re-verifying.
+ */
 interface FieldMap {
-  id: any;
+  id?: any;
   value: any;
-  serializedValue: string | null;
-  userFriendlyValue: string;
-  type: string;
+  serializedValue?: string | null;
+  userFriendlyValue?: string;
+  type?: string;
   key: string;
 }
 
@@ -137,13 +145,11 @@ export interface GrispiBundle {
 }
 
 /**
- * The following three types describe `POST /public/v1/tickets/advanced-search`
- * — an endpoint ABSENT from Grispi's public OpenAPI spec. Their shape is
- * ASSUMED from prior (unverified-live) project research, modeled on the
- * public spec's `PagedCommentDigest` paging envelope. Confirm against a real
- * response before relying on any field here beyond what Plan 01-01 needs
- * (RESEARCH.md Open Question #1; Plan 02's first task is the live-probe
- * checkpoint that corrects these if wrong).
+ * The following types describe `POST /public/v1/tickets/advanced-search` —
+ * an endpoint ABSENT from Grispi's public OpenAPI spec. Their shape is
+ * CONFIRMED live against Davut's gsocial-test tenant (Plan 02 / Task 1
+ * probe, 2026-07-23; see
+ * `.planning/phases/01-.../01-02-probe-findings.md`).
  */
 export interface AdvancedSearchCondition {
   fieldKey: string;
@@ -156,17 +162,32 @@ export interface AdvancedSearchRequest {
   anyConditions: AdvancedSearchCondition[];
 }
 
-/** ASSUMED — lean summary shape; only `key` is relied upon this phase. */
+/**
+ * CONFIRMED live — a lean summary, NOT a full `Ticket`. `subject` and
+ * `status` arrive inline here (no hydration needed to read them), which is
+ * why Plan 02 reads them from the summary rather than from a hydrated
+ * ticket's `fieldMap`. Marked optional (rather than required) so existing
+ * fixtures that predate the probe keep compiling; the live API always sends
+ * them.
+ */
 export interface SideTicketSummary {
   key: string;
-  [extra: string]: unknown;
+  subject?: string;
+  status?: { id: number; name: string };
+  channel?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
-/** ASSUMED — paging envelope, modeled on PagedCommentDigest. */
+/** CONFIRMED live — paging envelope; `pageNumber` is 0-indexed. */
 export interface AdvancedSearchResponse {
   content: SideTicketSummary[];
   totalPages: number;
   totalSize: number;
   pageNumber: number;
   numberOfElements: number;
+  pageable?: unknown;
+  empty?: boolean;
+  size?: number;
+  offset?: number;
 }

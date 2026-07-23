@@ -55,9 +55,12 @@ function makeComment(
   };
 }
 
-function makeSearchResponse(keys: string[]): AdvancedSearchResponse {
+function makeSearchResponse(
+  keys: string[],
+  subjects: Record<string, string> = {}
+): AdvancedSearchResponse {
   return {
-    content: keys.map((key) => ({ key })),
+    content: keys.map((key) => ({ key, subject: subjects[key] })),
     totalPages: 1,
     totalSize: keys.length,
     pageNumber: 0,
@@ -75,27 +78,19 @@ describe("SideConversationsStore", () => {
   });
 
   it("reaches ready with hydrated rows after a successful two-tier fetch", async () => {
-    mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["A", "B"]));
+    mockedAdvancedSearch.mockResolvedValue(
+      makeSearchResponse(["A", "B"], { A: "Konu A", B: "Konu B" })
+    );
     mockedGetTicket.mockImplementation((key: string) =>
       Promise.resolve(
         makeTicket({
           key,
           fieldMap: {
             "ts.requester": {
-              id: 1,
-              value: `${key}@example.com`,
-              serializedValue: null,
-              userFriendlyValue: `${key}@example.com`,
-              type: "TEXT",
+              // CONFIRMED live (Plan 02 / Task 1 probe): value is a user id
+              // string, not an email — resolved via the comment creator match.
+              value: "1",
               key: "ts.requester",
-            },
-            "ts.subject": {
-              id: 2,
-              value: `Konu ${key}`,
-              serializedValue: null,
-              userFriendlyValue: `Konu ${key}`,
-              type: "TEXT",
-              key: "ts.subject",
             },
           },
           comments: [
@@ -103,6 +98,10 @@ describe("SideConversationsStore", () => {
               body: `Merhaba ${key}`,
               ticketKey: key,
               createdAt: 1000,
+              creator: {
+                id: 1,
+                email: `${key}@example.com`,
+              } as Ticket["comments"][number]["creator"],
             }),
           ],
         })

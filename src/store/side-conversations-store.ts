@@ -21,13 +21,40 @@ export interface ConversationRowVM {
 const SUMMARY_MAX_LENGTH = 140;
 
 /**
+ * Resolves the side ticket's requester ("alıcı") email.
+ *
+ * CONFIRMED live (Plan 02 / Task 1 probe): `fieldMap["ts.requester"].value`
+ * is a user id STRING, not an email/name — and no `fieldMap` entry ever
+ * carries `userFriendlyValue`. There is also no public `GET /users/{id}`
+ * endpoint wired into this codebase (adding one is out of this plan's scope
+ * — Rule 4). The cheapest correct resolution without a new API call:
+ * match that id against `comments[].creator.id` — the external party will
+ * have written at least one comment on every side ticket in practice. Falls
+ * back to the ticket key when no match is found (e.g. an agent-only thread
+ * with no external comment yet).
+ */
+function resolveRecipientEmail(ticket: Ticket, summary: SideTicketSummary): string {
+  const requesterId = ticket.fieldMap?.["ts.requester"]?.value;
+  const numericId = requesterId != null ? Number(requesterId) : NaN;
+
+  if (Number.isFinite(numericId)) {
+    const matchedCreator = (ticket.comments ?? []).find(
+      (comment) => comment.creator?.id === numericId
+    )?.creator;
+    if (matchedCreator?.email) return matchedCreator.email;
+  }
+
+  return summary.key;
+}
+
+/**
  * Maps a hydrated `Ticket` (or a hydration failure) into a row view model.
  *
- * The recipient/subject lookups below are the SINGLE centralized place these
- * unverified API-shape assumptions live (RESEARCH.md Open Question #3):
- * neither `ts.requester` nor `ts.subject` as `fieldMap` keys have been
- * confirmed against a live payload yet. Plan 02's first task is a live probe
- * that corrects these if wrong — only this function needs to change.
+ * Recipient/subject resolution was corrected against CONFIRMED live shapes
+ * captured in the Plan 02 / Task 1 probe (see
+ * `.planning/phases/01-.../01-02-probe-findings.md`): `subject` lives on the
+ * advanced-search SUMMARY (`summary.subject`), not on any `fieldMap` key —
+ * a full-ticket `ts.subject` field does not exist.
  */
 function toRow(
   summary: SideTicketSummary,
@@ -38,7 +65,7 @@ function toRow(
     return {
       key: summary.key,
       recipientEmail: summary.key,
-      subject: summary.key,
+      subject: summary.subject || summary.key,
       summary: "",
       lastPublicCommentAt: null,
       hydrationFailed: true,
@@ -49,13 +76,8 @@ function toRow(
     .filter((comment) => comment.publicVisible)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
 
-  const recipientEmail =
-    ticket.fieldMap?.["ts.requester"]?.userFriendlyValue ||
-    (ticket as unknown as { requester?: { email?: string } }).requester
-      ?.email ||
-    summary.key;
-
-  const subject = ticket.fieldMap?.["ts.subject"]?.userFriendlyValue || summary.key;
+  const recipientEmail = resolveRecipientEmail(ticket, summary);
+  const subject = summary.subject || summary.key;
 
   const rawSummary = lastPublicComment?.body ?? "";
   const truncatedSummary =
