@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 02
 current_phase_name: yeni-yan-g-r-me-ba-latma
-status: executing
-stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-07-23T21:27:52.709Z"
+status: verifying
+stopped_at: Completed 02-06-PLAN.md (phase 02 complete)
+last_updated: "2026-07-23T22:39:08.530Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 10
-  completed_plans: 9
-  percent: 25
+  completed_plans: 10
+  percent: 50
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 ## Current Position
 
-Phase: 02 (yeni-yan-g-r-me-ba-latma) — EXECUTING
+Phase: 02 (yeni-yan-g-r-me-ba-latma) — COMPLETE
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-23 — Phase 02 execution started
 
-Progress: [███████░░░] 67%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [███████░░░] 67%
 | Phase 02 P03 | 12min | 3 tasks | 6 files |
 | Phase 02 P04 | ~20min | 3 tasks | 8 files |
 | Phase 02 P05 | 15min | 3 tasks | 3 files |
+| Phase 02 P06 | 55min | 6 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 02, Plan 04]: Retry (D-15) re-fires the identical createTicket POST with no idempotency key — accepted risk (T-02-08) of a duplicate side ticket if a successful response is lost to a client-side network error before retry
 - [Phase ?]: Phase 02 Plan 05: Failed-bubble retry row uses text-red-200 (not text-destructive-foreground, which is near-white on bg-primary) to pass AA contrast while staying visually distinct
 - [Phase ?]: Phase 02 Plan 05: compose-screen isDirty stays hardcoded false — wiring compose.isDirty is paired with Plan 06's ConfirmDialog, not this plan
+- [Phase 02]: [Phase 02, Plan 06]: Compose session pins its parent ticket key at open (initSubject); submit() prefers the pinned key over the live parentKey argument, and reset() clears the pin — prevents D-03's 'Kalsın' from silently rebinding a dirty draft to a different ticket (closes T-02-01)
+- [Phase 02]: [Phase 02, Plan 06]: Fresh-compose reset lives in PanelNavigationStore.openCompose() (the single entry point for '+' and empty-state CTA), not scattered across every back-navigation path — every genuinely fresh compose open is pristine without disturbing an in-progress D-03 session
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T21:27:14.090Z
-Stopped at: Completed 02-04-PLAN.md
+Last session: 2026-07-23T22:31:12.525Z
+Stopped at: Completed 02-06-PLAN.md (phase 02 complete)
 Resume file: None
