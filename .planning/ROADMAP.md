@@ -47,6 +47,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] 01-03-PLAN.md — Boş durum (gizlilik CTA'sı), katmanlı Türkçe hata + yeniden dene, sayfalama, talep-değişimi tazeleme; faz sonu UAT
 
+**Wave 4** *(gap closure — verification CR-01/CORE-03)*
+
+- [ ] 01-04-PLAN.md — Plugin/iframe bootstrap hata yolunu `switchTicket` üzerinden geçir + `_init()` `.catch` (CORE-03 Türkçe hata + yeniden dene canlı yolda çalışır); WR-05 ErrorCard null sağlamlaştırması
+
 **UI hint**: yes
 
 ### Phase 2: Yeni Yan Görüşme Başlatma
