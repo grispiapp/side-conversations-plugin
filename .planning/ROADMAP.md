@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Temsilci aktif talebi değiştirdiğinde liste otomatik olarak yeni talebin görüşmelerini gösterir
   5. Kritik field/ayar eksikse anlaşılır bir kurulum uyarısı; API hatasında Türkçe mesaj ile "yeniden dene" seçeneği gösterilir
 
-**Plans**: 3/3 plans complete
+**Plans**: 4/4 plans complete
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Walking Skeleton: gerçek advanced-search okumasıyla yan görüşme listesi uçtan uca render (alıcı·zaman·konu·özet), typed HTTP hataları, skeleton yükleme
@@ -49,7 +49,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 4** *(gap closure — verification CR-01/CORE-03)*
 
-- [ ] 01-04-PLAN.md — Plugin/iframe bootstrap hata yolunu `switchTicket` üzerinden geçir + `_init()` `.catch` (CORE-03 Türkçe hata + yeniden dene canlı yolda çalışır); WR-05 ErrorCard null sağlamlaştırması
+- [x] 01-04-PLAN.md — Plugin/iframe bootstrap hata yolunu `switchTicket` üzerinden geçir + `_init()` `.catch` (CORE-03 Türkçe hata + yeniden dene canlı yolda çalışır); WR-05 ErrorCard null sağlamlaştırması
 
 **UI hint**: yes
 
@@ -109,7 +109,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Temel ve Salt Okunur Görüşme Listesi | 3/3 | Complete   | 2026-07-23 |
+| 1. Temel ve Salt Okunur Görüşme Listesi | 4/4 | Complete   | 2026-07-23 |
 | 2. Yeni Yan Görüşme Başlatma | 0/TBD | Not started | - |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 0/TBD | Not started | - |
 | 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
