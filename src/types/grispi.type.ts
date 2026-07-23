@@ -191,3 +191,15 @@ export interface AdvancedSearchResponse {
   size?: number;
   offset?: number;
 }
+
+/**
+ * `GET /public/v1/users/{id}` response — absent from the public OpenAPI
+ * spec but CONFIRMED live (Plan 01-03 gap-closure probe, see
+ * `.planning/phases/01-.../01-02-probe-findings.md` "EK BULGULAR" #2). Only
+ * the fields this codebase actually consumes are typed; the live response
+ * carries more (firstName/lastName/phones/role/language/...).
+ */
+export interface GrispiUserProfile {
+  id: number;
+  primaryEmail: string | null;
+}

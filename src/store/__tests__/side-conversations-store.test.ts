@@ -10,11 +10,15 @@ jest.mock("@/grispi/client/api", () => ({
       advancedSearch: jest.fn(),
       getTicket: jest.fn(),
     },
+    users: {
+      getUser: jest.fn(),
+    },
   },
 }));
 
 const mockedAdvancedSearch = grispiAPI.tickets.advancedSearch as jest.Mock;
 const mockedGetTicket = grispiAPI.tickets.getTicket as jest.Mock;
+const mockedGetUser = grispiAPI.users.getUser as jest.Mock;
 
 function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
   return {
@@ -57,7 +61,8 @@ function makeComment(
 
 function makeSearchResponse(
   keys: string[],
-  subjects: Record<string, string> = {}
+  subjects: Record<string, string> = {},
+  overrides: Partial<Pick<AdvancedSearchResponse, "totalPages" | "pageNumber">> = {}
 ): AdvancedSearchResponse {
   return {
     content: keys.map((key) => ({ key, subject: subjects[key] })),
@@ -65,6 +70,7 @@ function makeSearchResponse(
     totalSize: keys.length,
     pageNumber: 0,
     numberOfElements: keys.length,
+    ...overrides,
   };
 }
 
@@ -98,6 +104,8 @@ describe("SideConversationsStore", () => {
     store = new SideConversationsStore({} as RootStore);
     mockedAdvancedSearch.mockReset();
     mockedGetTicket.mockReset();
+    mockedGetUser.mockReset();
+    mockedGetUser.mockResolvedValue(null);
   });
 
   it("reaches ready with hydrated rows after a successful two-tier fetch", async () => {
@@ -270,5 +278,194 @@ describe("SideConversationsStore", () => {
 
     expect(store.status).toBe("ready");
     expect(store.rows.map((row) => row.key)).toEqual(["B"]);
+  });
+
+  it("silently retries a partially failed hydration and upgrades the row in place (D-11)", async () => {
+    mockedAdvancedSearch.mockResolvedValue(
+      makeSearchResponse(["A", "B"], { A: "Konu A", B: "Konu B" })
+    );
+
+    let hydrationAttemptsForA = 0;
+    mockedGetTicket.mockImplementation((key: string) => {
+      if (key === "A") {
+        hydrationAttemptsForA += 1;
+        if (hydrationAttemptsForA === 1) {
+          return Promise.reject(new Error("boom"));
+        }
+        return Promise.resolve(
+          makeTicket({
+            key: "A",
+            comments: [
+              makeComment({
+                body: "Merhaba A",
+                createdAt: 1000,
+                creator: makeExternalCreator(1, "a@example.com"),
+              }),
+            ],
+          })
+        );
+      }
+      return Promise.resolve(makeTicket({ key: "B" }));
+    });
+
+    await store.load("PARENT-1");
+
+    const rowA = store.rows.find((row) => row.key === "A")!;
+    expect(rowA.hydrationFailed).toBe(false);
+    expect(rowA.summary).toBe("Merhaba A");
+    expect(hydrationAttemptsForA).toBe(2);
+  });
+
+  it("leaves a row dimmed (never surfaces as an error) when the silent retry also fails", async () => {
+    mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["A"]));
+    mockedGetTicket.mockRejectedValue(new Error("boom"));
+
+    await store.load("PARENT-1");
+
+    expect(store.status).toBe("ready");
+    const rowA = store.rows.find((row) => row.key === "A")!;
+    expect(rowA.hydrationFailed).toBe(true);
+    expect(mockedGetTicket).toHaveBeenCalledTimes(2); // initial attempt + one silent retry
+  });
+
+  it("falls back to GET /users/{id} for recipientEmail when no comment-creator matches the requester, and never renders the raw ticket key (LIST-01 gap closure)", async () => {
+    mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["AGENT-ONLY"]));
+    mockedGetTicket.mockResolvedValue(
+      makeTicket({
+        key: "AGENT-ONLY",
+        fieldMap: {
+          "ts.requester": { key: "ts.requester", value: "92" },
+        },
+        comments: [
+          makeComment({ creator: makeAgentCreator(9), createdAt: 1000 }),
+        ],
+      })
+    );
+    mockedGetUser.mockResolvedValueOnce({
+      id: 92,
+      primaryEmail: "requester@example.com",
+    });
+
+    await store.load("PARENT-1");
+
+    const row = store.rows.find((r) => r.key === "AGENT-ONLY")!;
+    expect(row.recipientEmail).not.toBe("AGENT-ONLY");
+    expect(row.recipientEmail).toBe("requester@example.com");
+    expect(mockedGetUser).toHaveBeenCalledWith(92);
+  });
+
+  it("keeps a neutral placeholder — never the raw ticket key — when GET /users/{id} also fails", async () => {
+    mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["AGENT-ONLY-2"]));
+    mockedGetTicket.mockResolvedValue(
+      makeTicket({
+        key: "AGENT-ONLY-2",
+        fieldMap: {
+          "ts.requester": { key: "ts.requester", value: "92" },
+        },
+        comments: [
+          makeComment({ creator: makeAgentCreator(9), createdAt: 1000 }),
+        ],
+      })
+    );
+    mockedGetUser.mockRejectedValueOnce(new Error("not found"));
+
+    await store.load("PARENT-1");
+
+    const row = store.rows.find((r) => r.key === "AGENT-ONLY-2")!;
+    expect(row.recipientEmail).not.toBe("AGENT-ONLY-2");
+    expect(row.recipientEmail).toBe("—");
+  });
+
+  describe("loadMore (D-12)", () => {
+    it("appends the next page and toggles hasMore off at the last page", async () => {
+      mockedAdvancedSearch
+        .mockResolvedValueOnce(
+          makeSearchResponse(["A"], {}, { totalPages: 2, pageNumber: 0 })
+        )
+        .mockResolvedValueOnce(
+          makeSearchResponse(["B"], {}, { totalPages: 2, pageNumber: 1 })
+        );
+      mockedGetTicket.mockImplementation((key: string) =>
+        Promise.resolve(makeTicket({ key }))
+      );
+
+      await store.load("PARENT-1");
+      expect(store.hasMore).toBe(true);
+      expect(store.rows.map((r) => r.key)).toEqual(["A"]);
+
+      await store.loadMore();
+
+      expect(store.rows.map((r) => r.key)).toEqual(["A", "B"]);
+      expect(store.page).toBe(1);
+      expect(store.hasMore).toBe(false);
+      expect(store.loadingMore).toBe(false);
+    });
+
+    it("no-ops when hasMore is false", async () => {
+      mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["A"]));
+      mockedGetTicket.mockResolvedValue(makeTicket({ key: "A" }));
+
+      await store.load("PARENT-1");
+      expect(store.hasMore).toBe(false);
+
+      await store.loadMore();
+
+      expect(mockedAdvancedSearch).toHaveBeenCalledTimes(1);
+    });
+
+    it("discards a stale page append when load() is called mid-loadMore (generation guard)", async () => {
+      mockedAdvancedSearch.mockResolvedValueOnce(
+        makeSearchResponse(["A"], {}, { totalPages: 2, pageNumber: 0 })
+      );
+      mockedGetTicket.mockImplementation((key: string) =>
+        Promise.resolve(makeTicket({ key }))
+      );
+
+      await store.load("PARENT-1");
+      expect(store.hasMore).toBe(true);
+
+      let resolveNextPageSearch!: (value: AdvancedSearchResponse) => void;
+      const nextPageSearch = new Promise<AdvancedSearchResponse>((resolve) => {
+        resolveNextPageSearch = resolve;
+      });
+      mockedAdvancedSearch.mockImplementationOnce(() => nextPageSearch);
+      mockedAdvancedSearch.mockImplementationOnce(() =>
+        Promise.resolve(makeSearchResponse(["C"]))
+      );
+
+      const loadMorePromise = store.loadMore();
+      const newLoadPromise = store.load("PARENT-NEW");
+
+      // The stale loadMore's page-1 search resolves AFTER the newer load()
+      // already reset everything for the new ticket — its append must be
+      // discarded (Pitfall #6).
+      resolveNextPageSearch(makeSearchResponse(["B"]));
+
+      await Promise.all([loadMorePromise, newLoadPromise]);
+
+      expect(store.rows.map((r) => r.key)).toEqual(["C"]);
+    });
+
+    it("resets rows/page/hasMore synchronously at load() entry, before the returned promise resolves (D-15)", () => {
+      mockedAdvancedSearch.mockImplementation(
+        () => new Promise(() => {}) // never resolves — isolates the synchronous reset
+      );
+
+      // Seed prior state so the reset is observable.
+      store.rows = [{ key: "OLD" } as unknown as (typeof store.rows)[number]];
+      store.page = 3;
+      store.hasMore = true;
+      store.loadingMore = true;
+      store.status = "ready";
+
+      // Not awaited on purpose — this checks load()'s synchronous portion.
+      void store.load("PARENT-1");
+
+      expect(store.rows).toEqual([]);
+      expect(store.page).toBe(0);
+      expect(store.hasMore).toBe(false);
+      expect(store.loadingMore).toBe(false);
+      expect(store.status).toBe("loading");
+    });
   });
 });
