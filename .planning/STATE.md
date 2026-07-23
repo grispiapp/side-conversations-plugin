@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_phase_name: Yeni Yan Görüşme Başlatma
+current_phase: 02
+current_phase_name: yeni-yan-g-r-me-ba-latma
 status: executing
 stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-07-23T18:17:19.315Z"
+last_updated: "2026-07-23T20:47:15.491Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 01 complete, transitioned to Phase 2
+last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 10
+  completed_plans: 5
   percent: 25
 ---
 
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayrılmadan yürütebilmeli; talep sahibi bu yazışmaları asla görmemeli.
-**Current focus:** Phase 01 — temel-ve-salt-okunur-g-r-me-listesi
+**Current focus:** Phase 02 — yeni-yan-g-r-me-ba-latma
 
 ## Current Position
 
-Phase: 2 — Yeni Yan Görüşme Başlatma
-Plan: Not started
+Phase: 02 (yeni-yan-g-r-me-ba-latma) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-07-23 — Phase 01 complete, transitioned to Phase 2
+Last activity: 2026-07-23 — Phase 02 execution started
 
 Progress: [███████░░░] 67%
 
@@ -59,6 +59,7 @@ Progress: [███████░░░] 67%
 | Phase 01 P02 | 20min | 3 tasks | 9 files |
 | Phase 01 P03 | 40min | 3 tasks | 17 files |
 | Phase 01 P04 | 15min | 2 tasks | 5 files |
+| Phase 02 P01 | ~15min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Store'un sessiz satır upgrade'leri immutable replacement ile yapılır (in-place mutation non-observer satır bileşenine görünmez); ConversationRow observer'a alındı
 - [Phase ?]: [Phase 01, gap-closure 01-04]: Plugin-mode bootstrap now routes the initial ticket fetch through the shared switchTicket path (bootstrapPluginInit) instead of calling getTicket directly — closes CORE-03 gap where a bootstrap-time API failure left the agent on an infinite skeleton with no error/retry
 - [Phase ?]: [Phase 01, gap-closure 01-04]: ErrorCard's error prop widened to NetworkError | HttpError | null (WR-05) — store.load() can set status='error' with error=null for a non-typed exception; ErrorCard's existing ternary already degrades null to the generic Turkish copy
+- [Phase ?]: Phase 02 Plan 01: createTicket reuses existing Ticket type for its 201 response (probe-confirmed same shape family, A1)
+- [Phase ?]: Phase 02 Plan 01: CustomerSearchResponse reuses the AdvancedSearchResponse content-wrapped page-envelope pattern (probe corrected assumption of a plain array, A2)
+- [Phase ?]: Phase 02 Plan 01: customers.search searchTerm has a live-enforced 3-character minimum (422 below that) — Plan 03's recipient-field debounce must respect this
 
 ### Pending Todos
 
@@ -105,6 +109,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T17:14:51.617Z
+Last session: 2026-07-23T20:45:26.438Z
 Stopped at: Phase 2 UI-SPEC approved
 Resume file: .planning/phases/02-yeni-yan-g-r-me-ba-latma/02-UI-SPEC.md

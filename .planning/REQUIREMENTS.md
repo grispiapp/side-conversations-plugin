@@ -25,9 +25,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Yeni Görüşme (COMP)
 
 - [ ] **COMP-01**: Temsilci listeden "+" ile yeni görüşme ekranını açar
-- [ ] **COMP-02**: Alıcı alanı müşteri aramasıyla otomatik tamamlanır; kayıtlı olmayan serbest e-posta adresi de girilebilir
+- [x] **COMP-02**: Alıcı alanı müşteri aramasıyla otomatik tamamlanır; kayıtlı olmayan serbest e-posta adresi de girilebilir
 - [ ] **COMP-03**: Konu alanı talep anahtarı + talep başlığıyla önceden dolu gelir ve düzenlenebilir
-- [ ] **COMP-04**: Temsilci mesajı gönderdiğinde side ticket oluşur, alıcıya e-posta gider ve temsilci doğrudan görüşme ekranına yönlendirilir
+- [x] **COMP-04**: Temsilci mesajı gönderdiğinde side ticket oluşur, alıcıya e-posta gider ve temsilci doğrudan görüşme ekranına yönlendirilir
 - [ ] **COMP-05**: Temsilci mesaja dosya ekleyebilir (Base64, boyut sınırı uyarısıyla)
 - [ ] **COMP-06**: Temsilci "Talep özetini ekle" ile ana talebin son public yorumlarını mesaj gövdesine alıntılayabilir
 - [ ] **COMP-07**: Temsilci alıcıyı seçtiğinde, bu alıcıyla yapılmış önceki yan görüşmeler listelenir ve tek dokunuşla açılabilir (v2 preview `GET /tickets?requesterEmail=` endpoint'ine dayanır; Grispi değişiklikleri önceden bildirir)
@@ -84,9 +84,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIST-05 | Phase 1 | Complete |
 | LIST-06 | Phase 1 | Complete |
 | COMP-01 | Phase 2 | Pending |
-| COMP-02 | Phase 2 | Pending |
+| COMP-02 | Phase 2 | Complete |
 | COMP-03 | Phase 2 | Pending |
-| COMP-04 | Phase 2 | Pending |
+| COMP-04 | Phase 2 | Complete |
 | SYNC-02 | Phase 2 | Pending |
 | THRD-01 | Phase 3 | Pending |
 | THRD-02 | Phase 3 | Pending |

@@ -67,11 +67,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Temsilci mesajı gönderince side ticket oluşur, alıcıya e-posta gider ve temsilci doğrudan yeni görüşmenin ekranına yönlendirilir
   5. Gönderim sonrası liste ve ilgili görünüm anında yeni görüşmeyi yansıtır
 
-**Plans**: 6 plans
+**Plans**: 1/6 plans executed
 
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Canlı API probe (A1–A5) + createTicket/customers.search istemcileri + saf yardımcılar (formatRequesterField/formatPrefillSubject/isValidEmail)
+- [x] 02-01-PLAN.md — Canlı API probe (A1–A5) + createTicket/customers.search istemcileri + saf yardımcılar (formatRequesterField/formatPrefillSubject/isValidEmail)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -135,6 +135,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Temel ve Salt Okunur Görüşme Listesi | 4/4 | Complete    | 2026-07-23 |
-| 2. Yeni Yan Görüşme Başlatma | 0/6 | Not started | - |
+| 2. Yeni Yan Görüşme Başlatma | 1/6 | In Progress|  |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 0/TBD | Not started | - |
 | 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
