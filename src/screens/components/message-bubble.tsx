@@ -30,10 +30,14 @@ const bubbleVariants = cva("max-w-[85%] rounded-lg px-3 py-2 text-sm", {
  * Durum makinesi: `pending` → balonun sağ-altında dönen `ReloadIcon`;
  * `sent` → spinner kaybolur, ek bir checkmark eklenmez (ikon bütçesi
  * minimal); `failed` → mesaj metni KORUNUR (D-15 — balon kırmızıya
- * boyanmaz), altında tıklanabilir "Gönderilemedi · Tekrar dene" satırı
- * `onRetry(message.id)`'i tetikler. Failed satırının rengi `text-red-200`
- * (02-UI-SPEC.md Bubble state colors — `bg-primary` üzerinde AA kontrastı
- * geçen, `text-destructive-foreground`den ayrışan alternatif).
+ * boyanmaz), altında tıklanabilir bir satır `onRetry(message.id)`'i
+ * tetikler. Copy `message.errorKind`'a göre ayrılır (T-02-03, Faz 1
+ * `error-card.tsx`/CORE-03 diliyle tutarlı): `"network"` → "Bağlantı sorunu
+ * · Gönderilemedi. Tekrar dene", aksi (server/`undefined` — WR-05 emsali) →
+ * jenerik "Gönderilemedi · Tekrar dene". Yalnız kategori render edilir; ham
+ * `HttpError.body`/`status` asla UI'a sızmaz. Failed satırının rengi
+ * `text-red-200` (02-UI-SPEC.md Bubble state colors — `bg-primary` üzerinde
+ * AA kontrastı geçen, `text-destructive-foreground`den ayrışan alternatif).
  */
 export const MessageBubble: FC<{
   message: MessageVM;
@@ -56,7 +60,11 @@ export const MessageBubble: FC<{
           onClick={() => onRetry(message.id)}
         >
           <ExclamationTriangleIcon className="size-3 shrink-0" />
-          <span>Gönderilemedi · Tekrar dene</span>
+          <span>
+            {message.errorKind === "network"
+              ? "Bağlantı sorunu · Gönderilemedi. Tekrar dene"
+              : "Gönderilemedi · Tekrar dene"}
+          </span>
         </button>
       )}
     </div>
