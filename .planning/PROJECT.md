@@ -17,12 +17,13 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 - ✓ Plugin bootstrap: SDK bridge `_init()` → bundle (tenantId, token, ticketKey, agent, requester); aktif talep değişiminin izlenmesi (`currentTicketUpdated`) — starter
 - ✓ Grispi REST istemci iskeleti: auth header yönetimi, `HttpHandler`, `getTicket` — starter
 - ✓ Panel UI temeli: `Screen/ScreenHeader/ScreenContent` primitifleri, Grispi teması (mor primary `hsl(272 53% 37%)`, shadcn yoğunluğu), loading ekranı — starter
+- ✓ **Faz 1 (Temel ve Salt Okunur Görüşme Listesi):** Aktif talebe bağlı yan görüşmeler rozetleriyle (Yeni yanıt / Yanıt bekleniyor / Kapalı), doğru gruplama/sıralama, boş durum, katmanlı Türkçe hata + "Yeniden dene", "Daha fazla yükle" sayfalama, talep değişiminde stale-flash'sız yenileme; canlı `gsocial-test` tenant UAT (7/7) onaylı — Faz 1 (tamamlandı 2026-07-23)
 
 ### Active
 
 <!-- Detaylı, ID'li liste .planning/REQUIREMENTS.md'de. -->
 
-- [ ] Talebe bağlı yan görüşmeleri durum rozetleriyle listeleme (boş durum ve sayfalama dahil)
+- [x] Talebe bağlı yan görüşmeleri durum rozetleriyle listeleme (boş durum ve sayfalama dahil) — ✓ Faz 1
 - [ ] Yeni yan görüşme başlatma: alıcı autocomplete, prefill konu, mesaj, ek dosya, talep özeti ekleme
 - [ ] Görüşme detayı: mesajları yön ayrımıyla görüntüleme, yanıtlama, kapatma/yeniden açma, okundu takibi
 - [ ] Alıcı seçilince o alıcıyla önceki yan görüşmelerin gösterimi
@@ -95,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-22 after initialization*
+*Last updated: 2026-07-23 — Phase 1 complete (read-only side-conversation list, UAT-approved, verified)*
