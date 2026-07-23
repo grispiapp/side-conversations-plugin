@@ -26,7 +26,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **COMP-01**: Temsilci listeden "+" ile yeni görüşme ekranını açar
 - [x] **COMP-02**: Alıcı alanı müşteri aramasıyla otomatik tamamlanır; kayıtlı olmayan serbest e-posta adresi de girilebilir
-- [ ] **COMP-03**: Konu alanı talep anahtarı + talep başlığıyla önceden dolu gelir ve düzenlenebilir
+- [x] **COMP-03**: Konu alanı talep anahtarı + talep başlığıyla önceden dolu gelir ve düzenlenebilir
 - [x] **COMP-04**: Temsilci mesajı gönderdiğinde side ticket oluşur, alıcıya e-posta gider ve temsilci doğrudan görüşme ekranına yönlendirilir
 - [ ] **COMP-05**: Temsilci mesaja dosya ekleyebilir (Base64, boyut sınırı uyarısıyla)
 - [ ] **COMP-06**: Temsilci "Talep özetini ekle" ile ana talebin son public yorumlarını mesaj gövdesine alıntılayabilir
@@ -85,7 +85,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIST-06 | Phase 1 | Complete |
 | COMP-01 | Phase 2 | Complete |
 | COMP-02 | Phase 2 | Complete |
-| COMP-03 | Phase 2 | Pending |
+| COMP-03 | Phase 2 | Complete |
 | COMP-04 | Phase 2 | Complete |
 | SYNC-02 | Phase 2 | Pending |
 | THRD-01 | Phase 3 | Pending |

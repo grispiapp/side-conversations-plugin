@@ -6,14 +6,14 @@ current_phase: 02
 current_phase_name: yeni-yan-g-r-me-ba-latma
 status: executing
 stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-07-23T20:57:33.963Z"
+last_updated: "2026-07-23T21:09:38.363Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 7
   percent: 25
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 02 (yeni-yan-g-r-me-ba-latma) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-07-23 — Phase 02 execution started
 
@@ -61,6 +61,7 @@ Progress: [███████░░░] 67%
 | Phase 01 P04 | 15min | 2 tasks | 5 files |
 | Phase 02 P01 | ~15min | 3 tasks | 6 files |
 | Phase 02 P02 | 25min | 3 tasks | 12 files |
+| Phase 02 P03 | 12min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,10 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 02 Plan 02: DEFAULT_DEV_AGENT_EMAIL hardcoded to davutkmbr@gmail.com (Plan 01's live-verified probe identity) as the standalone-dev agentEmail fallback
 - [Phase ?]: Phase 02 Plan 02: header + button wrapped in explicit w-full flex div rather than modifying the shared ScreenHeader primitive, to escape its line-clamp-2 (-webkit-box) fit-content sizing
 - [Phase ?]: Phase 02 Plan 02: ComposeScreen.isDirty hardcoded false this plan (no form fields yet) — real dirty-guard wiring deferred to Plan 05
+- [Phase ?]: Phase 02 Plan 03: showFreeEmailRow reduces to isValidEmail(trimmedQuery) whenever searchStatus is no-results; implemented both branches per plan text
+- [Phase ?]: Phase 02 Plan 03: selected-recipient clear reuses selectFreeEmail("")+setQuery("") instead of a new store method
+- [Phase ?]: Phase 02 Plan 03: full Ticket has no subject field live (Pitfall #6) — ComposeScreen subject prefill defensively reads optional untyped field, degrades to [<KEY>] only
+- [Phase ?]: Phase 02 Plan 03: jest.advanceTimersByTimeAsync unavailable under CRA's bundled Jest 27.5.1 — debounce tests advance timers + manually flush microtasks
 
 ### Pending Todos
 
@@ -113,6 +118,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T20:57:33.957Z
+Last session: 2026-07-23T21:09:04.412Z
 Stopped at: Completed 02-02-PLAN.md
 Resume file: None
