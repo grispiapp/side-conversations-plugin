@@ -67,7 +67,32 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Temsilci mesajı gönderince side ticket oluşur, alıcıya e-posta gider ve temsilci doğrudan yeni görüşmenin ekranına yönlendirilir
   5. Gönderim sonrası liste ve ilgili görünüm anında yeni görüşmeyi yansıtır
 
-**Plans**: TBD
+**Plans**: 6 plans
+
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Canlı API probe (A1–A5) + createTicket/customers.search istemcileri + saf yardımcılar (formatRequesterField/formatPrefillSubject/isValidEmail)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 02-02-PLAN.md — Agent kimliği (agentEmail + standalone-dev fallback) + navigasyon durum makinesi (PanelNavigationStore) + compose girişi/"+" enable (COMP-01)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 02-03-PLAN.md — ComposeStore (debounce+generation-guard arama) + RecipientField (5 durumlu dropdown) + SubjectField prefill (COMP-02, COMP-03)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 02-04-PLAN.md — ActiveConversationStore (optimistic mesaj) + ComposeStore.submit + Textarea/MessageField (COMP-04, SYNC-02)
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 02-05-PLAN.md — MessageBubble + ChatScreen + Gönder butonu; happy path uçtan uca (COMP-04, XSS-güvenli render)
+
+**Wave 6** *(blocked on Wave 5 — faz-sonu UAT)*
+
+- [ ] 02-06-PLAN.md — Vazgeç/parent korumaları (ConfirmDialog D-02/D-03) + hata/retry copy cilası (D-15) + faz-sonu UAT
+
 **UI hint**: yes
 
 ### Phase 3: Görüşme Detayı ve Yaşam Döngüsü
@@ -110,6 +135,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Temel ve Salt Okunur Görüşme Listesi | 4/4 | Complete    | 2026-07-23 |
-| 2. Yeni Yan Görüşme Başlatma | 0/TBD | Not started | - |
+| 2. Yeni Yan Görüşme Başlatma | 0/6 | Not started | - |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 0/TBD | Not started | - |
 | 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
