@@ -11,15 +11,16 @@ import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 import { formatPrefillSubject } from "@/lib/side-conversation";
 
+import { MessageField } from "./components/message-field";
 import { RecipientField } from "./components/recipient-field";
 import { SubjectField } from "./components/subject-field";
 
 /**
- * Compose screen (COMP-01/02/03). RecipientField/SubjectField land this
- * plan (see 02-UI-SPEC.md "Compose screen anatomy") — MessageField/"Gönder"
- * follow in Plan 04/05. `isDirty` is still hardcoded `false`: Plan 05
- * replaces this with the actual dirty check against compose-store field
- * state (D-02).
+ * Compose screen (COMP-01/02/03/04). RecipientField/SubjectField/MessageField
+ * are all wired this plan (see 02-UI-SPEC.md "Compose screen anatomy") — the
+ * "Gönder" button follows in Plan 05. `isDirty` is still hardcoded `false`:
+ * Plan 05 replaces this with `compose.isDirty` (D-02) once the back-confirm
+ * dialog exists to act on it.
  */
 export const ComposeScreen = observer(() => {
   const { ticket } = useGrispi();
@@ -59,7 +60,8 @@ export const ComposeScreen = observer(() => {
         <div className="flex h-full flex-col gap-2 p-4">
           <RecipientField />
           <SubjectField />
-          {/* MessageField / "Gönder" — Plan 04/05 */}
+          <MessageField />
+          {/* "Gönder" button — Plan 05 */}
         </div>
       </ScreenContent>
     </Screen>
