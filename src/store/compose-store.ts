@@ -77,6 +77,17 @@ export class ComposeStore {
   /** The value `initSubject` first set — `isDirty` compares against this,
    * NOT `""`, so an untouched prefill never counts as a dirty edit. */
   private initialSubject = "";
+  /**
+   * M-3b (UAT fix, 02-06 — T-02-01's mitigation): the parent ticket key
+   * captured the moment THIS compose session began (set alongside
+   * `initSubject`, guarded by the same `subjectInitialized` one-shot). The
+   * plugin cannot command the host to revert an in-flight ticket switch, so
+   * D-03's "Kalsın" ("stay in compose") is implemented as PINNING instead —
+   * `submit` prefers this pinned key over whatever LIVE `parentKey` the
+   * caller passes, so a dirty draft always posts to the ticket it was
+   * started for, never a parent that changed underneath it mid-compose.
+   */
+  private pinnedParentKey: string | null = null;
   /** Reserved generation counter for `submit`, mirroring the same
    * generation-guard convention used by `runSearch`/`load` elsewhere in the
    * codebase — the actual reentrancy gate is the synchronous `submitting`
@@ -184,15 +195,19 @@ export class ComposeStore {
   }
 
   /**
-   * One-time subject prefill (D-08/D-09). Guarded so a re-mount or a
+   * One-time subject prefill (D-08/D-09) that ALSO pins the compose
+   * session's parent ticket key (M-3b). Guarded so a re-mount or a
    * changed-but-still-truthy `ticket?.key` effect dependency never
-   * clobbers text the agent has already started editing.
+   * clobbers text the agent has already started editing — and, by the same
+   * guard, never re-pins to a parent that changed mid-session (that's
+   * exactly the scenario D-03 protects against).
    */
-  initSubject(value: string): void {
+  initSubject(value: string, parentKey: string): void {
     if (this.subjectInitialized) return;
     this.subject = value;
     this.initialSubject = value;
     this.subjectInitialized = true;
+    this.pinnedParentKey = parentKey;
   }
 
   /** Drives the message textarea (COMP-04). */
@@ -222,6 +237,15 @@ export class ComposeStore {
    * passes them through (T-02-05: `agentEmail` only ever flows FROM the
    * trusted SDK context, never from a form field).
    *
+   * M-3b (UAT fix): the LIVE `parentKey` argument is only a fallback — if
+   * this session PINNED a parent (`initSubject`), that pinned key wins.
+   * Without this, a dirty draft that survived D-03's "Kalsın" (which only
+   * closes the confirm dialog, since the plugin can't command the host to
+   * revert `useGrispi().ticket.key`) would silently rebind to whatever
+   * parent is now live, contradicting D-03/T-02-01's "no unconfirmed
+   * rebinding" guarantee. When no parent change ever happened, the pinned
+   * key equals the live key, so the ordinary happy path is unaffected.
+   *
    * D-17 (locked): the reentrancy guard is a SYNCHRONOUS check before any
    * `await` — a second call made in the same tick (before the first call's
    * `await Promise.resolve()` yields) is a no-op. That single microtask
@@ -245,6 +269,8 @@ export class ComposeStore {
 
     this.submitGeneration += 1;
 
+    const effectiveParentKey = this.pinnedParentKey ?? parentKey;
+
     const request: CreateTicketRequest = {
       comment: {
         body: this.message,
@@ -257,7 +283,7 @@ export class ComposeStore {
           key: "ts.requester",
           value: formatRequesterField(this.recipientEmail),
         },
-        { key: "tu.side_conversation_parent", value: parentKey },
+        { key: "tu.side_conversation_parent", value: effectiveParentKey },
       ],
     };
 
@@ -266,7 +292,7 @@ export class ComposeStore {
       subject: this.subject,
       body: this.message,
       request,
-      parentKey,
+      parentKey: effectiveParentKey,
     });
 
     await Promise.resolve();
@@ -290,6 +316,7 @@ export class ComposeStore {
     this.subject = "";
     this.initialSubject = "";
     this.subjectInitialized = false;
+    this.pinnedParentKey = null;
     this.message = "";
     this.submitting = false;
   }

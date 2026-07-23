@@ -198,10 +198,10 @@ describe("ComposeStore", () => {
   });
 
   it("initSubject sets the subject exactly once and never overwrites on a later call (D-09); setSubject always updates freely", () => {
-    store.initSubject("[DESTEK-1] Kargo sorunu");
+    store.initSubject("[DESTEK-1] Kargo sorunu", "DESTEK-1");
     expect(store.subject).toBe("[DESTEK-1] Kargo sorunu");
 
-    store.initSubject("[DESTEK-2] Başka konu");
+    store.initSubject("[DESTEK-2] Başka konu", "DESTEK-2");
     expect(store.subject).toBe("[DESTEK-1] Kargo sorunu");
 
     store.setSubject("Temsilcinin düzenlediği konu");
@@ -212,7 +212,7 @@ describe("ComposeStore", () => {
     it("is false for an untouched form and stays false after only a prefill", () => {
       expect(store.isDirty).toBe(false);
 
-      store.initSubject("[DESTEK-1] Kargo sorunu");
+      store.initSubject("[DESTEK-1] Kargo sorunu", "DESTEK-1");
       expect(store.isDirty).toBe(false);
     });
 
@@ -227,7 +227,7 @@ describe("ComposeStore", () => {
     });
 
     it("is true once the subject is edited away from its prefill", () => {
-      store.initSubject("[DESTEK-1] Kargo sorunu");
+      store.initSubject("[DESTEK-1] Kargo sorunu", "DESTEK-1");
       expect(store.isDirty).toBe(false);
 
       store.setSubject("Değiştirilmiş konu");
@@ -326,6 +326,44 @@ describe("ComposeStore", () => {
       expect(store.subject).toBe("");
       expect(store.message).toBe("");
       expect(store.submitting).toBe(false);
+    });
+
+    it("M-3b: submit posts to the PINNED parent even when a different live parentKey is passed after the pin (D-03 'Kalsın')", async () => {
+      // initSubject pins the parent for this session (DESTEK-1) — mirrors
+      // ComposeScreen's mount effect.
+      store.initSubject("[DESTEK-1] Kargo sorunu", "DESTEK-1");
+      store.selectFreeEmail("vendor@example.com");
+      store.setMessage("Merhaba, kargo durumu nedir?");
+
+      // Simulates the live ticket key having already switched to a NEW
+      // parent underneath a dirty draft (D-03 "Kalsın" — the dialog just
+      // closes, it does not revert the host's ticket.key) — the caller
+      // still passes whatever is LIVE at click time.
+      await store.submit("agent@grispi.com", "DESTEK-2");
+
+      expect(startNewMock).toHaveBeenCalledTimes(1);
+      const call = startNewMock.mock.calls[0][0];
+      expect(call.parentKey).toBe("DESTEK-1");
+      const parentField = call.request.fields.find(
+        (f: { key: string }) => f.key === "tu.side_conversation_parent"
+      );
+      expect(parentField).toEqual({
+        key: "tu.side_conversation_parent",
+        value: "DESTEK-1",
+      });
+    });
+
+    it("M-3b: reset() clears the pinned parent — a later submit falls back to the live parentKey argument", async () => {
+      store.initSubject("[DESTEK-1] Kargo sorunu", "DESTEK-1");
+      store.reset();
+
+      store.selectFreeEmail("vendor@example.com");
+      store.setMessage("Merhaba");
+
+      await store.submit("agent@grispi.com", "DESTEK-2");
+
+      const call = startNewMock.mock.calls[0][0];
+      expect(call.parentKey).toBe("DESTEK-2");
     });
   });
 });

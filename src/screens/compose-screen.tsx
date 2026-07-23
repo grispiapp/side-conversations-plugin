@@ -72,7 +72,9 @@ export const ComposeScreen = observer(() => {
       // just `[<KEY>]` (D-09's "boş-başlık toleransı").
       const ticketTitle =
         (ticket as unknown as { subject?: string }).subject ?? "";
-      compose.initSubject(formatPrefillSubject(ticket.key, ticketTitle));
+      // M-3b: `initSubject` also pins this compose session's parent key
+      // (T-02-01) — guarded by the same one-shot as the subject prefill.
+      compose.initSubject(formatPrefillSubject(ticket.key, ticketTitle), ticket.key);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket?.key]);
