@@ -33,6 +33,11 @@ export interface BootstrapPluginInitDeps {
   };
   setSettings(settings: Settings): void;
   setLoading(loading: boolean): void;
+  /**
+   * agentEmail source (D-13, RESEARCH.md Pitfall #3) — `createTicket`'s
+   * `creator` field cannot resolve without it.
+   */
+  setAgentEmail(email: string | null): void;
   switchTicket(ticketKey: string): void;
 }
 
@@ -45,6 +50,7 @@ export async function bootstrapPluginInit(
     deps.authentication.setTenantId(bundle.context.tenantId);
     deps.authentication.setToken(bundle.context.token);
     deps.setSettings(bundle.settings);
+    deps.setAgentEmail(bundle.context.agent?.email ?? null);
     deps.setLoading(false);
     deps.switchTicket(bundle.context.ticketKey);
   } catch (err) {

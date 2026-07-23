@@ -1,4 +1,5 @@
 import {
+  DEFAULT_DEV_AGENT_EMAIL,
   DEFAULT_DEV_TENANT_ID,
   DEFAULT_DEV_TICKET_KEY,
   resolveStandaloneDevConfig,
@@ -30,7 +31,7 @@ describe("resolveStandaloneDevConfig", () => {
     ).toBeNull();
   });
 
-  it("activates with dev + token, applying tenant/ticket defaults", () => {
+  it("activates with dev + token, applying tenant/ticket/agentEmail defaults", () => {
     const config = resolveStandaloneDevConfig(
       { NODE_ENV: "development", REACT_APP_DEV_TOKEN: "tok" },
       ""
@@ -39,7 +40,27 @@ describe("resolveStandaloneDevConfig", () => {
       token: "tok",
       tenantId: DEFAULT_DEV_TENANT_ID,
       initialTicketKey: DEFAULT_DEV_TICKET_KEY,
+      agentEmail: DEFAULT_DEV_AGENT_EMAIL,
     });
+  });
+
+  it("honors REACT_APP_DEV_AGENT_EMAIL when set, falls back to the default otherwise", () => {
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_AGENT_EMAIL: "  someone@example.com  ",
+        },
+        ""
+      )?.agentEmail
+    ).toBe("someone@example.com");
+    expect(
+      resolveStandaloneDevConfig(
+        { NODE_ENV: "development", REACT_APP_DEV_TOKEN: "tok" },
+        ""
+      )?.agentEmail
+    ).toBe(DEFAULT_DEV_AGENT_EMAIL);
   });
 
   it("prefers ?ticket= over REACT_APP_DEV_TICKET_KEY over the default", () => {

@@ -22,6 +22,13 @@ type GrispiContextType = {
   ticket: Ticket | null;
   settings: Settings | null;
   loading: boolean;
+  /**
+   * The acting agent's email — createTicket's `creator` source (D-13,
+   * RESEARCH.md Pitfall #3). Sourced from `bundle.context.agent.email` in
+   * plugin mode, or `REACT_APP_DEV_AGENT_EMAIL` (standalone-dev.ts) in
+   * local standalone mode. `null` until resolved.
+   */
+  agentEmail: string | null;
   /** True only in local standalone dev mode (never in the Grispi iframe). */
   standalone: boolean;
   /**
@@ -67,6 +74,7 @@ export const GrispiProvider: React.FC<{
   const [loading, setLoading] = useState<boolean>(true);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [agentEmail, setAgentEmail] = useState<string | null>(null);
 
   // Latest requested ticket key — a slower, older detail fetch must never
   // overwrite a newer switch's ticket (same idea as the store's generation
@@ -139,6 +147,7 @@ export const GrispiProvider: React.FC<{
       grispiAPI.authentication.setToken(standaloneConfig.token);
 
       setSettings({});
+      setAgentEmail(standaloneConfig.agentEmail);
       setLoading(false);
       void switchTicket(standaloneConfig.initialTicketKey);
       return;
@@ -171,6 +180,7 @@ export const GrispiProvider: React.FC<{
       authentication: grispiAPI.authentication,
       setSettings,
       setLoading,
+      setAgentEmail,
       switchTicket,
     });
 
@@ -188,6 +198,7 @@ export const GrispiProvider: React.FC<{
         ticket,
         settings,
         loading,
+        agentEmail,
         standalone: standaloneConfig !== null,
         switchTicket,
       }}

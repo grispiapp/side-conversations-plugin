@@ -48,11 +48,19 @@ describe("bootstrapPluginInit", () => {
   });
 
   it("resolve branch: wires auth/settings/loading then routes the ticket key through switchTicket", async () => {
-    const bundle = makeBundle();
+    const bundle = makeBundle({
+      agent: {
+        id: 15,
+        fullName: "Davut Kember",
+        email: "davutkmbr@gmail.com",
+        phone: "",
+      },
+    });
     const plugin = { _init: jest.fn().mockResolvedValue(bundle) };
     const authentication = { setTenantId: jest.fn(), setToken: jest.fn() };
     const setSettings = jest.fn();
     const setLoading = jest.fn();
+    const setAgentEmail = jest.fn();
     const switchTicket = jest.fn();
 
     await bootstrapPluginInit({
@@ -60,6 +68,7 @@ describe("bootstrapPluginInit", () => {
       authentication,
       setSettings,
       setLoading,
+      setAgentEmail,
       switchTicket,
     });
 
@@ -70,6 +79,28 @@ describe("bootstrapPluginInit", () => {
     expect(setSettings).toHaveBeenCalledWith(bundle.settings);
     expect(setLoading).toHaveBeenCalledWith(false);
     expect(switchTicket).toHaveBeenCalledWith(bundle.context.ticketKey);
+    expect(setAgentEmail).toHaveBeenCalledWith(bundle.context.agent.email);
+  });
+
+  it("resolve branch: calls setAgentEmail with null when the bundle carries no agent", async () => {
+    const bundle = makeBundle({ agent: undefined as unknown as GrispiBundle["context"]["agent"] });
+    const plugin = { _init: jest.fn().mockResolvedValue(bundle) };
+    const authentication = { setTenantId: jest.fn(), setToken: jest.fn() };
+    const setSettings = jest.fn();
+    const setLoading = jest.fn();
+    const setAgentEmail = jest.fn();
+    const switchTicket = jest.fn();
+
+    await bootstrapPluginInit({
+      plugin,
+      authentication,
+      setSettings,
+      setLoading,
+      setAgentEmail,
+      switchTicket,
+    });
+
+    expect(setAgentEmail).toHaveBeenCalledWith(null);
   });
 
   it("reject branch: resolves without throwing, clears loading, and never calls switchTicket/setSettings (no infinite rocket, no unhandled rejection)", async () => {
@@ -81,6 +112,7 @@ describe("bootstrapPluginInit", () => {
     const authentication = { setTenantId: jest.fn(), setToken: jest.fn() };
     const setSettings = jest.fn();
     const setLoading = jest.fn();
+    const setAgentEmail = jest.fn();
     const switchTicket = jest.fn();
 
     await expect(
@@ -89,6 +121,7 @@ describe("bootstrapPluginInit", () => {
         authentication,
         setSettings,
         setLoading,
+        setAgentEmail,
         switchTicket,
       })
     ).resolves.toBeUndefined();
@@ -104,6 +137,7 @@ describe("bootstrapPluginInit", () => {
     const authentication = { setTenantId: jest.fn(), setToken: jest.fn() };
     const setSettings = jest.fn();
     const setLoading = jest.fn();
+    const setAgentEmail = jest.fn();
 
     const root = new RootStore();
     const store = root.sideConversations;
@@ -120,6 +154,7 @@ describe("bootstrapPluginInit", () => {
       authentication,
       setSettings,
       setLoading,
+      setAgentEmail,
       switchTicket,
     });
     await pending;

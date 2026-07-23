@@ -19,11 +19,20 @@ export interface StandaloneDevConfig {
   token: string;
   tenantId: string;
   initialTicketKey: string;
+  agentEmail: string;
 }
 
 export const DEFAULT_DEV_TENANT_ID = "gsocial-test";
 /** The seeded UAT parent ticket — see 01-02-probe-findings.md. */
 export const DEFAULT_DEV_TICKET_KEY = "TICKET-563";
+/**
+ * Standalone dev mode has no SDK bridge, so `bundle.context.agent.email`
+ * (createTicket's `creator` source, RESEARCH.md Pitfall #3) never arrives.
+ * Falls back to Davut's live-verified Grispi agent identity for this
+ * tenant (02-01-SUMMARY.md probe: davutkmbr@gmail.com → team user
+ * "Davut Kember", id 15, ROLE_ADMIN).
+ */
+export const DEFAULT_DEV_AGENT_EMAIL = "davutkmbr@gmail.com";
 
 /**
  * Pure resolver — takes `env`/`search` as inputs so the activation rule and
@@ -47,7 +56,10 @@ export function resolveStandaloneDevConfig(
     env.REACT_APP_DEV_TICKET_KEY?.trim() ||
     DEFAULT_DEV_TICKET_KEY;
 
-  return { token, tenantId, initialTicketKey };
+  const agentEmail =
+    env.REACT_APP_DEV_AGENT_EMAIL?.trim() || DEFAULT_DEV_AGENT_EMAIL;
+
+  return { token, tenantId, initialTicketKey, agentEmail };
 }
 
 /** Convenience wrapper reading the real environment. */
