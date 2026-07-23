@@ -9,13 +9,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Altyapı (CORE)
 
-- [ ] **CORE-01**: İlişki field'ının key'i sabittir (`tu.side_conversation_parent`) ve field, plugin tenant'a kurulurken otomatik oluşturulur; kod settings'e bağımlı değildir *(rev. 2026-07-22 Faz 1 tartışması — önceki "settings'ten okunur" yaklaşımı kaldırıldı)*
-- [ ] **CORE-02**: API katmanı yan görüşme operasyonlarını kapsar: advanced-search ile listeleme, ticket oluşturma, yorum/status PATCH'i, müşteri arama, yorum özeti
-- [ ] **CORE-03**: API hataları kullanıcıya Türkçe, anlaşılır mesajlarla gösterilir ve yeniden deneme imkanı sunulur
+- [x] **CORE-01**: İlişki field'ının key'i sabittir (`tu.side_conversation_parent`) ve field, plugin tenant'a kurulurken otomatik oluşturulur; kod settings'e bağımlı değildir *(rev. 2026-07-22 Faz 1 tartışması — önceki "settings'ten okunur" yaklaşımı kaldırıldı)*
+- [x] **CORE-02**: API katmanı yan görüşme operasyonlarını kapsar: advanced-search ile listeleme, ticket oluşturma, yorum/status PATCH'i, müşteri arama, yorum özeti
+- [x] **CORE-03**: API hataları kullanıcıya Türkçe, anlaşılır mesajlarla gösterilir ve yeniden deneme imkanı sunulur
 
 ### Görüşme Listesi (LIST)
 
-- [ ] **LIST-01**: Temsilci, aktif talebe bağlı tüm yan görüşmeleri panelde görür (alıcı, konu, son mesaj özeti, göreli zaman)
+- [x] **LIST-01**: Temsilci, aktif talebe bağlı tüm yan görüşmeleri panelde görür (alıcı, konu, son mesaj özeti, göreli zaman)
 - [ ] **LIST-02**: Her görüşme "sıra kimde" rozeti taşır: Yanıt bekleniyor / Yeni yanıt / Kapalı (son public yorumun yazar rolü + ts.status'tan türetilir)
 - [ ] **LIST-03**: Yeni yanıt içeren görüşmeler görsel olarak vurgulanır ve listenin en üstünde yer alır
 - [ ] **LIST-04**: Hiç yan görüşme yoksa, gizlilik açıklaması ve tek CTA içeren boş durum ekranı gösterilir
@@ -74,10 +74,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | Phase 1 | Pending |
-| CORE-02 | Phase 1 | Pending |
-| CORE-03 | Phase 1 | Pending |
-| LIST-01 | Phase 1 | Pending |
+| CORE-01 | Phase 1 | Complete |
+| CORE-02 | Phase 1 | Complete |
+| CORE-03 | Phase 1 | Complete |
+| LIST-01 | Phase 1 | Complete |
 | LIST-02 | Phase 1 | Pending |
 | LIST-03 | Phase 1 | Pending |
 | LIST-04 | Phase 1 | Pending |
@@ -99,6 +99,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-01 | Phase 4 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 23 total
 - Mapped to phases: 23
 - Unmapped: 0 ✓

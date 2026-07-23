@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 1
-current_phase_name: Temel ve Salt Okunur Görüşme Listesi
+current_phase: 01
+current_phase_name: temel-ve-salt-okunur-g-r-me-listesi
 status: executing
-stopped_at: Phase 1 UI-SPEC approved
-last_updated: "2026-07-22T19:20:57.948Z"
+stopped_at: Phase 01 Plan 01 complete (Walking Skeleton)
+last_updated: "2026-07-23T00:05:58.762Z"
 last_activity: 2026-07-22
-last_activity_desc: Roadmap oluşturuldu (4 faz, 23 v1 gereksinimi %100 eşlendi)
+last_activity_desc: Completed 01-01-PLAN.md (Walking Skeleton)
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -24,37 +24,38 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayrılmadan yürütebilmeli; talep sahibi bu yazışmaları asla görmemeli.
-**Current focus:** Phase 1 — Temel ve Salt Okunur Görüşme Listesi
+**Current focus:** Phase 01 — temel-ve-salt-okunur-g-r-me-listesi
 
 ## Current Position
 
-Phase: 1 of 4 (Temel ve Salt Okunur Görüşme Listesi)
-Plan: 0 of TBD in current phase
-Status: Ready to execute
-Last activity: 2026-07-22 — Roadmap oluşturuldu (4 faz, 23 v1 gereksinimi %100 eşlendi)
+Phase: 01 (temel-ve-salt-okunur-g-r-me-listesi) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 01
+Last activity: 2026-07-22 — Completed 01-01-PLAN.md (Walking Skeleton)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: — min
-- Total execution time: 0.0 hours
+- Total plans completed: 1
+- Average duration: 45 min
+- Total execution time: 0.75 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01 | 1 | 45min | 45min |
 
 **Recent Trend:**
 
-- Last 5 plans: —
+- Last 5 plans: 45min
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P01 | 45min | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - Yan görüşme = requester'ı harici alıcı olan ayrı Grispi ticket'ı ("side ticket"); e-posta Grispi native mail kanalından akar
 - İlişki side ticket'taki `tu.*` parent-key field'ında; listeleme `advanced-search` ile (size ≤ 10 → sayfalama şart)
 - Field key'leri plugin settings'ten okunur (varsayılanlarla); "sıra kimde" rozetleri son public yorumun yazar rolü + ts.status'tan türetilir
+- [Phase ?]: Recipient/subject field lookups centralized in SideConversationsStore's toRow() mapper — single point of correction once Plan 02's live probe confirms real field paths
+- [Phase ?]: advancedSearch + encoded getTicket are the only two API methods added in Plan 01-01 (CORE-02 Phase-1 narrowing; createTicket/patchTicket/searchCustomers/getDigest deferred to Phases 2-4)
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-22T18:55:52.074Z
-Stopped at: Phase 1 UI-SPEC approved
-Resume file: .planning/phases/01-temel-ve-salt-okunur-g-r-me-listesi/01-UI-SPEC.md
+Last session: 2026-07-23T00:03:17.542Z
+Stopped at: Phase 01 Plan 01 complete (Walking Skeleton)
+Resume file: .planning/phases/01-temel-ve-salt-okunur-g-r-me-listesi/01-02-PLAN.md

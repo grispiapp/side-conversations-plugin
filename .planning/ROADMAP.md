@@ -34,10 +34,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Temsilci aktif talebi değiştirdiğinde liste otomatik olarak yeni talebin görüşmelerini gösterir
   5. Kritik field/ayar eksikse anlaşılır bir kurulum uyarısı; API hatasında Türkçe mesaj ile "yeniden dene" seçeneği gösterilir
 
-**Plans**: 3 plans
+**Plans**: 1/3 plans executed
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Walking Skeleton: gerçek advanced-search okumasıyla yan görüşme listesi uçtan uca render (alıcı·zaman·konu·özet), typed HTTP hataları, skeleton yükleme
+- [x] 01-01-PLAN.md — Walking Skeleton: gerçek advanced-search okumasıyla yan görüşme listesi uçtan uca render (alıcı·zaman·konu·özet), typed HTTP hataları, skeleton yükleme
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -105,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Temel ve Salt Okunur Görüşme Listesi | 0/3 | Not started | - |
+| 1. Temel ve Salt Okunur Görüşme Listesi | 1/3 | In Progress|  |
 | 2. Yeni Yan Görüşme Başlatma | 0/TBD | Not started | - |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 0/TBD | Not started | - |
 | 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
