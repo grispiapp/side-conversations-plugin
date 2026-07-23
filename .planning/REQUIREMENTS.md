@@ -24,7 +24,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Yeni Görüşme (COMP)
 
-- [ ] **COMP-01**: Temsilci listeden "+" ile yeni görüşme ekranını açar
+- [x] **COMP-01**: Temsilci listeden "+" ile yeni görüşme ekranını açar
 - [x] **COMP-02**: Alıcı alanı müşteri aramasıyla otomatik tamamlanır; kayıtlı olmayan serbest e-posta adresi de girilebilir
 - [ ] **COMP-03**: Konu alanı talep anahtarı + talep başlığıyla önceden dolu gelir ve düzenlenebilir
 - [x] **COMP-04**: Temsilci mesajı gönderdiğinde side ticket oluşur, alıcıya e-posta gider ve temsilci doğrudan görüşme ekranına yönlendirilir
@@ -83,7 +83,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIST-04 | Phase 1 | Complete |
 | LIST-05 | Phase 1 | Complete |
 | LIST-06 | Phase 1 | Complete |
-| COMP-01 | Phase 2 | Pending |
+| COMP-01 | Phase 2 | Complete |
 | COMP-02 | Phase 2 | Complete |
 | COMP-03 | Phase 2 | Pending |
 | COMP-04 | Phase 2 | Complete |
