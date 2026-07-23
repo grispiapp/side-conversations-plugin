@@ -63,7 +63,7 @@ export const ConversationsListScreen = observer(() => {
 
           {store.status === "error" && (
             <ErrorCard
-              error={store.error!}
+              error={store.error}
               onRetry={() => ticket?.key && store.load(ticket.key)}
             />
           )}
