@@ -354,6 +354,65 @@ describe("SideConversationsStore", () => {
     expect(mockedGetUser).toHaveBeenCalledWith(92);
   });
 
+  it("strips HTML tags from the last public comment before building the summary (UAT Defect 1)", async () => {
+    mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["A"]));
+    mockedGetTicket.mockResolvedValue(
+      makeTicket({
+        key: "A",
+        comments: [
+          makeComment({
+            body: "<p>Yeni ambalaj örneği gönderildi.</p> (TEST)",
+            createdAt: 1000,
+            creator: makeExternalCreator(1, "a@example.com"),
+          }),
+        ],
+      })
+    );
+
+    await store.load("PARENT-1");
+
+    expect(store.rows[0].summary).toBe("Yeni ambalaj örneği gönderildi. (TEST)");
+  });
+
+  it("applies the users-endpoint enrichment OBSERVABLY — replaces the rows array instead of mutating a row in place (UAT Defect 2)", async () => {
+    mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["AGENT-ONLY-3"]));
+    mockedGetTicket.mockResolvedValue(
+      makeTicket({
+        key: "AGENT-ONLY-3",
+        fieldMap: {
+          "ts.requester": { key: "ts.requester", value: "92" },
+        },
+        comments: [
+          makeComment({ creator: makeAgentCreator(9), createdAt: 1000 }),
+        ],
+      })
+    );
+
+    let resolveUser!: (user: unknown) => void;
+    mockedGetUser.mockReturnValue(
+      new Promise((resolve) => (resolveUser = resolve))
+    );
+
+    const loadPromise = store.load("PARENT-1");
+
+    // Flush microtasks until the list is "ready" but the getUser lookup is
+    // still pending — this is the exact moment the UI first painted "—".
+    for (let i = 0; i < 50 && store.status !== "ready"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(store.status).toBe("ready");
+    const rowsBeforeEnrichment = store.rows;
+    expect(rowsBeforeEnrichment[0].recipientEmail).toBe("—");
+
+    resolveUser({ id: 92, primaryEmail: "uretici-firma@example.com" });
+    await loadPromise;
+
+    expect(store.rows[0].recipientEmail).toBe("uretici-firma@example.com");
+    // Pre-fix behavior mutated the row in place: same array identity, so a
+    // non-observer row component never re-rendered and the UI kept "—".
+    expect(store.rows).not.toBe(rowsBeforeEnrichment);
+  });
+
   it("keeps a neutral placeholder — never the raw ticket key — when GET /users/{id} also fails", async () => {
     mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["AGENT-ONLY-2"]));
     mockedGetTicket.mockResolvedValue(

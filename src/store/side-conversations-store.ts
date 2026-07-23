@@ -7,6 +7,7 @@ import {
   deriveBadge,
   sortConversations,
 } from "@/lib/conversation-status";
+import { htmlToText } from "@/lib/html-to-text";
 import { getLastSeenAt } from "@/lib/last-seen-store";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
 import {
@@ -161,7 +162,10 @@ function toRow(
   const subject = summary.subject || summary.key;
   const { badge, lastPublicCommentAt } = resolveBadge(ticket, summary);
 
-  const rawSummary = lastPublicComment?.body ?? "";
+  // Comment bodies arrive as HTML (`<p>…</p>`) — extract plain text before
+  // truncation (UAT Defect 1). Still rendered via React text interpolation
+  // only, so HTML-ish content stays literal text (T-01).
+  const rawSummary = htmlToText(lastPublicComment?.body ?? "");
   const truncatedSummary =
     rawSummary.length > SUMMARY_MAX_LENGTH
       ? `${rawSummary.slice(0, SUMMARY_MAX_LENGTH)}…`
@@ -389,17 +393,19 @@ export class SideConversationsStore {
     if (gen !== this.generation) return;
 
     runInAction(() => {
+      const upgradedByKey = new Map<string, ConversationRowVM>();
       results.forEach((outcome, index) => {
         const key = failedKeys[index];
         const summary = summariesByKey.get(key);
         if (!summary || outcome.status !== "fulfilled") return;
-
-        const upgradedRow = toRow(summary, outcome.value, false);
-        const rowIndex = this.rows.findIndex((row) => row.key === key);
-        if (rowIndex !== -1) this.rows[rowIndex] = upgradedRow;
+        upgradedByKey.set(key, toRow(summary, outcome.value, false));
       });
 
-      this.rows = sortConversations(this.rows);
+      // Immutable replacement (same rationale as enrichUnresolvedRecipients)
+      // + re-sort, since an upgraded row may change group/activity (D-08).
+      this.rows = sortConversations(
+        this.rows.map((row) => upgradedByKey.get(row.key) ?? row)
+      );
     });
   }
 
@@ -428,15 +434,19 @@ export class SideConversationsStore {
         const email = await this.fetchUserEmail(userId);
         if (!email || gen !== this.generation) return;
 
+        // UAT Defect 2 fix: replace the row objects AND the rows array
+        // immutably instead of mutating `row.recipientEmail` in place.
+        // `ConversationRow` renders from a plain prop — an in-place deep
+        // mutation was invisible to the observer screen (it only
+        // dereferences the array), so the resolved email never appeared.
+        // A new array identity guarantees the re-render.
         runInAction(() => {
-          this.rows.forEach((row) => {
-            if (
-              row.requesterId === userId &&
-              row.recipientEmail === RECIPIENT_UNKNOWN_PLACEHOLDER
-            ) {
-              row.recipientEmail = email;
-            }
-          });
+          this.rows = this.rows.map((row) =>
+            row.requesterId === userId &&
+            row.recipientEmail === RECIPIENT_UNKNOWN_PLACEHOLDER
+              ? { ...row, recipientEmail: email }
+              : row
+          );
         });
       })
     );

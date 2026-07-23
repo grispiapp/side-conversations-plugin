@@ -1,3 +1,4 @@
+import { observer } from "mobx-react-lite";
 import { FC } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,10 @@ const BADGE_LABEL: Record<ConversationBadge, string> = {
   kapali: "Kapalı",
 };
 
-export const ConversationRow: FC<{ row: ConversationRowVM }> = ({ row }) => {
+// `observer` so silent store-side row upgrades (hydration retry, recipient
+// enrichment — Plan 01-03 UAT Defect 2) always re-render this card even if a
+// future change mutates a row field in place instead of replacing the array.
+export const ConversationRow: FC<{ row: ConversationRowVM }> = observer(({ row }) => {
   const isNewReply = row.badge === "yeni-yanit";
 
   return (
@@ -52,7 +56,7 @@ export const ConversationRow: FC<{ row: ConversationRowVM }> = ({ row }) => {
       )}
     </div>
   );
-};
+});
 
 export const SkeletonRow: FC = () => {
   return (
