@@ -14,7 +14,9 @@ import {
   StandaloneDevConfig,
   getStandaloneDevConfig,
 } from "@/lib/standalone-dev";
-import { GrispiBundle, Settings, Ticket } from "@/types/grispi.type";
+import { Settings, Ticket } from "@/types/grispi.type";
+
+import { bootstrapPluginInit } from "./plugin-bootstrap";
 
 type GrispiContextType = {
   ticket: Ticket | null;
@@ -156,48 +158,20 @@ export const GrispiProvider: React.FC<{
       return;
     }
 
-    plugin._init().then(async (bundle: GrispiBundle) => {
-      setLoading(true);
-
-      grispiAPI.authentication.setTenantId(bundle.context.tenantId);
-      grispiAPI.authentication.setToken(bundle.context.token);
-
-      activeKeyRef.current = bundle.context.ticketKey;
-
-      try {
-        const ticket = await grispiAPI.tickets.getTicket(
-          bundle.context.ticketKey
-        );
-
-        setTicket(ticket);
-      } catch (err) {
-        if (err instanceof NetworkError) {
-          console.error(
-            "grispi-context",
-            "_init",
-            "Network error when fetching initial ticket",
-            bundle.context.ticketKey
-          );
-        } else if (err instanceof HttpError) {
-          console.error(
-            "grispi-context",
-            "_init",
-            "HTTP error when fetching initial ticket",
-            bundle.context.ticketKey,
-            err.status
-          );
-        } else {
-          console.error(
-            "grispi-context",
-            "_init",
-            "Unexpected error when fetching initial ticket",
-            bundle.context.ticketKey
-          );
-        }
-      }
-
-      setSettings(bundle.settings);
-      setLoading(false);
+    // CORE-03 gap closure (01-VERIFICATION.md CR-01): route the initial
+    // fetch through the SAME resilient `switchTicket` path standalone mode
+    // and `currentTicketUpdated` already use, and add the missing `.catch`
+    // on `_init()`. See src/contexts/plugin-bootstrap.ts for the full
+    // rationale — this makes an SDK handshake rejection clear `loading`
+    // (no infinite rocket, no unhandled rejection) and makes an initial
+    // advanced-search/getTicket failure surface through the store's own
+    // `ErrorCard` + "Yeniden dene" instead of hanging forever.
+    void bootstrapPluginInit({
+      plugin,
+      authentication: grispiAPI.authentication,
+      setSettings,
+      setLoading,
+      switchTicket,
     });
 
     plugin.currentTicketUpdated = async (ticket: Ticket) => {
