@@ -68,6 +68,29 @@ function makeSearchResponse(
   };
 }
 
+function makeAgentCreator(id: number): Ticket["comments"][number]["creator"] {
+  return {
+    id,
+    email: `agent${id}@grispi.com`,
+    role: { authority: "ROLE_ADMIN", impliedAuthorities: [], teamUser: true },
+  } as unknown as Ticket["comments"][number]["creator"];
+}
+
+function makeExternalCreator(
+  id: number,
+  email: string
+): Ticket["comments"][number]["creator"] {
+  return {
+    id,
+    email,
+    role: {
+      authority: "ROLE_END_USER",
+      impliedAuthorities: [],
+      teamUser: false,
+    },
+  } as unknown as Ticket["comments"][number]["creator"];
+}
+
 describe("SideConversationsStore", () => {
   let store: SideConversationsStore;
 
@@ -120,6 +143,96 @@ describe("SideConversationsStore", () => {
       lastPublicCommentAt: 1000,
       hydrationFailed: false,
     });
+  });
+
+  it("derives per-ticket badges and returns rows grouped+sorted per D-08", async () => {
+    mockedAdvancedSearch.mockResolvedValue({
+      content: [
+        { key: "CLOSED-1", subject: "Kapali konu", status: { id: 5, name: "Closed" } },
+        { key: "WAITING-1", subject: "Bekleyen konu", status: { id: 1, name: "Open" } },
+        { key: "NEW-1", subject: "Yeni konu", status: { id: 1, name: "Open" } },
+      ],
+      totalPages: 1,
+      totalSize: 3,
+      pageNumber: 0,
+      numberOfElements: 3,
+    });
+
+    mockedGetTicket.mockImplementation((key: string) => {
+      if (key === "CLOSED-1") {
+        // Solved/Closed short-circuits to "kapali" regardless of who wrote last.
+        return Promise.resolve(
+          makeTicket({
+            key,
+            comments: [
+              makeComment({
+                createdAt: 1000,
+                publicVisible: true,
+                creator: makeExternalCreator(1, "ext1@example.com"),
+              }),
+            ],
+          })
+        );
+      }
+      if (key === "WAITING-1") {
+        // Agent replied last -> "yanit-bekleniyor".
+        return Promise.resolve(
+          makeTicket({
+            key,
+            comments: [
+              makeComment({
+                createdAt: 2000,
+                publicVisible: true,
+                creator: makeExternalCreator(2, "ext2@example.com"),
+              }),
+              makeComment({
+                createdAt: 3000,
+                publicVisible: true,
+                creator: makeAgentCreator(9),
+              }),
+              // Internal note authored by the agent AFTER the last public
+              // comment — must be ignored (D-06), or this would wrongly
+              // still read as "agent last" anyway; use it to prove the
+              // publicVisible filter, not the ordering.
+              makeComment({
+                createdAt: 4000,
+                publicVisible: false,
+                creator: makeAgentCreator(9),
+              }),
+            ],
+          })
+        );
+      }
+      // NEW-1: external wrote last -> "yeni-yanit" (no seen record exists).
+      return Promise.resolve(
+        makeTicket({
+          key,
+          comments: [
+            makeComment({
+              createdAt: 5000,
+              publicVisible: true,
+              creator: makeAgentCreator(9),
+            }),
+            makeComment({
+              createdAt: 9000,
+              publicVisible: true,
+              creator: makeExternalCreator(3, "ext3@example.com"),
+            }),
+          ],
+        })
+      );
+    });
+
+    await store.load("PARENT-1");
+
+    expect(store.status).toBe("ready");
+    expect(
+      store.rows.map((row) => ({ key: row.key, badge: row.badge }))
+    ).toEqual([
+      { key: "NEW-1", badge: "yeni-yanit" },
+      { key: "WAITING-1", badge: "yanit-bekleniyor" },
+      { key: "CLOSED-1", badge: "kapali" },
+    ]);
   });
 
   it("reaches empty when advancedSearch resolves with no content", async () => {

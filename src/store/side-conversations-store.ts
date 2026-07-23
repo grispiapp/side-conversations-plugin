@@ -2,6 +2,12 @@ import { makeAutoObservable, runInAction } from "mobx";
 
 import { grispiAPI } from "@/grispi/client/api";
 import { HttpError, NetworkError } from "@/grispi/client/http-handler";
+import {
+  ConversationBadge,
+  deriveBadge,
+  sortConversations,
+} from "@/lib/conversation-status";
+import { getLastSeenAt } from "@/lib/last-seen-store";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
 import { SideTicketSummary, Ticket } from "@/types/grispi.type";
 
@@ -14,6 +20,7 @@ export interface ConversationRowVM {
   recipientEmail: string;
   subject: string;
   summary: string;
+  badge: ConversationBadge;
   lastPublicCommentAt: number | null;
   hydrationFailed: boolean;
 }
@@ -48,6 +55,46 @@ function resolveRecipientEmail(ticket: Ticket, summary: SideTicketSummary): stri
 }
 
 /**
+ * Derives the "sıra kimde" badge for a hydrated ticket (D-05/06/07).
+ *
+ * `statusId` is read from the advanced-search SUMMARY (`summary.status.id`)
+ * rather than the hydrated ticket's `fieldMap["ts.status"]` — CONFIRMED live
+ * (Task 1 probe) that the summary always carries status inline as a number,
+ * so the badge never depends on hydration succeeding for the closed check.
+ * `publicComments` are pre-filtered to `publicVisible: true` (D-06) and
+ * mapped to `authorIsAgent` via `creator.role.authority !== "ROLE_END_USER"`
+ * — CONFIRMED live that `teamUser` alone is unreliable (integration/AI users
+ * also report `teamUser: false`).
+ */
+function resolveBadge(
+  ticket: Ticket,
+  summary: SideTicketSummary
+): { badge: ConversationBadge; lastPublicCommentAt: number | null } {
+  const publicComments = (ticket.comments ?? [])
+    .filter((comment) => comment.publicVisible)
+    .map((comment) => ({
+      createdAt: comment.createdAt,
+      authorIsAgent: comment.creator?.role?.authority !== "ROLE_END_USER",
+    }));
+
+  const statusId = summary.status?.id ?? null;
+  const derived = deriveBadge({ statusId, publicComments });
+
+  if (derived.badge !== "yeni-yanit" || derived.lastPublicCommentAt === null) {
+    return derived;
+  }
+
+  // D-07: an external-authored last comment is "yeni-yanit" only while
+  // unseen. No writer exists before Phase 3 (THRD-04), so getLastSeenAt is
+  // always null today and this always stays "yeni-yanit" — wiring the read
+  // side now means Phase 3 only has to add the write.
+  const lastSeenAt = getLastSeenAt(summary.key);
+  const isUnseen = lastSeenAt === null || lastSeenAt < derived.lastPublicCommentAt;
+
+  return isUnseen ? derived : { ...derived, badge: "yanit-bekleniyor" };
+}
+
+/**
  * Maps a hydrated `Ticket` (or a hydration failure) into a row view model.
  *
  * Recipient/subject resolution was corrected against CONFIRMED live shapes
@@ -62,11 +109,14 @@ function toRow(
   hydrationFailed: boolean
 ): ConversationRowVM {
   if (!ticket) {
+    // No status data without hydration — safe default (D-07), stays dim via
+    // `hydrationFailed`.
     return {
       key: summary.key,
       recipientEmail: summary.key,
       subject: summary.subject || summary.key,
       summary: "",
+      badge: "yeni-yanit",
       lastPublicCommentAt: null,
       hydrationFailed: true,
     };
@@ -78,6 +128,7 @@ function toRow(
 
   const recipientEmail = resolveRecipientEmail(ticket, summary);
   const subject = summary.subject || summary.key;
+  const { badge, lastPublicCommentAt } = resolveBadge(ticket, summary);
 
   const rawSummary = lastPublicComment?.body ?? "";
   const truncatedSummary =
@@ -90,7 +141,8 @@ function toRow(
     recipientEmail,
     subject,
     summary: truncatedSummary,
-    lastPublicCommentAt: lastPublicComment?.createdAt ?? null,
+    badge,
+    lastPublicCommentAt,
     hydrationFailed,
   };
 }
@@ -156,9 +208,13 @@ export class SideConversationsStore {
           : toRow(summary, null, true);
       });
 
+      // Group/sort only after hydration has fully settled (D-08) — never
+      // render/reorder mid-fetch (Anti-Pattern: reorder flash).
+      const sortedRows = sortConversations(rows);
+
       runInAction(() => {
-        this.rows = rows;
-        this.status = rows.length ? "ready" : "empty";
+        this.rows = sortedRows;
+        this.status = sortedRows.length ? "ready" : "empty";
       });
     } catch (err) {
       if (gen !== this.generation) return;
