@@ -1,6 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useEffect } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   Screen,
   ScreenContent,
@@ -9,7 +10,7 @@ import {
 } from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
-import { formatPrefillSubject } from "@/lib/side-conversation";
+import { formatPrefillSubject, isValidEmail } from "@/lib/side-conversation";
 
 import { MessageField } from "./components/message-field";
 import { RecipientField } from "./components/recipient-field";
@@ -17,17 +18,41 @@ import { SubjectField } from "./components/subject-field";
 
 /**
  * Compose screen (COMP-01/02/03/04). RecipientField/SubjectField/MessageField
- * are all wired this plan (see 02-UI-SPEC.md "Compose screen anatomy") — the
- * "Gönder" button follows in Plan 05. `isDirty` is still hardcoded `false`:
- * Plan 05 replaces this with `compose.isDirty` (D-02) once the back-confirm
- * dialog exists to act on it.
+ * were wired in Plan 03/04 (see 02-UI-SPEC.md "Compose screen anatomy") —
+ * this plan adds the full-width "Gönder" action bar, closing the happy path.
+ * `isDirty` stays hardcoded `false`: Plan 06 replaces it with
+ * `compose.isDirty` in the SAME change that adds `ConfirmDialog` (D-02) —
+ * wiring the real value here without the dialog would silently swallow a
+ * dirty-form back-tap (`requestBack` returns `true` with nothing to act on
+ * it).
  */
 export const ComposeScreen = observer(() => {
-  const { ticket } = useGrispi();
+  const { agentEmail, ticket } = useGrispi();
   const panelNav = useStore().panelNavigation;
   const compose = useStore().compose;
 
   const isDirty = false;
+
+  // D-06/D-10: mirrors RecipientField's own local derivation of the
+  // invalid-email warning (compose-store exposes no separate getter for
+  // it) — a query that fails email-format validation with no matched
+  // customers and no free-email row disables "Gönder" the same way an
+  // unselected recipient does. In practice this state always implies
+  // `recipientEmail` is still empty (the chip view replaces the input the
+  // moment a recipient IS selected), so it's a defensive, explicit
+  // restatement of the UI-SPEC's disabled condition rather than a
+  // functionally distinct branch.
+  const showsInvalidEmailWarning =
+    !compose.recipientLabel &&
+    compose.searchStatus === "no-results" &&
+    !compose.showFreeEmailRow &&
+    !isValidEmail(compose.query.trim());
+
+  const sendDisabled =
+    !compose.recipientEmail ||
+    compose.message.trim() === "" ||
+    compose.submitting ||
+    showsInvalidEmailWarning;
 
   // D-08/D-09: prefill the subject exactly once per mounted ticket, using
   // the SAME `[ticket?.key]` effect-bridging pattern as
@@ -56,12 +81,20 @@ export const ComposeScreen = observer(() => {
       <ScreenHeader onBack={() => panelNav.requestBack(isDirty)}>
         <ScreenTitle>Yeni Görüşme</ScreenTitle>
       </ScreenHeader>
-      <ScreenContent>
-        <div className="flex h-full flex-col gap-2 p-4">
+      <ScreenContent className="flex flex-col">
+        <div className="flex flex-1 flex-col gap-2 p-4">
           <RecipientField />
           <SubjectField />
           <MessageField />
-          {/* "Gönder" button — Plan 05 */}
+        </div>
+        <div className="sticky bottom-0 border-t bg-card p-4">
+          <Button
+            className="w-full"
+            disabled={sendDisabled}
+            onClick={() => compose.submit(agentEmail, ticket?.key ?? "")}
+          >
+            Gönder
+          </Button>
         </div>
       </ScreenContent>
     </Screen>
