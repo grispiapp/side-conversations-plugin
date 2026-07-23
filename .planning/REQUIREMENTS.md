@@ -43,7 +43,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Tazelik (SYNC)
 
 - [ ] **SYNC-01**: Panel görünürken liste ve açık görüşme makul aralıklarla (30-60 sn) sessizce tazelenir
-- [ ] **SYNC-02**: Her yazma işleminden (gönder, yanıtla, kapat) sonra ilgili görünüm anında tazelenir
+- [x] **SYNC-02**: Her yazma işleminden (gönder, yanıtla, kapat) sonra ilgili görünüm anında tazelenir
 
 ## v2 Requirements
 
@@ -87,7 +87,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMP-02 | Phase 2 | Complete |
 | COMP-03 | Phase 2 | Complete |
 | COMP-04 | Phase 2 | Complete |
-| SYNC-02 | Phase 2 | Pending |
+| SYNC-02 | Phase 2 | Complete |
 | THRD-01 | Phase 3 | Pending |
 | THRD-02 | Phase 3 | Pending |
 | THRD-03 | Phase 3 | Pending |
