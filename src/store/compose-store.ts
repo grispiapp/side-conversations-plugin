@@ -275,8 +275,13 @@ export class ComposeStore {
     this.reset();
   }
 
-  /** Clears the entire form back to its pristine state (post-submit). */
-  private reset(): void {
+  /**
+   * Clears the entire form back to its pristine state. Called internally
+   * after a successful `submit`, and externally by ComposeScreen's D-02
+   * `ConfirmDialog` "Vazgeç" confirm handler when the agent explicitly
+   * discards a dirty draft (Plan 06) — hence public, not private.
+   */
+  reset(): void {
     this.query = "";
     this.searchStatus = "idle";
     this.results = [];

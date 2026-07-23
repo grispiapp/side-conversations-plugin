@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 import { formatPrefillSubject, isValidEmail } from "@/lib/side-conversation";
 
+import { ConfirmDialog } from "./components/confirm-dialog";
 import { MessageField } from "./components/message-field";
 import { RecipientField } from "./components/recipient-field";
 import { SubjectField } from "./components/subject-field";
@@ -20,18 +21,18 @@ import { SubjectField } from "./components/subject-field";
  * Compose screen (COMP-01/02/03/04). RecipientField/SubjectField/MessageField
  * were wired in Plan 03/04 (see 02-UI-SPEC.md "Compose screen anatomy") —
  * this plan adds the full-width "Gönder" action bar, closing the happy path.
- * `isDirty` stays hardcoded `false`: Plan 06 replaces it with
- * `compose.isDirty` in the SAME change that adds `ConfirmDialog` (D-02) —
- * wiring the real value here without the dialog would silently swallow a
- * dirty-form back-tap (`requestBack` returns `true` with nothing to act on
- * it).
+ * D-02 (dirty-back guard): `onBack` reads the real `compose.isDirty` and, if
+ * `panelNav.requestBack` reports the form is dirty, opens the local
+ * `ConfirmDialog` instead of silently swallowing the back-tap.
  */
 export const ComposeScreen = observer(() => {
   const { agentEmail, ticket } = useGrispi();
   const panelNav = useStore().panelNavigation;
   const compose = useStore().compose;
 
-  const isDirty = false;
+  const [discardOpen, setDiscardOpen] = useState(false);
+
+  const isDirty = compose.isDirty;
 
   // D-06/D-10: mirrors RecipientField's own local derivation of the
   // invalid-email warning (compose-store exposes no separate getter for
@@ -78,7 +79,16 @@ export const ComposeScreen = observer(() => {
 
   return (
     <Screen>
-      <ScreenHeader onBack={() => panelNav.requestBack(isDirty)}>
+      <ScreenHeader
+        onBack={() => {
+          // D-02: `requestBack` returns `true` only when the form is dirty —
+          // in that case it deliberately does NOT change screens, so the
+          // dialog is the only thing left to act on the dirty-back-tap.
+          if (panelNav.requestBack(isDirty)) {
+            setDiscardOpen(true);
+          }
+        }}
+      >
         <ScreenTitle>Yeni Görüşme</ScreenTitle>
       </ScreenHeader>
       <ScreenContent className="flex flex-col">
@@ -97,6 +107,21 @@ export const ComposeScreen = observer(() => {
           </Button>
         </div>
       </ScreenContent>
+
+      {discardOpen && (
+        <ConfirmDialog
+          title="Vazgeçilsin mi?"
+          body="Yazılanlar kaybolur."
+          cancelLabel="İptal"
+          confirmLabel="Vazgeç"
+          onCancel={() => setDiscardOpen(false)}
+          onConfirm={() => {
+            compose.reset();
+            panelNav.confirmDiscardAndReturnToList();
+            setDiscardOpen(false);
+          }}
+        />
+      )}
     </Screen>
   );
 });
