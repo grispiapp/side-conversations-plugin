@@ -180,6 +180,53 @@ describe("ActiveConversationStore", () => {
     expect(loadMock).toHaveBeenCalledWith("DESTEK-1");
   });
 
+  it("startNew RESETS state instead of appending — no message bleed across consecutive conversations (M-4)", async () => {
+    mockedCreateTicket.mockResolvedValueOnce(makeTicketResponse("TICKET-580"));
+
+    store.startNew({
+      recipientLabel: "Vendor A",
+      subject: "[DESTEK-1] A konusu",
+      body: "A'ya mesaj",
+      request: makeRequest(),
+      parentKey: "DESTEK-1",
+    });
+
+    await flushPromises();
+
+    expect(store.messages).toHaveLength(1);
+    expect(store.ticketKey).toBe("TICKET-580");
+
+    mockedCreateTicket.mockResolvedValueOnce(makeTicketResponse("TICKET-999"));
+
+    store.startNew({
+      recipientLabel: "Vendor B",
+      subject: "[DESTEK-2] B konusu",
+      body: "B'ye mesaj",
+      request: makeRequest(),
+      parentKey: "DESTEK-2",
+    });
+
+    // Synchronously, right after the second startNew — before its POST
+    // settles — the store must already show ONLY the new conversation's
+    // single pending message, not A's leftover bubble plus B's.
+    expect(store.messages).toHaveLength(1);
+    expect(store.messages[0]).toMatchObject({
+      status: "pending",
+      body: "B'ye mesaj",
+    });
+    expect(store.recipientLabel).toBe("Vendor B");
+    expect(store.subject).toBe("[DESTEK-2] B konusu");
+    // The stale ticketKey from conversation A must not leak into B's
+    // pre-resolution state.
+    expect(store.ticketKey).toBeNull();
+
+    await flushPromises();
+
+    expect(store.messages).toHaveLength(1);
+    expect(store.messages[0].status).toBe("sent");
+    expect(store.ticketKey).toBe("TICKET-999");
+  });
+
   it("message list updates are immutable (new array identity on every transition)", async () => {
     mockedCreateTicket.mockResolvedValueOnce(makeTicketResponse("TICKET-580"));
 

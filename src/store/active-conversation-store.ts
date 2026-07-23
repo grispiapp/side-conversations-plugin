@@ -75,16 +75,26 @@ export class ActiveConversationStore {
   }
 
   /**
-   * Starts a brand-new conversation: sets the echoed recipient/subject
+   * Starts a brand-new conversation: RESETS all state (`messages`,
+   * `ticketKey`, `retryPayloads`) and sets the echoed recipient/subject
    * (Pitfall #6 — these come from compose, never read back from the
-   * server), appends a single `pending` `MessageVM`, and fires the
+   * server) before seeding a single `pending` `MessageVM` and firing the
    * `createTicket` POST in the background.
+   *
+   * M-4 (UAT fix, 02-06): this store owns exactly ONE active conversation at
+   * a time — `startNew` is only ever called for a FRESH conversation
+   * (ComposeStore.submit), never to append a reply to the current one
+   * (Phase 3's concern). The previous implementation appended to
+   * `this.messages`, which bled a prior conversation's bubbles (and its
+   * stale `ticketKey`/`retryPayloads`) into a new one: compose to vendor A,
+   * back to list, compose to vendor B — B's chat showed A's message too.
    */
   startNew(params: StartNewParams): void {
     const { recipientLabel, subject, body, request, parentKey } = params;
 
     this.recipientLabel = recipientLabel;
     this.subject = subject;
+    this.ticketKey = null;
 
     const message: MessageVM = {
       id: nextMessageId(),
@@ -94,11 +104,13 @@ export class ActiveConversationStore {
       createdAt: Date.now(),
     };
 
-    // Immutable append — same "new array identity" lesson as
-    // SideConversationsStore's UAT Defect 2 fix (side-conversations-store.ts
-    // lines 443-450): an observer only re-renders off a changed array
-    // identity, never an in-place push.
-    this.messages = [...this.messages, message];
+    // Fresh array (not an append) — a NEW conversation starts with exactly
+    // this one message, discarding whatever the PREVIOUS conversation left
+    // behind. Still a "new array identity" assignment (same lesson as
+    // SideConversationsStore's UAT Defect 2 fix, side-conversations-store.ts
+    // lines 443-450) so observers still re-render correctly.
+    this.messages = [message];
+    this.retryPayloads.clear();
     this.retryPayloads.set(message.id, { request, parentKey });
 
     void this.sendCreateTicket(message.id);
