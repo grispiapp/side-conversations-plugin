@@ -488,4 +488,211 @@ describe("ActiveConversationStore", () => {
       expect(store.messages).toHaveLength(1);
     });
   });
+
+  describe("reply and lifecycle mutations", () => {
+    const external = makeCreator(
+      7,
+      "ROLE_END_USER",
+      "vendor@example.com",
+      "Vendor Person"
+    );
+    const agent = makeCreator(
+      9,
+      "ROLE_ADMIN",
+      "agent@grispi.com",
+      "Agent"
+    );
+
+    async function loadOpenThread(): Promise<void> {
+      mockedGetTicket.mockResolvedValueOnce(
+        makeLoadedTicket("SIDE-1", [
+          makeComment(
+            1,
+            1000,
+            "<p>Public 1</p><blockquote><p>Old quote</p></blockquote>",
+            external
+          ),
+          makeComment(
+            2,
+            2000,
+            '<p onclick="steal()">Internal secret</p>',
+            agent,
+            false
+          ),
+          makeComment(
+            3,
+            3000,
+            "<p>Public 2<script>steal()</script></p>",
+            agent
+          ),
+        ])
+      );
+      await store.load("SIDE-1", "PARENT-1");
+      loadMock.mockClear();
+    }
+
+    it("clears the draft immediately, sends one sanitized quoted context, and retries the exact body without quote duplication", async () => {
+      await loadOpenThread();
+      const firstAttempt = deferred<never>();
+      mockedPatchTicket.mockReturnValueOnce(firstAttempt.promise);
+
+      store.setDraftHtml(
+        '<p onclick="steal()">New <strong>reply</strong></p><script>bad()</script>'
+      );
+      store.sendReply("agent@grispi.com");
+
+      const optimistic = store.messages[store.messages.length - 1];
+      expect(store.draftHtml).toBe("");
+      expect(optimistic).toMatchObject({
+        direction: "own",
+        status: "pending",
+        body:
+          "<p>New <strong>reply</strong></p><blockquote><p>Public 1</p><p>Public 2</p></blockquote>",
+      });
+
+      const expectedRequest = {
+        comment: {
+          body:
+            "<p>New <strong>reply</strong></p><blockquote><p>Public 1</p><p>Public 2</p></blockquote>",
+          publicVisible: true,
+          creator: [{ key: "us.email", value: "agent@grispi.com" }],
+        },
+      };
+      expect(mockedPatchTicket).toHaveBeenLastCalledWith(
+        "SIDE-1",
+        expectedRequest
+      );
+      expect(expectedRequest).not.toHaveProperty("fields");
+      expect(expectedRequest.comment.body.match(/<blockquote>/g)).toHaveLength(
+        1
+      );
+      expect(expectedRequest.comment.body).not.toContain("Internal secret");
+      expect(expectedRequest.comment.body).not.toContain("Old quote");
+      expect(expectedRequest.comment.body).not.toMatch(/onclick|script/i);
+
+      firstAttempt.reject(new NetworkError(new Error("offline")));
+      await flushPromises();
+      expect(store.messages[store.messages.length - 1]).toMatchObject({
+        id: optimistic.id,
+        status: "failed",
+        errorKind: "network",
+      });
+
+      mockedPatchTicket.mockRejectedValueOnce(new HttpError(500, {}));
+      store.retry(optimistic.id);
+      await flushPromises();
+
+      expect(mockedPatchTicket).toHaveBeenCalledTimes(2);
+      expect(mockedPatchTicket).toHaveBeenNthCalledWith(
+        2,
+        "SIDE-1",
+        expectedRequest
+      );
+      expect(
+        mockedPatchTicket.mock.calls[1][1].comment.body.match(/<blockquote>/g)
+      ).toHaveLength(1);
+    });
+
+    it("refetches canonical active ticket and parent list after reply success", async () => {
+      await loadOpenThread();
+      mockedPatchTicket.mockResolvedValueOnce({ key: "SIDE-1" });
+      mockedGetTicket.mockResolvedValueOnce(
+        makeLoadedTicket("SIDE-1", [
+          makeComment(1, 1000, "<p>Public 1</p>", external),
+          makeComment(4, 4000, "<p>Canonical reply</p>", agent),
+        ])
+      );
+
+      store.setDraftHtml("<p>Reply</p>");
+      store.sendReply("agent@grispi.com");
+      await flushPromises();
+
+      expect(mockedGetTicket).toHaveBeenCalledTimes(2);
+      expect(store.messages.map((message) => message.id)).toEqual([
+        "comment-1",
+        "comment-4",
+      ]);
+      expect(loadMock).toHaveBeenCalledWith("PARENT-1");
+    });
+
+    it("does not send replies while solved", async () => {
+      mockedGetTicket.mockResolvedValueOnce(
+        makeLoadedTicket(
+          "SIDE-1",
+          [makeComment(1, 1000, "<p>External</p>", external)],
+          "4"
+        )
+      );
+      await store.load("SIDE-1", "PARENT-1");
+
+      store.setDraftHtml("<p>Blocked</p>");
+      store.sendReply("agent@grispi.com");
+
+      expect(mockedPatchTicket).not.toHaveBeenCalled();
+      expect(store.draftHtml).toBe("<p>Blocked</p>");
+    });
+
+    it("uses status-only SOLVED body, keeps open state on failure, and retries without optimistic lifecycle changes", async () => {
+      await loadOpenThread();
+      mockedPatchTicket.mockRejectedValueOnce(new NetworkError(new Error("x")));
+
+      store.setSolved();
+      expect(store.solved).toBe(false);
+      expect(store.lifecyclePending).toBe("solve");
+      expect(mockedPatchTicket).toHaveBeenCalledWith("SIDE-1", {
+        fields: [{ key: "ts.status", value: "4" }],
+      });
+      expect(mockedPatchTicket.mock.calls[0][1]).not.toHaveProperty("comment");
+
+      await flushPromises();
+      expect(store.solved).toBe(false);
+      expect(store.lifecyclePending).toBeNull();
+      expect(store.lifecycleError).toEqual({
+        action: "solve",
+        errorKind: "network",
+      });
+
+      mockedPatchTicket.mockRejectedValueOnce(new HttpError(500, {}));
+      store.retryLifecycle();
+      expect(store.solved).toBe(false);
+      expect(mockedPatchTicket).toHaveBeenNthCalledWith(2, "SIDE-1", {
+        fields: [{ key: "ts.status", value: "4" }],
+      });
+      await flushPromises();
+    });
+
+    it("uses status-only OPEN body, refetches server truth, and exposes one-shot composer focus after reopen", async () => {
+      mockedGetTicket.mockResolvedValueOnce(
+        makeLoadedTicket(
+          "SIDE-1",
+          [makeComment(1, 1000, "<p>External</p>", external)],
+          "4"
+        )
+      );
+      await store.load("SIDE-1", "PARENT-1");
+      loadMock.mockClear();
+
+      mockedPatchTicket.mockResolvedValueOnce({ key: "SIDE-1" });
+      mockedGetTicket.mockResolvedValueOnce(
+        makeLoadedTicket(
+          "SIDE-1",
+          [makeComment(1, 1000, "<p>External</p>", external)],
+          "2"
+        )
+      );
+
+      store.reopen();
+      expect(store.solved).toBe(true);
+      expect(mockedPatchTicket).toHaveBeenCalledWith("SIDE-1", {
+        fields: [{ key: "ts.status", value: "2" }],
+      });
+      expect(mockedPatchTicket.mock.calls[0][1]).not.toHaveProperty("comment");
+      await flushPromises();
+
+      expect(store.solved).toBe(false);
+      expect(loadMock).toHaveBeenCalledWith("PARENT-1");
+      expect(store.consumeComposerFocus()).toBe(true);
+      expect(store.consumeComposerFocus()).toBe(false);
+    });
+  });
 });
