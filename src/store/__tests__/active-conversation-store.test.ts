@@ -124,10 +124,9 @@ function deferred<T>() {
  * settle before assertions run — same idiom as compose-store.test.ts's
  * `advanceDebounceAndFlush`, minus the fake timer. */
 async function flushPromises(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let index = 0; index < 10; index += 1) {
+    await Promise.resolve();
+  }
 }
 
 describe("ActiveConversationStore", () => {
@@ -659,6 +658,26 @@ describe("ActiveConversationStore", () => {
         fields: [{ key: "ts.status", value: "4" }],
       });
       await flushPromises();
+    });
+
+    it("accepts solved state only from the canonical refetch after SOLVED succeeds", async () => {
+      await loadOpenThread();
+      mockedPatchTicket.mockResolvedValueOnce({ key: "SIDE-1" });
+      mockedGetTicket.mockResolvedValueOnce(
+        makeLoadedTicket(
+          "SIDE-1",
+          [makeComment(1, 1000, "<p>External</p>", external)],
+          "4"
+        )
+      );
+
+      store.setSolved();
+      expect(store.solved).toBe(false);
+      await flushPromises();
+
+      expect(store.solved).toBe(true);
+      expect(store.status).toBe("ready");
+      expect(loadMock).toHaveBeenCalledWith("PARENT-1");
     });
 
     it("uses status-only OPEN body, refetches server truth, and exposes one-shot composer focus after reopen", async () => {

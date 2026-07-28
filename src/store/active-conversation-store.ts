@@ -2,9 +2,19 @@ import { makeAutoObservable, runInAction } from "mobx";
 
 import { grispiAPI } from "@/grispi/client/api";
 import { NetworkError } from "@/grispi/client/http-handler";
-import { sanitizeHtml, splitQuotedHtml } from "@/lib/html-sanitizer";
+import {
+  buildQuotedReplyHtml,
+  sanitizeHtml,
+  splitQuotedHtml,
+} from "@/lib/html-sanitizer";
 import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
-import { Comment, CreateTicketRequest, Ticket } from "@/types/grispi.type";
+import {
+  Comment,
+  CreateTicketRequest,
+  ReplyTicketPatchRequest,
+  StatusTicketPatchRequest,
+  Ticket,
+} from "@/types/grispi.type";
 
 import { RootStore } from "./root-store";
 
@@ -57,6 +67,20 @@ interface RetryPayload {
   parentKey: string;
 }
 
+interface ReplyRetryPayload {
+  request: ReplyTicketPatchRequest;
+  ticketKey: string;
+  parentKey: string;
+  generation: number;
+}
+
+type LifecycleAction = "solve" | "reopen";
+
+export interface LifecycleError {
+  action: LifecycleAction;
+  errorKind: "network" | "server";
+}
+
 /**
  * Owns the single active side-conversation's optimistic message lifecycle
  * (COMP-04/SYNC-02) — the seam Phase 3 will extend with a real two-way
@@ -78,11 +102,16 @@ export class ActiveConversationStore {
   subject = "";
   solved = false;
   messages: MessageVM[] = [];
+  draftHtml = "";
   scrollTargetMessageId: string | null = null;
   latestRelevantExternalAt: number | null = null;
+  lifecyclePending: LifecycleAction | null = null;
+  lifecycleError: LifecycleError | null = null;
 
   private retryPayloads = new Map<string, RetryPayload>();
+  private replyRetryPayloads = new Map<string, ReplyRetryPayload>();
   private generation = 0;
+  private composerFocusRequested = false;
 
   constructor(rootStore: RootStore) {
     makeAutoObservable(this);
@@ -106,6 +135,7 @@ export class ActiveConversationStore {
    */
   startNew(params: StartNewParams): void {
     const { recipientLabel, subject, body, request, parentKey } = params;
+    ++this.generation;
 
     this.recipientLabel = recipientLabel;
     this.subject = subject;
@@ -116,6 +146,10 @@ export class ActiveConversationStore {
     this.solved = false;
     this.scrollTargetMessageId = null;
     this.latestRelevantExternalAt = null;
+    this.draftHtml = "";
+    this.lifecyclePending = null;
+    this.lifecycleError = null;
+    this.composerFocusRequested = false;
 
     const message: MessageVM = {
       id: nextMessageId(),
@@ -132,6 +166,7 @@ export class ActiveConversationStore {
     // lines 443-450) so observers still re-render correctly.
     this.messages = [message];
     this.retryPayloads.clear();
+    this.replyRetryPayloads.clear();
     this.retryPayloads.set(message.id, { request, parentKey });
 
     void this.sendCreateTicket(message.id);
@@ -151,6 +186,7 @@ export class ActiveConversationStore {
     this.messages = [];
     this.scrollTargetMessageId = null;
     this.latestRelevantExternalAt = null;
+    this.lifecycleError = null;
 
     try {
       const ticket = await grispiAPI.tickets.getTicket(ticketKey);
@@ -215,6 +251,20 @@ export class ActiveConversationStore {
    * (T-02-08, see SUMMARY "Deviations"/"Accepted Risks").
    */
   retry(messageId: string): void {
+    if (this.replyRetryPayloads.has(messageId)) {
+      this.messages = this.messages.map((message) =>
+        message.id === messageId
+          ? {
+              ...message,
+              status: "pending" as const,
+              errorKind: undefined,
+            }
+          : message
+      );
+      void this.sendReplyPayload(messageId);
+      return;
+    }
+
     const payload = this.retryPayloads.get(messageId);
     if (!payload) return;
 
@@ -225,6 +275,90 @@ export class ActiveConversationStore {
     );
 
     void this.sendCreateTicket(messageId);
+  }
+
+  setDraftHtml(html: string): void {
+    this.draftHtml = html;
+  }
+
+  /**
+   * Builds the narrow PATCH body exactly once. Public server messages are
+   * serialized chronologically into one quote; internal notes and prior
+   * quoted sections are excluded by the shared helper. Retry only looks up
+   * this retained object and never rebuilds it from mutable UI state.
+   */
+  sendReply(agentEmail: string): void {
+    if (
+      this.solved ||
+      !this.ticketKey ||
+      !this.parentKey ||
+      !this.draftHtml.trim()
+    ) {
+      return;
+    }
+
+    const body = buildQuotedReplyHtml(
+      this.draftHtml,
+      this.messages
+        .filter((message) => !message.internal && message.status === "sent")
+        .map((message) => ({
+          html: message.body,
+          publicVisible: true,
+        }))
+    );
+    if (!body.trim()) return;
+
+    const messageId = nextMessageId();
+    const request: ReplyTicketPatchRequest = {
+      comment: {
+        body,
+        publicVisible: true,
+        creator: [{ key: "us.email", value: agentEmail }],
+      },
+    };
+    const payload: ReplyRetryPayload = {
+      request,
+      ticketKey: this.ticketKey,
+      parentKey: this.parentKey,
+      generation: this.generation,
+    };
+
+    this.draftHtml = "";
+    this.messages = [
+      ...this.messages,
+      {
+        id: messageId,
+        direction: "own",
+        body,
+        status: "pending",
+        createdAt: Date.now(),
+        internal: false,
+      },
+    ];
+    this.replyRetryPayloads.set(messageId, payload);
+    void this.sendReplyPayload(messageId);
+  }
+
+  setSolved(): void {
+    if (this.solved) return;
+    this.beginLifecycleMutation("solve");
+  }
+
+  reopen(): void {
+    if (!this.solved) return;
+    this.beginLifecycleMutation("reopen");
+  }
+
+  retryLifecycle(): void {
+    const action = this.lifecycleError?.action;
+    if (!action) return;
+    this.beginLifecycleMutation(action);
+  }
+
+  consumeComposerFocus(): boolean {
+    const requested = this.composerFocusRequested;
+    this.composerFocusRequested = false;
+    return requested;
   }
 
   resolveSent(messageId: string): void {
@@ -265,6 +399,99 @@ export class ActiveConversationStore {
     } catch (err) {
       runInAction(() => {
         this.markFailed(messageId, err instanceof NetworkError ? "network" : "server");
+      });
+    }
+  }
+
+  private async sendReplyPayload(messageId: string): Promise<void> {
+    const payload = this.replyRetryPayloads.get(messageId);
+    if (!payload) return;
+
+    try {
+      await grispiAPI.tickets.patchTicket(payload.ticketKey, payload.request);
+      if (
+        payload.generation !== this.generation ||
+        payload.ticketKey !== this.ticketKey
+      ) {
+        return;
+      }
+      await this.load(payload.ticketKey, payload.parentKey);
+    } catch (err) {
+      if (
+        payload.generation !== this.generation ||
+        payload.ticketKey !== this.ticketKey
+      ) {
+        return;
+      }
+      runInAction(() => {
+        this.markFailed(
+          messageId,
+          err instanceof NetworkError ? "network" : "server"
+        );
+      });
+    }
+  }
+
+  private beginLifecycleMutation(action: LifecycleAction): void {
+    if (
+      this.lifecyclePending ||
+      !this.ticketKey ||
+      !this.parentKey ||
+      (action === "solve" ? this.solved : !this.solved)
+    ) {
+      return;
+    }
+
+    const ticketKey = this.ticketKey;
+    const parentKey = this.parentKey;
+    const gen = this.generation;
+    const request: StatusTicketPatchRequest = {
+      fields: [
+        {
+          key: "ts.status",
+          value: action === "solve" ? "4" : "2",
+        },
+      ],
+    };
+
+    this.lifecyclePending = action;
+    this.lifecycleError = null;
+    void this.sendLifecycleMutation(action, ticketKey, parentKey, gen, request);
+  }
+
+  private async sendLifecycleMutation(
+    action: LifecycleAction,
+    ticketKey: string,
+    parentKey: string,
+    gen: number,
+    request: StatusTicketPatchRequest
+  ): Promise<void> {
+    try {
+      await grispiAPI.tickets.patchTicket(ticketKey, request);
+      if (gen !== this.generation || ticketKey !== this.ticketKey) return;
+
+      runInAction(() => {
+        this.lifecyclePending = null;
+      });
+      await this.load(ticketKey, parentKey);
+      if (
+        action === "reopen" &&
+        ticketKey === this.ticketKey &&
+        this.status === "ready" &&
+        !this.solved
+      ) {
+        runInAction(() => {
+          this.composerFocusRequested = true;
+        });
+      }
+    } catch (err) {
+      if (gen !== this.generation || ticketKey !== this.ticketKey) return;
+      runInAction(() => {
+        this.lifecyclePending = null;
+        this.lifecycleError = {
+          action,
+          errorKind: err instanceof NetworkError ? "network" : "server",
+        };
       });
     }
   }
