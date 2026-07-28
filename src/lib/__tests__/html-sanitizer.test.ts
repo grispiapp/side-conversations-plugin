@@ -7,13 +7,13 @@ import {
 describe("sanitizeHtml", () => {
   it("preserves only the lightweight formatting allowlist", () => {
     const result = sanitizeHtml(
-      "<p>Hello <strong>bold</strong> <b>b</b> <em>em</em> <i>i</i><br>" +
-        "<ul><li>one</li></ul><ol><li>two</li></ol><blockquote>old</blockquote></p>"
+      "<p>Hello <strong>bold</strong> <b>b</b> <em>em</em> <i>i</i><br></p>" +
+        "<ul><li>one</li></ul><ol><li>two</li></ol><blockquote>old</blockquote>"
     );
 
     expect(result).toBe(
-      "<p>Hello <strong>bold</strong> <b>b</b> <em>em</em> <i>i</i><br>" +
-        "<ul><li>one</li></ul><ol><li>two</li></ol><blockquote>old</blockquote></p>"
+      "<p>Hello <strong>bold</strong> <b>b</b> <em>em</em> <i>i</i><br></p>" +
+        "<ul><li>one</li></ul><ol><li>two</li></ol><blockquote>old</blockquote>"
     );
   });
 
