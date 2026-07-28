@@ -55,7 +55,7 @@ describe("ticket PATCH request contracts", () => {
         {
           // @ts-expect-error PATCH status fields cannot resend create-only fields.
           key: "ts.subject",
-          value: "Subject",
+          value: "4",
         },
       ],
     };

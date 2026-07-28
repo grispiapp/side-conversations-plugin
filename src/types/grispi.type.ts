@@ -1,12 +1,12 @@
 export interface Settings extends Record<string, any> {}
 
-interface Role {
+export interface Role {
   authority: string;
   impliedAuthorities: string[];
   teamUser: boolean;
 }
 
-interface User {
+export interface User {
   role: Role;
   groups: any[];
   id: number;
@@ -40,7 +40,7 @@ interface Attachment {
   objectUrl: string;
 }
 
-interface Comment {
+export interface Comment {
   attachments: Attachment[];
   id: number;
   body: string;
@@ -223,6 +223,68 @@ export interface CreateTicketRequest {
     creator: [{ key: "us.email"; value: string }];
   };
   fields: Array<{ key: string; value: string }>;
+}
+
+/**
+ * `PATCH /public/v1/tickets/{key}` public-reply body — CONFIRMED live
+ * (Phase 03 Plan 01). It is deliberately separate from
+ * `CreateTicketRequest`: PATCH callers cannot resend subject, requester, or
+ * parent-link fields.
+ */
+export interface ReplyTicketPatchRequest {
+  comment: {
+    body: string;
+    publicVisible: true;
+    creator: [{ key: "us.email"; value: string }];
+  };
+}
+
+export type TicketLifecycleStatusId = "2" | "4";
+
+/**
+ * Status transitions are status-only by product decisions D-14/D-15/D-17:
+ * `"4"` solves and `"2"` reopens. Keeping this as a one-element tuple makes
+ * it impossible to attach a comment or append create-only fields.
+ */
+export interface StatusTicketPatchRequest {
+  fields: [
+    {
+      key: "ts.status";
+      value: TicketLifecycleStatusId;
+    },
+  ];
+}
+
+export type PatchTicketRequest =
+  | ReplyTicketPatchRequest
+  | StatusTicketPatchRequest;
+
+export interface PatchTicketMutationField {
+  key: string;
+  value: unknown;
+}
+
+export interface PatchTicketStatusMutationField
+  extends PatchTicketMutationField {
+  key: "ts.status";
+  value: {
+    id: number;
+    name: string;
+  };
+}
+
+/**
+ * PATCH returns a mutation-ticket object, not the canonical GET `Ticket`.
+ * Only the probe-backed fields needed to identify the mutation and inspect
+ * its status are exposed; callers must refetch with `getTicket` for canonical
+ * application state.
+ */
+export interface PatchTicketResponse {
+  key: string;
+  comments: Comment[];
+  fieldMap: Record<string, PatchTicketMutationField> & {
+    "ts.status": PatchTicketStatusMutationField;
+  };
 }
 
 /**
