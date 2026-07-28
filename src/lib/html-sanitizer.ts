@@ -159,11 +159,14 @@ export function splitQuotedHtml(input: string): QuotedHtmlParts {
   const quote = body.querySelector("blockquote");
   if (!quote) return { bodyHtml: sanitized };
 
-  const quoteStart = sanitized.indexOf("<blockquote>");
-  if (quoteStart < 0) return { bodyHtml: sanitized };
+  const range = body.ownerDocument.createRange();
+  range.setStart(body, 0);
+  range.setEndBefore(quote);
+  const beforeQuote = body.ownerDocument.createElement("div");
+  beforeQuote.appendChild(range.cloneContents());
 
   return {
-    bodyHtml: sanitized.slice(0, quoteStart),
+    bodyHtml: beforeQuote.innerHTML,
     quotedHtml: quote.innerHTML,
   };
 }

@@ -89,7 +89,7 @@ describe("quote boundary helpers", () => {
   it("builds one sanitized non-nested quote from chronological public context", () => {
     const result = buildQuotedReplyHtml("<p>New <em>reply</em></p>", [
       {
-        html: '<p>Public 1</p><blockquote><p>already quoted</p></blockquote>',
+        html: "<p>Public 1</p><blockquote><p>already quoted</p></blockquote>",
         publicVisible: true,
       },
       {
@@ -97,7 +97,7 @@ describe("quote boundary helpers", () => {
         publicVisible: false,
       },
       {
-        html: '<p>Public 2<script>steal()</script></p>',
+        html: "<p>Public 2<script>steal()</script></p>",
         publicVisible: true,
       },
     ]);

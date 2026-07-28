@@ -1,12 +1,16 @@
-import { ReactElement } from "react";
-import { createRoot, Root } from "react-dom/client";
-import { act } from "react-dom/test-utils";
-
 import { RichTextComposer } from "../rich-text-composer";
 import { ThreadMessage } from "../thread-message";
+import { ReactElement, act } from "react";
+import { Root, createRoot } from "react-dom/client";
 
 let container: HTMLDivElement;
 let root: Root;
+
+beforeAll(() => {
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 function render(ui: ReactElement): void {
   act(() => {
@@ -45,7 +49,8 @@ describe("ThreadMessage", () => {
   const baseMessage = {
     id: "m1",
     direction: "incoming" as const,
-    body: '<p onclick="steal()">Hello <strong>world</strong></p>' +
+    body:
+      '<p onclick="steal()">Hello <strong>world</strong></p>' +
       "<script>steal()</script><blockquote><p>Earlier</p></blockquote>",
     status: "sent" as const,
     createdAt: Date.UTC(2026, 6, 28, 12, 30),
@@ -106,7 +111,9 @@ describe("ThreadMessage", () => {
         onRetry={onRetry}
       />
     );
-    expect(container.querySelector('[aria-label="Gönderiliyor"]')).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Gönderiliyor"]')
+    ).not.toBeNull();
 
     render(
       <ThreadMessage
@@ -155,10 +162,40 @@ describe("RichTextComposer", () => {
 
     editable.innerHTML =
       '<p style="color:red" onclick="steal()">Safe</p><img src=x><script>bad()</script>';
-    act(() => editable.dispatchEvent(new InputEvent("input", { bubbles: true })));
+    act(() =>
+      editable.dispatchEvent(new InputEvent("input", { bubbles: true }))
+    );
 
     expect(onChange).toHaveBeenLastCalledWith("<p>Safe</p>");
     expect(editable.innerHTML).toBe("<p>Safe</p>");
+  });
+
+  it("sanitizes pasted HTML before it enters the controlled draft", () => {
+    const onChange = jest.fn();
+    render(
+      <RichTextComposer
+        value=""
+        recipientLabel="Ada"
+        onChange={onChange}
+        onSubmit={jest.fn()}
+      />
+    );
+    const editable = editor();
+    const paste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, "clipboardData", {
+      value: {
+        getData: (type: string) =>
+          type === "text/html"
+            ? '<p style="color:red">Pasted</p><img src=x onerror=steal()>'
+            : "",
+      },
+    });
+
+    act(() => editable.dispatchEvent(paste));
+
+    expect(paste.defaultPrevented).toBe(true);
+    expect(onChange).toHaveBeenLastCalledWith("<p>Pasted</p>");
+    expect(editable.querySelector("img")).toBeNull();
   });
 
   it("keeps Enter as newline and submits sanitized non-empty HTML with Shift+Enter", () => {
