@@ -1,13 +1,13 @@
+import { Authentication } from "../authentication";
+import { HttpHandler } from "../http-handler";
+import { Tickets } from "../tickets";
+
 import {
   PatchTicketRequest,
   PatchTicketResponse,
   ReplyTicketPatchRequest,
   StatusTicketPatchRequest,
 } from "@/types/grispi.type";
-
-import { Authentication } from "../authentication";
-import { HttpHandler } from "../http-handler";
-import { Tickets } from "../tickets";
 
 describe("ticket PATCH request contracts", () => {
   it("represents the live-proven public reply body exactly", () => {
@@ -31,16 +31,19 @@ describe("ticket PATCH request contracts", () => {
   it.each([
     ["SOLVED", "4"],
     ["OPEN", "2"],
-  ] as const)("represents the live-proven %s status-only body", (_name, value) => {
-    const request: StatusTicketPatchRequest = {
-      fields: [{ key: "ts.status", value }],
-    };
+  ] as const)(
+    "represents the live-proven %s status-only body",
+    (_name, value) => {
+      const request: StatusTicketPatchRequest = {
+        fields: [{ key: "ts.status", value }],
+      };
 
-    expect(request).toEqual({
-      fields: [{ key: "ts.status", value }],
-    });
-    expect(request).not.toHaveProperty("comment");
-  });
+      expect(request).toEqual({
+        fields: [{ key: "ts.status", value }],
+      });
+      expect(request).not.toHaveProperty("comment");
+    }
+  );
 
   it("keeps reply, lifecycle, and create-only fields disjoint", () => {
     const reply: PatchTicketRequest = {
@@ -116,41 +119,41 @@ describe("Tickets.patchTicket", () => {
     );
 
     expect(result).toBe(response);
-    expect(send).toHaveBeenCalledWith(
-      "public/v1/tickets/SIDE%2F1%20%3F%23",
-      {
-        method: "PATCH",
-        cache: "no-cache",
-        headers: {
-          Authorization: "Bearer test-token",
-          tenantId: "test-tenant",
-        },
-        body: JSON.stringify(body),
-      }
-    );
+    expect(send).toHaveBeenCalledWith("public/v1/tickets/SIDE%2F1%20%3F%23", {
+      method: "PATCH",
+      cache: "no-cache",
+      headers: {
+        Authorization: "Bearer test-token",
+        tenantId: "test-tenant",
+      },
+      body: JSON.stringify(body),
+    });
   });
 
   it.each([
     ["SOLVED", "4"],
     ["OPEN", "2"],
-  ] as const)("passes the exact %s status-only body through", async (_name, value) => {
-    const body: StatusTicketPatchRequest = {
-      fields: [{ key: "ts.status", value }],
-    };
+  ] as const)(
+    "passes the exact %s status-only body through",
+    async (_name, value) => {
+      const body: StatusTicketPatchRequest = {
+        fields: [{ key: "ts.status", value }],
+      };
 
-    await tickets.patchTicket("SIDE-1", body);
+      await tickets.patchTicket("SIDE-1", body);
 
-    expect(send).toHaveBeenCalledWith(
-      "public/v1/tickets/SIDE-1",
-      expect.objectContaining({
-        method: "PATCH",
-        body: JSON.stringify({
-          fields: [{ key: "ts.status", value }],
-        }),
-      })
-    );
-    expect(JSON.parse(send.mock.calls[0][1].body)).not.toHaveProperty(
-      "comment"
-    );
-  });
+      expect(send).toHaveBeenCalledWith(
+        "public/v1/tickets/SIDE-1",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            fields: [{ key: "ts.status", value }],
+          }),
+        })
+      );
+      expect(JSON.parse(send.mock.calls[0][1].body)).not.toHaveProperty(
+        "comment"
+      );
+    }
+  );
 });

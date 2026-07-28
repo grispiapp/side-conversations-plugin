@@ -5,6 +5,8 @@ import {
   AdvancedSearchRequest,
   AdvancedSearchResponse,
   CreateTicketRequest,
+  PatchTicketRequest,
+  PatchTicketResponse,
   Ticket,
 } from "@/types/grispi.type";
 
@@ -30,8 +32,8 @@ export class Tickets {
   /**
    * Search tickets by custom-field conditions. `advancedSearch` + `getTicket`
    * were built in Phase 1; `createTicket` was added in Phase 2 (CORE-02
-   * narrowing, see RESEARCH.md Open Question #6) — patchTicket/getDigest
-   * remain deferred to Phases 3-4.
+   * narrowing, see RESEARCH.md Open Question #6); `patchTicket` is the
+   * Phase 3 mutation boundary and getDigest remains deferred to Phase 4.
    */
   async advancedSearch(
     body: AdvancedSearchRequest,
@@ -63,5 +65,23 @@ export class Tickets {
       headers: this.auth.headers,
       body: JSON.stringify(body),
     });
+  }
+
+  /**
+   * Applies a probe-backed reply or status-only mutation. PATCH responses
+   * are mutation-ticket objects rather than canonical GET `Ticket`s, so
+   * callers should refetch with `getTicket` before replacing application
+   * state.
+   */
+  async patchTicket(ticketKey: string, body: PatchTicketRequest) {
+    return this.http.send<PatchTicketResponse>(
+      `public/v1/tickets/${encodeURIComponent(ticketKey)}`,
+      {
+        method: "PATCH",
+        cache: "no-cache",
+        headers: this.auth.headers,
+        body: JSON.stringify(body),
+      }
+    );
   }
 }
