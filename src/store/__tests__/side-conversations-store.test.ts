@@ -106,6 +106,7 @@ describe("SideConversationsStore", () => {
     mockedGetTicket.mockReset();
     mockedGetUser.mockReset();
     mockedGetUser.mockResolvedValue(null);
+    window.localStorage.clear();
   });
 
   it("reaches ready with hydrated rows after a successful two-tier fetch", async () => {
@@ -153,7 +154,7 @@ describe("SideConversationsStore", () => {
     });
   });
 
-  it("derives per-ticket badges and returns rows grouped+sorted per D-08", async () => {
+  it("derives independent lifecycle, action, and unseen state while preserving D-08 sorting", async () => {
     mockedAdvancedSearch.mockResolvedValue({
       content: [
         { key: "CLOSED-1", subject: "Kapali konu", status: { id: 5, name: "Closed" } },
@@ -168,7 +169,7 @@ describe("SideConversationsStore", () => {
 
     mockedGetTicket.mockImplementation((key: string) => {
       if (key === "CLOSED-1") {
-        // Solved/Closed short-circuits to "kapali" regardless of who wrote last.
+        // Solved/Closed suppresses action and unseen regardless of who wrote last.
         return Promise.resolve(
           makeTicket({
             key,
@@ -183,7 +184,7 @@ describe("SideConversationsStore", () => {
         );
       }
       if (key === "WAITING-1") {
-        // Agent replied last -> "yanit-bekleniyor".
+        // Agent replied last -> action "yanit-bekleniyor", no unseen accent.
         return Promise.resolve(
           makeTicket({
             key,
@@ -211,7 +212,7 @@ describe("SideConversationsStore", () => {
           })
         );
       }
-      // NEW-1: external wrote last -> "yeni-yanit" (no seen record exists).
+      // NEW-1: external wrote last -> action "yeni-yanit" + unseen accent.
       return Promise.resolve(
         makeTicket({
           key,
@@ -235,12 +236,120 @@ describe("SideConversationsStore", () => {
 
     expect(store.status).toBe("ready");
     expect(
-      store.rows.map((row) => ({ key: row.key, badge: row.badge }))
+      store.rows.map((row) => ({
+        key: row.key,
+        lifecycle: row.lifecycle,
+        actionBadge: row.actionBadge,
+        hasUnseen: row.hasUnseen,
+      }))
     ).toEqual([
-      { key: "NEW-1", badge: "yeni-yanit" },
-      { key: "WAITING-1", badge: "yanit-bekleniyor" },
-      { key: "CLOSED-1", badge: "kapali" },
+      {
+        key: "NEW-1",
+        lifecycle: "open",
+        actionBadge: "yeni-yanit",
+        hasUnseen: true,
+      },
+      {
+        key: "WAITING-1",
+        lifecycle: "open",
+        actionBadge: "yanit-bekleniyor",
+        hasUnseen: false,
+      },
+      {
+        key: "CLOSED-1",
+        lifecycle: "solved",
+        actionBadge: null,
+        hasUnseen: false,
+      },
     ]);
+  });
+
+  it("keeps Yeni yanıt after an external reply is seen and removes only the unseen accent", async () => {
+    window.localStorage.setItem("sc:lastSeenAt:SEEN-1", "9000");
+    mockedAdvancedSearch.mockResolvedValue(
+      makeSearchResponse(["SEEN-1"], { "SEEN-1": "Görülen yanıt" })
+    );
+    mockedGetTicket.mockResolvedValue(
+      makeTicket({
+        key: "SEEN-1",
+        comments: [
+          makeComment({
+            createdAt: 9000,
+            creator: makeExternalCreator(3, "ext3@example.com"),
+          }),
+        ],
+      })
+    );
+
+    await store.load("PARENT-1");
+
+    expect(store.rows[0]).toMatchObject({
+      lifecycle: "open",
+      actionBadge: "yeni-yanit",
+      hasUnseen: false,
+    });
+  });
+
+  it("restores open action and unseen signals when a solved conversation receives a later external reply", async () => {
+    window.localStorage.setItem("sc:lastSeenAt:REACTIVATED-1", "8000");
+    mockedAdvancedSearch
+      .mockResolvedValueOnce({
+        ...makeSearchResponse(["REACTIVATED-1"]),
+        content: [
+          {
+            key: "REACTIVATED-1",
+            subject: "Çözülen konu",
+            status: { id: 4, name: "Solved" },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ...makeSearchResponse(["REACTIVATED-1"]),
+        content: [
+          {
+            key: "REACTIVATED-1",
+            subject: "Tekrar açık konu",
+            status: { id: 1, name: "Open" },
+          },
+        ],
+      });
+    mockedGetTicket
+      .mockResolvedValueOnce(
+        makeTicket({
+          key: "REACTIVATED-1",
+          comments: [
+            makeComment({
+              createdAt: 7000,
+              creator: makeExternalCreator(3, "ext3@example.com"),
+            }),
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        makeTicket({
+          key: "REACTIVATED-1",
+          comments: [
+            makeComment({
+              createdAt: 9000,
+              creator: makeExternalCreator(3, "ext3@example.com"),
+            }),
+          ],
+        })
+      );
+
+    await store.load("PARENT-1");
+    expect(store.rows[0]).toMatchObject({
+      lifecycle: "solved",
+      actionBadge: null,
+      hasUnseen: false,
+    });
+
+    await store.load("PARENT-1");
+    expect(store.rows[0]).toMatchObject({
+      lifecycle: "open",
+      actionBadge: "yeni-yanit",
+      hasUnseen: true,
+    });
   });
 
   it("reaches empty when advancedSearch resolves with no content", async () => {
