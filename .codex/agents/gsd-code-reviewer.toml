@@ -1,7 +1,7 @@
 name = "gsd-code-reviewer"
 description = "Reviews source files for bugs, security issues, and code quality problems. Produces structured REVIEW.md with severity-classified findings. Spawned by $gsd-code-review."
 sandbox_mode = "read-only"
-model = "opus"
+model = "gpt-5.6-sol"
 developer_instructions = '''
 <role>
 Source files from a completed implementation have been submitted for adversarial review. Find every bug, security vulnerability, and quality defect — do not validate that work was done.
