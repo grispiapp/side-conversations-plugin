@@ -1,0 +1,12 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "\"/Users/davut/Library/Application Support/Herd/config/nvm/versions/node/v22.12.0/bin/node\" \"/Users/davut/Code/grispiapp/side-conversations-plugin/.codex/hooks/gsd-check-update.js\""
+        }
+      ]
+    }
+  ]
+}

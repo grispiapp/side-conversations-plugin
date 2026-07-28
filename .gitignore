@@ -22,6 +22,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# live API tokens used for manual/probe testing against a real tenant —
-# never committed (Plan 01-02 Task 1 probe artifact)
+# Live API tokens used for manual/probe testing against a real tenant —
+# never committed (Plan 01-02 Task 1 probe artifact).
 .token
+
+# GSD research cache is reproducible local metadata.
+.planning/research/.cache/
