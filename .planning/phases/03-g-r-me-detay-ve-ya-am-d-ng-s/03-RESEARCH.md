@@ -159,9 +159,15 @@ Manual verification at ~372px:
 3. What stable HTML markers identify quoted history in inbound Grispi comments?
 4. Which sanitizer package/version is already installed or compatible with this repository’s CRA/React/TS4 versions?
 
+## RESOLVED Open Questions — Plan 03-01
+
+1. **RESOLVED — PATCH/reopen contract (A1, A2, A3).** Public reply is exactly `{comment:{body,publicVisible:true,creator:[{key:"us.email",value:"<agent-email>"}]}}`; it requires `Content-Type: application/json` (omitted header returned HTTP 400 without adding a comment). Resolve is exactly `{fields:[{key:"ts.status",value:"4"}]}` and reopen is exactly `{fields:[{key:"ts.status",value:"2"}]}`. Both lifecycle bodies omit `comment`, returned HTTP 200, and kept the comment count unchanged. Evidence: `03-01-probe-findings.md` A1–A3.
+2. **RESOLVED — response and external reactivation (A4, A6).** PATCH returns a non-empty 11-key mutation-ticket object, not the canonical GET shape: PATCH `fieldMap["ts.status"].value` is `{id,name}`, while the subsequent GET value is a string ID. A ROLE_END_USER public reply added after SOLVED changed status server-side from `SOLVED(4)` to `OPEN(2)` without a plugin reopen PATCH. Evidence: `03-01-probe-findings.md` A4 and A6.
+3. **RESOLVED — stable quote marker and outbound preservation (A5).** The only stable live structural marker found across the sanitized tenant scan was plain `<blockquote>`; provider-specific Gmail/Yahoo/Proton/Mozilla markers had zero matches and must not be relied upon. Split at the first blockquote, default the sanitized quote closed in the UI, and construct outgoing body as current sanitized HTML followed by one `<blockquote>` containing the required chronological public context; exclude internal notes and avoid recursive nested quoting. The live PATCH response preserved this hierarchy. Evidence: `03-01-probe-findings.md` A5.
+4. **RESOLVED — sanitizer implementation/version compatibility (A5).** No package is required. A dependency-free DOMParser + TreeWalker allowlist compiled under TypeScript 4.9.5 strict DOM libs and passed 2/2 tests under the repository's Jest/jsdom 27.5.1/16.7.0 runtime; React 18.3.1 and react-scripts 5.0.1 require no integration dependency. The production Browserslist targets browser families that provide these DOM APIs. Evidence: `03-01-probe-findings.md` “Dependency-Free Sanitizer Uyumluluğu”.
+
 ## Sources
 
 - `03-CONTEXT.md` — locked product and lifecycle decisions. [CITED: 03-CONTEXT.md]
 - `03-UI-SPEC.md` — visual, interaction, accessibility, and sanitizer contract. [CITED: 03-UI-SPEC.md]
 - `active-conversation-store.ts`, `side-conversations-store.ts`, `last-seen-store.ts`, `tickets.ts`, `grispi.type.ts`, and matching Jest tests — current implementation seams and verified behavior. [VERIFIED: codebase grep]
-
