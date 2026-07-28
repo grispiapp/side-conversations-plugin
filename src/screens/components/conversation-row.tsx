@@ -26,12 +26,17 @@ const BADGE_LABEL: Record<ConversationActionBadge, string> = {
 // `observer` so silent store-side row upgrades (hydration retry, recipient
 // enrichment — Plan 01-03 UAT Defect 2) always re-render this card even if a
 // future change mutates a row field in place instead of replacing the array.
-export const ConversationRow: FC<{ row: ConversationRowVM }> = observer(
-  ({ row }) => {
+export const ConversationRow: FC<{
+  row: ConversationRowVM;
+  onSelect: () => void;
+}> = observer(
+  ({ row, onSelect }) => {
     return (
-      <div
+      <button
+        type="button"
+        onClick={onSelect}
         className={cn(
-          "flex flex-col gap-2 rounded-md bg-card px-4 py-3",
+          "flex w-full flex-col gap-2 rounded-md bg-card px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           // LIST-03's only highlight mechanism: 3px primary left rail.
           row.hasUnseen && "border-l-[3px] border-l-primary",
           row.hydrationFailed && "opacity-60"
@@ -62,7 +67,7 @@ export const ConversationRow: FC<{ row: ConversationRowVM }> = observer(
             {row.summary}
           </p>
         )}
-      </div>
+      </button>
     );
   }
 );

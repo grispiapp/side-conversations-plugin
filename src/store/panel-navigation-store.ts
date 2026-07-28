@@ -47,6 +47,37 @@ export class PanelNavigationStore {
   }
 
   /**
+   * The row-selection trust boundary. Both keys are captured from the same
+   * render so a later host-ticket change cannot redirect thread mutations to
+   * a different parent while the canonical load is in flight.
+   */
+  openConversation(ticketKey: string, parentKey: string): void {
+    void this.rootStore.activeConversation.load(ticketKey, parentKey);
+    this.screen = "chat";
+  }
+
+  /**
+   * D-12: back from an existing thread has its own dirty guard. It must not
+   * reset or inspect ComposeStore because reply and new-conversation drafts
+   * are independent sessions with different confirmation copy.
+   */
+  requestChatBack(): boolean {
+    const text = this.rootStore.activeConversation.draftHtml
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;|&#160;/gi, " ")
+      .trim();
+    if (text) return true;
+    this.screen = "list";
+    return false;
+  }
+
+  /** D-12 confirm path: explicitly discard only the active reply draft. */
+  confirmDiscardReplyAndReturnToList(): void {
+    this.rootStore.activeConversation.setDraftHtml("");
+    this.screen = "list";
+  }
+
+  /**
    * D-02: back/cancel from compose. Caller (ComposeScreen) supplies whether
    * the form currently has unsaved content. Dirty forms need a confirm
    * dialog — this method does NOT change `screen` in that case and instead

@@ -66,7 +66,15 @@ export const ConversationsListScreen = observer(() => {
           {store.status === "ready" && (
             <>
               {store.rows.map((row) => (
-                <ConversationRow key={row.key} row={row} />
+                <ConversationRow
+                  key={row.key}
+                  row={row}
+                  onSelect={() => {
+                    if (ticket?.key) {
+                      panelNavigation.openConversation(row.key, ticket.key);
+                    }
+                  }}
+                />
               ))}
               <ListFooter
                 hasMore={store.hasMore}
