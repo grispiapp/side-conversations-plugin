@@ -2,7 +2,9 @@ import { makeAutoObservable, runInAction } from "mobx";
 
 import { grispiAPI } from "@/grispi/client/api";
 import { NetworkError } from "@/grispi/client/http-handler";
-import { CreateTicketRequest } from "@/types/grispi.type";
+import { sanitizeHtml, splitQuotedHtml } from "@/lib/html-sanitizer";
+import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
+import { Comment, CreateTicketRequest, Ticket } from "@/types/grispi.type";
 
 import { RootStore } from "./root-store";
 
@@ -33,7 +35,13 @@ export interface MessageVM {
   status: "pending" | "sent" | "failed";
   createdAt: number;
   errorKind?: "network" | "server";
+  senderName?: string;
+  senderEmail?: string;
+  internal?: boolean;
+  quotedHtml?: string;
 }
+
+export type ActiveConversationStatus = "idle" | "loading" | "ready" | "error";
 
 export interface StartNewParams {
   recipientLabel: string;
@@ -62,12 +70,19 @@ interface RetryPayload {
  */
 export class ActiveConversationStore {
   rootStore: RootStore;
+  status: ActiveConversationStatus = "idle";
+  loadError: string | null = null;
   ticketKey: string | null = null;
+  parentKey: string | null = null;
   recipientLabel = "";
   subject = "";
+  solved = false;
   messages: MessageVM[] = [];
+  scrollTargetMessageId: string | null = null;
+  latestRelevantExternalAt: number | null = null;
 
   private retryPayloads = new Map<string, RetryPayload>();
+  private generation = 0;
 
   constructor(rootStore: RootStore) {
     makeAutoObservable(this);
@@ -95,6 +110,12 @@ export class ActiveConversationStore {
     this.recipientLabel = recipientLabel;
     this.subject = subject;
     this.ticketKey = null;
+    this.parentKey = parentKey;
+    this.status = "ready";
+    this.loadError = null;
+    this.solved = false;
+    this.scrollTargetMessageId = null;
+    this.latestRelevantExternalAt = null;
 
     const message: MessageVM = {
       id: nextMessageId(),
@@ -114,6 +135,77 @@ export class ActiveConversationStore {
     this.retryPayloads.set(message.id, { request, parentKey });
 
     void this.sendCreateTicket(message.id);
+  }
+
+  /**
+   * Loads one canonical side ticket and normalizes its untrusted comments.
+   * The generation is bumped synchronously so a slower prior selection can
+   * never publish state over the current one.
+   */
+  async load(ticketKey: string, parentKey: string): Promise<void> {
+    const gen = ++this.generation;
+    this.status = "loading";
+    this.loadError = null;
+    this.ticketKey = ticketKey;
+    this.parentKey = parentKey;
+    this.messages = [];
+    this.scrollTargetMessageId = null;
+    this.latestRelevantExternalAt = null;
+
+    try {
+      const ticket = await grispiAPI.tickets.getTicket(ticketKey);
+      if (gen !== this.generation) return;
+
+      const lastSeenAt = getLastSeenAt(ticketKey);
+      const messages = [...(ticket.comments ?? [])]
+        .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id)
+        .map(normalizeComment);
+      const externalPublic = messages.filter(
+        (message) => message.direction === "incoming" && !message.internal
+      );
+      const firstUnseen = externalPublic.find(
+        (message) => lastSeenAt === null || message.createdAt > lastSeenAt
+      );
+      const latestRelevantExternalAt =
+        externalPublic.length > 0
+          ? Math.max(...externalPublic.map((message) => message.createdAt))
+          : null;
+
+      runInAction(() => {
+        this.messages = messages;
+        this.recipientLabel = resolveRecipientLabel(ticket);
+        this.subject = resolveSubject(ticket);
+        this.solved = resolveStatusId(ticket) === "4";
+        this.scrollTargetMessageId =
+          firstUnseen?.id ?? messages[messages.length - 1]?.id ?? null;
+        this.latestRelevantExternalAt = latestRelevantExternalAt;
+        this.status = "ready";
+      });
+
+      // Read bookkeeping is deliberately after successful current-generation
+      // normalization. It may advance to the latest external timestamp, but
+      // must never overwrite a newer local value.
+      if (
+        latestRelevantExternalAt !== null &&
+        (lastSeenAt === null || latestRelevantExternalAt > lastSeenAt)
+      ) {
+        setLastSeenAt(ticketKey, latestRelevantExternalAt);
+      }
+
+      // The list owns independent unseen/action derivation. Storage or list
+      // refresh failure must not turn a canonical thread load into an error.
+      try {
+        await this.rootStore.sideConversations.load(parentKey);
+      } catch {
+        // SideConversationsStore normally contains its own safe error state.
+      }
+    } catch {
+      if (gen !== this.generation) return;
+      runInAction(() => {
+        this.status = "error";
+        this.loadError = "Görüşme yüklenemedi. Lütfen tekrar deneyin.";
+      });
+    }
   }
 
   /**
@@ -176,4 +268,56 @@ export class ActiveConversationStore {
       });
     }
   }
+}
+
+function isExternal(comment: Comment): boolean {
+  return comment.creator?.role?.authority === "ROLE_END_USER";
+}
+
+function normalizeComment(comment: Comment): MessageVM {
+  const sanitized = sanitizeHtml(comment.body ?? "");
+  const quoted = splitQuotedHtml(sanitized);
+
+  return {
+    id: `comment-${comment.id}`,
+    direction: isExternal(comment) ? "incoming" : "own",
+    body: sanitized,
+    status: "sent",
+    createdAt: comment.createdAt,
+    senderName: comment.creator?.fullName || undefined,
+    senderEmail: comment.creator?.email || undefined,
+    internal: !comment.publicVisible,
+    quotedHtml: quoted.quotedHtml,
+  };
+}
+
+function resolveRecipientLabel(ticket: Ticket): string {
+  const requesterId = Number(ticket.fieldMap?.["ts.requester"]?.value);
+  const creator = (ticket.comments ?? []).find(
+    (comment) =>
+      comment.creator?.id === requesterId &&
+      comment.creator?.role?.authority === "ROLE_END_USER"
+  )?.creator;
+  if (!creator) return "—";
+
+  const name = creator.fullName?.trim();
+  const email = creator.email?.trim();
+  if (name && email) return `${name} <${email}>`;
+  return name || email || "—";
+}
+
+function resolveSubject(ticket: Ticket): string {
+  const value = ticket.fieldMap?.["ts.subject"]?.value;
+  return typeof value === "string" ? value : "";
+}
+
+function resolveStatusId(ticket: Ticket): string | null {
+  const value = ticket.fieldMap?.["ts.status"]?.value;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (value && typeof value === "object" && "id" in value) {
+    return String((value as { id: unknown }).id);
+  }
+  return null;
 }
