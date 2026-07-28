@@ -5,12 +5,29 @@ import { RootStore } from "@/store/root-store";
 // `rootStore.compose.reset()`, so the stub RootStore needs a `compose` with
 // a spyable `reset`. `resetMock` is returned alongside the store so tests
 // can assert on call counts without reaching into the stub shape.
-function makeStore(): { store: PanelNavigationStore; resetMock: jest.Mock } {
+function makeStore(): {
+  store: PanelNavigationStore;
+  resetMock: jest.Mock;
+  loadMock: jest.Mock;
+  setDraftHtmlMock: jest.Mock;
+} {
   const resetMock = jest.fn();
+  const loadMock = jest.fn();
+  const setDraftHtmlMock = jest.fn();
   const rootStore = {
     compose: { reset: resetMock },
+    activeConversation: {
+      draftHtml: "",
+      load: loadMock,
+      setDraftHtml: setDraftHtmlMock,
+    },
   } as unknown as RootStore;
-  return { store: new PanelNavigationStore(rootStore), resetMock };
+  return {
+    store: new PanelNavigationStore(rootStore),
+    resetMock,
+    loadMock,
+    setDraftHtmlMock,
+  };
 }
 
 describe("PanelNavigationStore", () => {
@@ -38,6 +55,48 @@ describe("PanelNavigationStore", () => {
     const { store } = makeStore();
     store.openChat();
     expect(store.screen).toBe("chat");
+  });
+
+  it("openConversation() pins the selected thread and parent keys while opening chat", () => {
+    const { store, loadMock } = makeStore();
+
+    store.openConversation("SC-42", "PARENT-7");
+
+    expect(loadMock).toHaveBeenCalledTimes(1);
+    expect(loadMock).toHaveBeenCalledWith("SC-42", "PARENT-7");
+    expect(store.screen).toBe("chat");
+  });
+
+  it("requestChatBack() returns to the list immediately for an empty reply draft", () => {
+    const { store } = makeStore();
+    store.openChat();
+
+    const needsConfirm = store.requestChatBack();
+
+    expect(needsConfirm).toBe(false);
+    expect(store.screen).toBe("list");
+  });
+
+  it("requestChatBack() keeps the thread open for a non-empty reply draft", () => {
+    const { store } = makeStore();
+    store.openChat();
+    store.rootStore.activeConversation.draftHtml = "<p>Yanıt</p>";
+
+    const needsConfirm = store.requestChatBack();
+
+    expect(needsConfirm).toBe(true);
+    expect(store.screen).toBe("chat");
+  });
+
+  it("confirmDiscardReplyAndReturnToList() clears only the reply draft and returns", () => {
+    const { store, setDraftHtmlMock, resetMock } = makeStore();
+    store.openChat();
+
+    store.confirmDiscardReplyAndReturnToList();
+
+    expect(setDraftHtmlMock).toHaveBeenCalledWith("");
+    expect(resetMock).not.toHaveBeenCalled();
+    expect(store.screen).toBe("list");
   });
 
   it("requestBack(false) returns false and goes straight back to list (D-02, empty form)", () => {
