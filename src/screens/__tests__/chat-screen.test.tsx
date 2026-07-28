@@ -31,9 +31,14 @@ function render(ui: ReactElement): void {
 }
 
 function click(label: string): void {
-  const control = container.querySelector<HTMLElement>(
+  const labelledControl = container.querySelector<HTMLElement>(
     `[aria-label="${label}"]`
   );
+  const control =
+    labelledControl ??
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
+      (candidate) => candidate.textContent?.trim() === label
+    );
   if (!control) throw new Error(`Control not found: ${label}`);
   act(() => control.click());
 }
@@ -116,6 +121,7 @@ describe("ChatScreen", () => {
       status: "error",
       loadError: "Görüşme yüklenemedi. Lütfen tekrar deneyin.",
     });
+    render(<></>);
     render(<ChatScreen />);
     expect(container.textContent).toContain(
       "Görüşme yüklenemedi. Lütfen tekrar deneyin."
