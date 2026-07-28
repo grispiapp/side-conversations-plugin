@@ -1,12 +1,9 @@
+import { RootStore } from "./root-store";
 import { makeAutoObservable, runInAction } from "mobx";
 
 import { grispiAPI } from "@/grispi/client/api";
 import { HttpError, NetworkError } from "@/grispi/client/http-handler";
-import {
-  ConversationBadge,
-  deriveBadge,
-  sortConversations,
-} from "@/lib/conversation-status";
+import { ConversationBadge, deriveBadge } from "@/lib/conversation-status";
 import { htmlToText } from "@/lib/html-to-text";
 import { getLastSeenAt } from "@/lib/last-seen-store";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
@@ -16,9 +13,9 @@ import {
   Ticket,
 } from "@/types/grispi.type";
 
-import { RootStore } from "./root-store";
-
 export type ConversationsListStatus = "loading" | "ready" | "empty" | "error";
+export type ConversationLifecycle = "open" | "solved";
+export type ConversationActionBadge = Exclude<ConversationBadge, "kapali">;
 
 export interface ConversationRowVM {
   key: string;
@@ -29,7 +26,9 @@ export interface ConversationRowVM {
   requesterId: number | null;
   subject: string;
   summary: string;
-  badge: ConversationBadge;
+  lifecycle: ConversationLifecycle;
+  actionBadge: ConversationActionBadge | null;
+  hasUnseen: boolean;
   lastPublicCommentAt: number | null;
   hydrationFailed: boolean;
 }
@@ -66,9 +65,10 @@ const RECIPIENT_UNKNOWN_PLACEHOLDER = "—";
  * silently upgrade the row in place. If that lookup also fails, the
  * placeholder stays — the raw ticket key is NEVER rendered as "alıcı".
  */
-function resolveRecipientEmail(
-  ticket: Ticket
-): { email: string; requesterId: number | null } {
+function resolveRecipientEmail(ticket: Ticket): {
+  email: string;
+  requesterId: number | null;
+} {
   const requesterValue = ticket.fieldMap?.["ts.requester"]?.value;
   const numericId = requesterValue != null ? Number(requesterValue) : NaN;
   const requesterId = Number.isFinite(numericId) ? numericId : null;
@@ -86,7 +86,8 @@ function resolveRecipientEmail(
 }
 
 /**
- * Derives the "sıra kimde" badge for a hydrated ticket (D-05/06/07).
+ * Derives independent server lifecycle, reply responsibility, and local
+ * unseen state for a hydrated ticket (D-18/D-19/D-20).
  *
  * `statusId` is read from the advanced-search SUMMARY (`summary.status.id`)
  * rather than the hydrated ticket's `fieldMap["ts.status"]` — CONFIRMED live
@@ -97,10 +98,13 @@ function resolveRecipientEmail(
  * — CONFIRMED live that `teamUser` alone is unreliable (integration/AI users
  * also report `teamUser: false`).
  */
-function resolveBadge(
+function resolveRowState(
   ticket: Ticket,
   summary: SideTicketSummary
-): { badge: ConversationBadge; lastPublicCommentAt: number | null } {
+): Pick<
+  ConversationRowVM,
+  "lifecycle" | "actionBadge" | "hasUnseen" | "lastPublicCommentAt"
+> {
   const publicComments = (ticket.comments ?? [])
     .filter((comment) => comment.publicVisible)
     .map((comment) => ({
@@ -111,18 +115,44 @@ function resolveBadge(
   const statusId = summary.status?.id ?? null;
   const derived = deriveBadge({ statusId, publicComments });
 
-  if (derived.badge !== "yeni-yanit" || derived.lastPublicCommentAt === null) {
-    return derived;
+  if (derived.badge === "kapali") {
+    return {
+      lifecycle: "solved",
+      actionBadge: null,
+      hasUnseen: false,
+      lastPublicCommentAt: derived.lastPublicCommentAt,
+    };
   }
 
-  // D-07: an external-authored last comment is "yeni-yanit" only while
-  // unseen. No writer exists before Phase 3 (THRD-04), so getLastSeenAt is
-  // always null today and this always stays "yeni-yanit" — wiring the read
-  // side now means Phase 3 only has to add the write.
-  const lastSeenAt = getLastSeenAt(summary.key);
-  const isUnseen = lastSeenAt === null || lastSeenAt < derived.lastPublicCommentAt;
+  let hasUnseen = false;
+  if (derived.badge === "yeni-yanit" && derived.lastPublicCommentAt !== null) {
+    const lastSeenAt = getLastSeenAt(summary.key);
+    hasUnseen = lastSeenAt === null || lastSeenAt < derived.lastPublicCommentAt;
+  }
 
-  return isUnseen ? derived : { ...derived, badge: "yanit-bekleniyor" };
+  return {
+    lifecycle: "open",
+    actionBadge: derived.badge,
+    hasUnseen,
+    lastPublicCommentAt: derived.lastPublicCommentAt,
+  };
+}
+
+/**
+ * Preserves D-08 grouping after the view model stops exposing the legacy
+ * conflated badge: Yeni yanıt → Yanıt bekleniyor → Çözüldü, newest first.
+ */
+function sortRows(rows: ConversationRowVM[]): ConversationRowVM[] {
+  const groupOrder = (row: ConversationRowVM) => {
+    if (row.lifecycle === "solved") return 2;
+    return row.actionBadge === "yeni-yanit" ? 0 : 1;
+  };
+
+  return [...rows].sort((a, b) => {
+    const groupDiff = groupOrder(a) - groupOrder(b);
+    if (groupDiff !== 0) return groupDiff;
+    return (b.lastPublicCommentAt ?? 0) - (a.lastPublicCommentAt ?? 0);
+  });
 }
 
 /**
@@ -148,7 +178,9 @@ function toRow(
       requesterId: null,
       subject: summary.subject || summary.key,
       summary: "",
-      badge: "yeni-yanit",
+      lifecycle: "open",
+      actionBadge: "yeni-yanit",
+      hasUnseen: false,
       lastPublicCommentAt: null,
       hydrationFailed: true,
     };
@@ -160,7 +192,8 @@ function toRow(
 
   const { email: recipientEmail, requesterId } = resolveRecipientEmail(ticket);
   const subject = summary.subject || summary.key;
-  const { badge, lastPublicCommentAt } = resolveBadge(ticket, summary);
+  const { lifecycle, actionBadge, hasUnseen, lastPublicCommentAt } =
+    resolveRowState(ticket, summary);
 
   // Comment bodies arrive as HTML (`<p>…</p>`) — extract plain text before
   // truncation (UAT Defect 1). Still rendered via React text interpolation
@@ -177,7 +210,9 @@ function toRow(
     requesterId,
     subject,
     summary: truncatedSummary,
-    badge,
+    lifecycle,
+    actionBadge,
+    hasUnseen,
     lastPublicCommentAt,
     hydrationFailed,
   };
@@ -276,7 +311,7 @@ export class SideConversationsStore {
 
       // Group/sort only after hydration has fully settled (D-08) — never
       // render/reorder mid-fetch (Anti-Pattern: reorder flash).
-      const sortedRows = sortConversations(rows);
+      const sortedRows = sortRows(rows);
 
       runInAction(() => {
         this.rows = sortedRows;
@@ -353,7 +388,7 @@ export class SideConversationsStore {
       runInAction(() => {
         // Re-sort across the FULL list (existing + appended) so groups stay
         // correct across page boundaries (D-08).
-        this.rows = sortConversations([...this.rows, ...newRows]);
+        this.rows = sortRows([...this.rows, ...newRows]);
         this.page = nextPage;
         this.hasMore = computeHasMore(response, PAGE_SIZE);
       });
@@ -403,7 +438,7 @@ export class SideConversationsStore {
 
       // Immutable replacement (same rationale as enrichUnresolvedRecipients)
       // + re-sort, since an upgraded row may change group/activity (D-08).
-      this.rows = sortConversations(
+      this.rows = sortRows(
         this.rows.map((row) => upgradedByKey.get(row.key) ?? row)
       );
     });

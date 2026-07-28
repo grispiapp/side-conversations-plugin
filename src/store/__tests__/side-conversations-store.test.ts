@@ -1,8 +1,8 @@
-import { grispiAPI } from "@/grispi/client/api";
-import { AdvancedSearchResponse, Ticket } from "@/types/grispi.type";
-
 import { RootStore } from "../root-store";
 import { SideConversationsStore } from "../side-conversations-store";
+
+import { grispiAPI } from "@/grispi/client/api";
+import { AdvancedSearchResponse, Ticket } from "@/types/grispi.type";
 
 jest.mock("@/grispi/client/api", () => ({
   grispiAPI: {
@@ -62,7 +62,9 @@ function makeComment(
 function makeSearchResponse(
   keys: string[],
   subjects: Record<string, string> = {},
-  overrides: Partial<Pick<AdvancedSearchResponse, "totalPages" | "pageNumber">> = {}
+  overrides: Partial<
+    Pick<AdvancedSearchResponse, "totalPages" | "pageNumber">
+  > = {}
 ): AdvancedSearchResponse {
   return {
     content: keys.map((key) => ({ key, subject: subjects[key] })),
@@ -157,8 +159,16 @@ describe("SideConversationsStore", () => {
   it("derives independent lifecycle, action, and unseen state while preserving D-08 sorting", async () => {
     mockedAdvancedSearch.mockResolvedValue({
       content: [
-        { key: "CLOSED-1", subject: "Kapali konu", status: { id: 5, name: "Closed" } },
-        { key: "WAITING-1", subject: "Bekleyen konu", status: { id: 1, name: "Open" } },
+        {
+          key: "CLOSED-1",
+          subject: "Kapali konu",
+          status: { id: 5, name: "Closed" },
+        },
+        {
+          key: "WAITING-1",
+          subject: "Bekleyen konu",
+          status: { id: 1, name: "Open" },
+        },
         { key: "NEW-1", subject: "Yeni konu", status: { id: 1, name: "Open" } },
       ],
       totalPages: 1,
@@ -369,9 +379,7 @@ describe("SideConversationsStore", () => {
 
     mockedAdvancedSearch
       .mockImplementationOnce(() => firstSearch)
-      .mockImplementationOnce(() =>
-        Promise.resolve(makeSearchResponse(["B"]))
-      );
+      .mockImplementationOnce(() => Promise.resolve(makeSearchResponse(["B"])));
     mockedGetTicket.mockImplementation((key: string) =>
       Promise.resolve(makeTicket({ key }))
     );
@@ -480,11 +488,15 @@ describe("SideConversationsStore", () => {
 
     await store.load("PARENT-1");
 
-    expect(store.rows[0].summary).toBe("Yeni ambalaj örneği gönderildi. (TEST)");
+    expect(store.rows[0].summary).toBe(
+      "Yeni ambalaj örneği gönderildi. (TEST)"
+    );
   });
 
   it("applies the users-endpoint enrichment OBSERVABLY — replaces the rows array instead of mutating a row in place (UAT Defect 2)", async () => {
-    mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["AGENT-ONLY-3"]));
+    mockedAdvancedSearch.mockResolvedValue(
+      makeSearchResponse(["AGENT-ONLY-3"])
+    );
     mockedGetTicket.mockResolvedValue(
       makeTicket({
         key: "AGENT-ONLY-3",
@@ -523,7 +535,9 @@ describe("SideConversationsStore", () => {
   });
 
   it("keeps a neutral placeholder — never the raw ticket key — when GET /users/{id} also fails", async () => {
-    mockedAdvancedSearch.mockResolvedValue(makeSearchResponse(["AGENT-ONLY-2"]));
+    mockedAdvancedSearch.mockResolvedValue(
+      makeSearchResponse(["AGENT-ONLY-2"])
+    );
     mockedGetTicket.mockResolvedValue(
       makeTicket({
         key: "AGENT-ONLY-2",

@@ -3,60 +3,69 @@ import { FC } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ConversationBadge } from "@/lib/conversation-status";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
-import { ConversationRowVM } from "@/store/side-conversations-store";
+import {
+  ConversationActionBadge,
+  ConversationRowVM,
+} from "@/store/side-conversations-store";
 
 const BADGE_VARIANT: Record<
-  ConversationBadge,
-  "new-reply" | "awaiting-reply" | "closed"
+  ConversationActionBadge,
+  "new-reply" | "awaiting-reply"
 > = {
   "yeni-yanit": "new-reply",
   "yanit-bekleniyor": "awaiting-reply",
-  kapali: "closed",
 };
 
-const BADGE_LABEL: Record<ConversationBadge, string> = {
+const BADGE_LABEL: Record<ConversationActionBadge, string> = {
   "yeni-yanit": "Yeni yanıt",
   "yanit-bekleniyor": "Yanıt bekleniyor",
-  kapali: "Kapalı",
 };
 
 // `observer` so silent store-side row upgrades (hydration retry, recipient
 // enrichment — Plan 01-03 UAT Defect 2) always re-render this card even if a
 // future change mutates a row field in place instead of replacing the array.
-export const ConversationRow: FC<{ row: ConversationRowVM }> = observer(({ row }) => {
-  const isNewReply = row.badge === "yeni-yanit";
-
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-2 rounded-md bg-card px-4 py-3",
-        // LIST-03's only highlight mechanism: 3px primary left rail.
-        isNewReply && "border-l-[3px] border-l-primary",
-        row.hydrationFailed && "opacity-60"
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1 text-xs">
-          <span className="truncate font-mono">{row.recipientEmail}</span>
-          <span className="text-muted-foreground">·</span>
-          <span className="shrink-0 text-muted-foreground">
-            {row.lastPublicCommentAt !== null
-              ? formatRelativeTime(row.lastPublicCommentAt)
-              : ""}
-          </span>
+export const ConversationRow: FC<{ row: ConversationRowVM }> = observer(
+  ({ row }) => {
+    return (
+      <div
+        className={cn(
+          "flex flex-col gap-2 rounded-md bg-card px-4 py-3",
+          // LIST-03's only highlight mechanism: 3px primary left rail.
+          row.hasUnseen && "border-l-[3px] border-l-primary",
+          row.hydrationFailed && "opacity-60"
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1 text-xs">
+            <span className="truncate font-mono">{row.recipientEmail}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="shrink-0 text-muted-foreground">
+              {row.lastPublicCommentAt !== null
+                ? formatRelativeTime(row.lastPublicCommentAt)
+                : ""}
+            </span>
+          </div>
+          {row.lifecycle === "solved" && (
+            <Badge variant="closed">Çözüldü</Badge>
+          )}
+          {row.actionBadge !== null && (
+            <Badge variant={BADGE_VARIANT[row.actionBadge]}>
+              {BADGE_LABEL[row.actionBadge]}
+            </Badge>
+          )}
         </div>
-        <Badge variant={BADGE_VARIANT[row.badge]}>{BADGE_LABEL[row.badge]}</Badge>
+        <p className="truncate text-sm font-normal">{row.subject}</p>
+        {!row.hydrationFailed && (
+          <p className="truncate text-sm text-muted-foreground">
+            {row.summary}
+          </p>
+        )}
       </div>
-      <p className="truncate text-sm font-normal">{row.subject}</p>
-      {!row.hydrationFailed && (
-        <p className="truncate text-sm text-muted-foreground">{row.summary}</p>
-      )}
-    </div>
-  );
-});
+    );
+  }
+);
 
 export const SkeletonRow: FC = () => {
   return (
