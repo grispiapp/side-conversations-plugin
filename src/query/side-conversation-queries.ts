@@ -232,7 +232,7 @@ export function useSideConversationsQuery(
         tenantId ?? "",
         query.data?.pages.flatMap((page) => page.rows) ?? []
       ),
-    [query.data]
+    [query.data, tenantId]
   );
 
   return { ...query, rows };
