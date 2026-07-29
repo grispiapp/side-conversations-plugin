@@ -196,11 +196,11 @@ describe("unified compose surface", () => {
     mockCustomersQuery.isFetching = true;
     remountCompose();
 
-    expect(
-      container
-        .querySelector<HTMLInputElement>('[role="combobox"]')
-        ?.getAttribute("aria-controls")
-    ).toBe("compose-recipient-popup");
+    const loadingInput =
+      container.querySelector<HTMLInputElement>('[role="combobox"]');
+    expect(loadingInput?.getAttribute("aria-expanded")).toBe("false");
+    expect(loadingInput?.getAttribute("aria-controls")).toBeNull();
+    expect(loadingInput?.getAttribute("aria-haspopup")).toBeNull();
     expect(container.textContent).toContain("Aranıyor…");
     expect(container.querySelector('[role="listbox"]')).toBeNull();
     expect(
@@ -212,6 +212,11 @@ describe("unified compose surface", () => {
     remountCompose();
     expect(container.textContent).toContain("Sonuç bulunamadı");
     expect(container.querySelector('[role="listbox"]')).toBeNull();
+    expect(
+      container
+        .querySelector('[role="combobox"]')
+        ?.getAttribute("aria-expanded")
+    ).toBe("false");
     expect(container.textContent).not.toContain(
       "Geçerli bir e-posta adresi girin."
     );
@@ -232,6 +237,8 @@ describe("unified compose surface", () => {
     expect(input?.getAttribute("aria-controls")).toBe(
       "compose-recipient-options"
     );
+    expect(input?.getAttribute("aria-expanded")).toBe("true");
+    expect(input?.getAttribute("aria-haspopup")).toBe("listbox");
     expect(freeEmail?.textContent).toContain(
       "vendor@example.test adresini kullan"
     );
@@ -284,6 +291,11 @@ describe("unified compose surface", () => {
     expect(container.textContent).not.toContain("Sonuç bulunamadı");
     expect(container.textContent).not.toContain("adresini kullan");
     expect(container.querySelector('[role="listbox"]')).toBeNull();
+    const input =
+      container.querySelector<HTMLInputElement>('[role="combobox"]');
+    expect(input?.getAttribute("aria-expanded")).toBe("false");
+    expect(input?.getAttribute("aria-controls")).toBeNull();
+    expect(input?.getAttribute("aria-haspopup")).toBeNull();
     expect(
       container.querySelector('[role="alert"]')?.closest('[role="region"]')
     ).not.toBeNull();
@@ -299,6 +311,9 @@ describe("unified compose surface", () => {
     mockStore.compose.recipientEmail = "";
     mockStore.compose.recipientLabel = "";
     mockStore.compose.query = "Davut";
+    mockCustomersQuery.customers = [
+      { id: 1, name: "Davut", email: "davut@example.test" },
+    ];
 
     act(() => root.render(<ComposeScreen />));
     const input =

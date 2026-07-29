@@ -149,14 +149,8 @@ export const RecipientField = observer(() => {
           className="h-11"
           placeholder="İsim veya e-posta ile ara…"
           role="combobox"
-          aria-expanded={panelOpen}
-          aria-controls={
-            panelOpen
-              ? hasSelectableOptions
-                ? listboxId
-                : popupId
-              : undefined
-          }
+          aria-expanded={hasSelectableOptions}
+          aria-controls={hasSelectableOptions ? listboxId : undefined}
           aria-activedescendant={
             hasSelectableOptions && highlightedIndex >= 0
               ? `compose-recipient-option-${highlightedIndex}`
@@ -164,7 +158,7 @@ export const RecipientField = observer(() => {
           }
           aria-describedby={helpId}
           aria-autocomplete="list"
-          aria-haspopup="listbox"
+          aria-haspopup={hasSelectableOptions ? "listbox" : undefined}
         />
       )}
       <span id={helpId} className="text-xs text-muted-foreground">
