@@ -61,6 +61,7 @@ describe("bootstrapPluginInit", () => {
     const setSettings = jest.fn();
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
+    const setTenantId = jest.fn();
     const switchTicket = jest.fn();
 
     await bootstrapPluginInit({
@@ -69,6 +70,7 @@ describe("bootstrapPluginInit", () => {
       setSettings,
       setLoading,
       setAgentEmail,
+      setTenantId,
       switchTicket,
     });
 
@@ -80,6 +82,16 @@ describe("bootstrapPluginInit", () => {
     expect(setLoading).toHaveBeenCalledWith(false);
     expect(switchTicket).toHaveBeenCalledWith(bundle.context.ticketKey);
     expect(setAgentEmail).toHaveBeenCalledWith(bundle.context.agent.email);
+    expect(setTenantId).toHaveBeenCalledWith(bundle.context.tenantId);
+    expect(authentication.setTenantId.mock.invocationCallOrder[0]).toBeLessThan(
+      setTenantId.mock.invocationCallOrder[0]
+    );
+    expect(setTenantId.mock.invocationCallOrder[0]).toBeLessThan(
+      setLoading.mock.invocationCallOrder[0]
+    );
+    expect(setTenantId.mock.invocationCallOrder[0]).toBeLessThan(
+      switchTicket.mock.invocationCallOrder[0]
+    );
   });
 
   it("resolve branch: calls setAgentEmail with null when the bundle carries no agent", async () => {
@@ -89,6 +101,7 @@ describe("bootstrapPluginInit", () => {
     const setSettings = jest.fn();
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
+    const setTenantId = jest.fn();
     const switchTicket = jest.fn();
 
     await bootstrapPluginInit({
@@ -97,6 +110,7 @@ describe("bootstrapPluginInit", () => {
       setSettings,
       setLoading,
       setAgentEmail,
+      setTenantId,
       switchTicket,
     });
 
@@ -113,6 +127,7 @@ describe("bootstrapPluginInit", () => {
     const setSettings = jest.fn();
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
+    const setTenantId = jest.fn();
     const switchTicket = jest.fn();
 
     await expect(
@@ -122,6 +137,7 @@ describe("bootstrapPluginInit", () => {
         setSettings,
         setLoading,
         setAgentEmail,
+        setTenantId,
         switchTicket,
       })
     ).resolves.toBeUndefined();
@@ -129,6 +145,8 @@ describe("bootstrapPluginInit", () => {
     expect(setLoading).toHaveBeenCalledWith(false);
     expect(switchTicket).not.toHaveBeenCalled();
     expect(setSettings).not.toHaveBeenCalled();
+    expect(setTenantId).toHaveBeenCalledTimes(1);
+    expect(setTenantId).toHaveBeenCalledWith(null);
   });
 
   it("store-error integration: a rejecting advanced-search during bootstrap lands the store in status='error' with a typed error, never a permanent 'loading' skeleton — the exact production path the standalone UAT could not exercise", async () => {
@@ -138,6 +156,7 @@ describe("bootstrapPluginInit", () => {
     const setSettings = jest.fn();
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
+    const setTenantId = jest.fn();
 
     const root = new RootStore();
     const store = root.sideConversations;
@@ -155,6 +174,7 @@ describe("bootstrapPluginInit", () => {
       setSettings,
       setLoading,
       setAgentEmail,
+      setTenantId,
       switchTicket,
     });
     await pending;
