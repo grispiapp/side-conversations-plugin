@@ -1,6 +1,11 @@
+import {
+  CheckCircledIcon,
+  ExclamationTriangleIcon,
+} from "@radix-ui/react-icons";
 import { FC, useEffect, useId, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * D-02 (dirty-back) ve D-03 (parent-değişim) için TEK paylaşılan onay
@@ -22,7 +27,16 @@ export const ConfirmDialog: FC<{
   cancelLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
-}> = ({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel }) => {
+  tone?: "default" | "danger";
+}> = ({
+  title,
+  body,
+  confirmLabel,
+  cancelLabel,
+  onConfirm,
+  onCancel,
+  tone = "default",
+}) => {
   const titleId = useId();
   const bodyId = useId();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -93,7 +107,10 @@ export const ConfirmDialog: FC<{
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
     >
       <div
         ref={dialogRef}
@@ -101,15 +118,36 @@ export const ConfirmDialog: FC<{
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={bodyId}
-        className="mx-4 flex w-full max-w-sm flex-col gap-3 rounded-lg bg-card p-6 shadow-lg"
+        className="flex w-full max-w-[340px] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl shadow-slate-950/15"
       >
-        <h2 id={titleId} className="text-base font-semibold">
-          {title}
-        </h2>
-        <p id={bodyId} className="text-sm text-muted-foreground">
-          {body}
-        </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex gap-3 p-4 pb-3">
+          <span
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-full",
+              tone === "danger"
+                ? "bg-destructive/10 text-destructive"
+                : "bg-primary/10 text-primary"
+            )}
+          >
+            {tone === "danger" ? (
+              <ExclamationTriangleIcon className="size-4" aria-hidden="true" />
+            ) : (
+              <CheckCircledIcon className="size-4" aria-hidden="true" />
+            )}
+          </span>
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-sm font-semibold leading-5">
+              {title}
+            </h2>
+            <p
+              id={bodyId}
+              className="mt-1 text-sm leading-5 text-muted-foreground"
+            >
+              {body}
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-4 py-3">
           <Button
             ref={cancelRef}
             variant="outline"
@@ -118,7 +156,11 @@ export const ConfirmDialog: FC<{
           >
             {cancelLabel}
           </Button>
-          <Button variant="destructive" size="sm" onClick={onConfirm}>
+          <Button
+            variant={tone === "danger" ? "destructive" : "default"}
+            size="sm"
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </Button>
         </div>

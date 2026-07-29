@@ -123,7 +123,7 @@ describe("shared inbox shell", () => {
     ).not.toBeNull();
   });
 
-  it("keeps shell content width-safe and every button variant at least 44px", () => {
+  it("keeps shell content width-safe with compact, focus-visible actions", () => {
     act(() => {
       root.render(
         <Screen data-testid="screen">
@@ -143,8 +143,11 @@ describe("shared inbox shell", () => {
     expect(
       container.querySelector('[data-testid="content"]')?.className
     ).toContain("overflow-x-hidden");
-    container.querySelectorAll("button").forEach((button) => {
-      expect(button.className).toContain("min-h-[var(--interactive-target)]");
+    const buttons = Array.from(container.querySelectorAll("button"));
+    expect(buttons[0].className).toContain("h-[var(--interactive-target)]");
+    expect(buttons[1].className).toContain("h-9");
+    expect(buttons[2].className).toContain("h-[var(--interactive-target)]");
+    buttons.forEach((button) => {
       expect(button.className).toContain("focus-visible:ring-2");
     });
   });
@@ -162,7 +165,6 @@ describe("unified compose surface", () => {
     ).not.toBeNull();
     expect(container.textContent).toContain("Alıcı");
     expect(container.textContent).toContain("Konu");
-    expect(container.textContent).toContain("Mesaj");
     expect(
       container.querySelector(
         '[role="textbox"][aria-label="Mesaj"][aria-required="true"]'
@@ -180,8 +182,33 @@ describe("unified compose surface", () => {
     const send = Array.from(
       container.querySelectorAll<HTMLButtonElement>("button")
     ).find((button) => button.textContent?.trim() === "Gönder");
-    expect(send?.className).toContain("w-full");
+    expect(send?.className).toContain("shrink-0");
     expect(send?.disabled).toBe(false);
+
+    const composeSurface = container.querySelector(
+      '[aria-label="Yeni görüşme e-postası"]'
+    );
+    const recipientRow = container.querySelector(
+      '[aria-label="Alıcıyı değiştir"]'
+    )?.parentElement;
+    const subject = container.querySelector("#compose-subject");
+    const editor = container.querySelector(
+      '[role="textbox"][aria-label="Mesaj"]'
+    );
+    const toolbar = container.querySelector(
+      '[role="toolbar"][aria-label="Metin biçimlendirme"]'
+    );
+    expect(composeSurface?.className).toContain("flex-col");
+    expect(recipientRow?.className).toContain("min-h-12");
+    expect(recipientRow?.className).not.toContain("border-input");
+    expect(subject?.className).toContain("border-0");
+    expect(editor).not.toBeNull();
+    expect(toolbar).not.toBeNull();
+    expect(
+      editor!.compareDocumentPosition(toolbar!) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(send?.closest('[aria-label="Yeni görüşme mesajı"]')).not.toBeNull();
   });
 
   it("keeps recipient search and invalid compose states labelled and keyboard reachable", () => {
@@ -334,9 +361,8 @@ describe("unified compose surface", () => {
 
     act(() => input?.focus());
     expect(input?.getAttribute("aria-expanded")).toBe("true");
-    const subject = container.querySelector<HTMLInputElement>(
-      "#compose-subject"
-    );
+    const subject =
+      container.querySelector<HTMLInputElement>("#compose-subject");
     act(() => subject?.focus());
     expect(input?.getAttribute("aria-expanded")).toBe("false");
   });

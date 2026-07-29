@@ -1,7 +1,12 @@
 import { ConfirmDialog } from "./components/confirm-dialog";
 import { RichTextComposer } from "./components/rich-text-composer";
 import { ThreadMessage } from "./components/thread-message";
-import { DotsHorizontalIcon, ReloadIcon } from "@radix-ui/react-icons";
+import {
+  CheckCircledIcon,
+  DotsHorizontalIcon,
+  LockClosedIcon,
+  ReloadIcon,
+} from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -215,9 +220,7 @@ export const ChatScreen = observer(() => {
           solved,
         }
       : null;
-  const lifecycleActionLabel = solved
-    ? "Tekrar aç"
-    : "Çözüldü olarak işaretle";
+  const lifecycleActionLabel = solved ? "Tekrar aç" : "Çözüldü olarak işaretle";
 
   return (
     <Screen>
@@ -346,7 +349,7 @@ export const ChatScreen = observer(() => {
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-background">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
           {sideKey && detail.isPending && (
             <div
               role="status"
@@ -386,47 +389,103 @@ export const ChatScreen = observer(() => {
                 Henüz mesaj yok.
               </p>
             ) : (
-              messagePresentation(messages).map(
-                ({ message, showFullSender }) => (
-                  <div
-                    key={message.id}
-                    ref={(node) => {
-                      if (node) messageRefs.current.set(message.id, node);
-                      else messageRefs.current.delete(message.id);
-                    }}
-                  >
-                    <ThreadMessage
-                      message={message}
-                      showFullSender={showFullSender}
-                      onRetry={(clientMessageId) =>
-                        executeEnvelope(
-                          activeConversation.getRetryEnvelope(clientMessageId)
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )
+              <div
+                role="feed"
+                aria-label="Görüşme mesajları"
+                className="space-y-2 p-3"
+              >
+                {messagePresentation(messages).map(
+                  ({ message, showFullSender }) => (
+                    <div
+                      key={message.id}
+                      ref={(node) => {
+                        if (node) messageRefs.current.set(message.id, node);
+                        else messageRefs.current.delete(message.id);
+                      }}
+                    >
+                      <ThreadMessage
+                        message={message}
+                        showFullSender={showFullSender}
+                        onRetry={(clientMessageId) =>
+                          executeEnvelope(
+                            activeConversation.getRetryEnvelope(clientMessageId)
+                          )
+                        }
+                      />
+                    </div>
+                  )
+                )}
+              </div>
             ))}
         </div>
 
-        <RichTextComposer
-          ref={composerRef}
-          value={activeConversation.draftHtml}
-          valueIsTrustedAuthored
-          recipientLabel={recipientLabel}
-          disabled={
-            solved ||
-            !tenantId ||
-            !agentEmail ||
-            !sideKey ||
-            detail.isPending ||
-            detail.isError
-          }
-          onChange={(html) => activeConversation.setAuthoredDraftHtml(html)}
-          onSubmit={submitReply}
-          className="shrink-0"
-        />
+        {solved ? (
+          <section
+            aria-label="Yanıt yazma durumu"
+            className="shrink-0 border-t border-border bg-card px-4 py-3"
+          >
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-3">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground shadow-sm">
+                {closed ? (
+                  <LockClosedIcon className="size-4" aria-hidden="true" />
+                ) : (
+                  <CheckCircledIcon className="size-4" aria-hidden="true" />
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground">
+                  {closed
+                    ? "Bu görüşme kapalı."
+                    : "Yanıt yazmak için görüşmeyi tekrar açın."}
+                </p>
+                {!closed && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Açtıktan sonra alıcıya yeni bir e-posta gönderebilirsiniz.
+                  </p>
+                )}
+              </div>
+              {!closed && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={
+                    !lifecycleParams ||
+                    activeConversation.lifecyclePending !== null
+                  }
+                  onClick={() => {
+                    if (!lifecycleParams) return;
+                    executeEnvelope(activeConversation.reopen(lifecycleParams));
+                  }}
+                >
+                  {activeConversation.lifecyclePending === "reopen"
+                    ? "Açılıyor…"
+                    : "Tekrar aç"}
+                </Button>
+              )}
+            </div>
+          </section>
+        ) : (
+          <RichTextComposer
+            ref={composerRef}
+            value={activeConversation.draftHtml}
+            valueIsTrustedAuthored
+            recipientLabel={recipientLabel}
+            recipientPrefix="Yanıt:"
+            placeholder="Yanıtınızı yazın…"
+            disabled={
+              !tenantId ||
+              !agentEmail ||
+              !sideKey ||
+              detail.isPending ||
+              detail.isError
+            }
+            onChange={(html) => activeConversation.setAuthoredDraftHtml(html)}
+            onSubmit={submitReply}
+            className="shrink-0"
+          />
+        )}
       </ScreenContent>
 
       {solveDialogOpen && lifecycleParams && (
@@ -447,6 +506,7 @@ export const ChatScreen = observer(() => {
         <ConfirmDialog
           title="Taslak kaybolacak"
           body="Gönderilmemiş yanıt taslağın silinecek."
+          tone="danger"
           cancelLabel="Kalsın"
           confirmLabel="Taslağı sil"
           onCancel={() => setDraftDialogOpen(false)}

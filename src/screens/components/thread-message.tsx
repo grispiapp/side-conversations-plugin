@@ -70,11 +70,17 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
     <article
       data-testid={`thread-message-${message.id}`}
       className={cn(
-        "w-full min-w-0 overflow-hidden border-b border-border px-[var(--panel-inset)] py-4 text-sm",
-        message.internal && "border-l-[3px] border-l-amber-500 bg-amber-50/60"
+        "w-full min-w-0 overflow-hidden rounded-lg border border-border/90 border-l-[3px] bg-card px-3 py-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        message.direction === "own" &&
+          !message.internal &&
+          "border-l-primary/70",
+        message.direction === "incoming" &&
+          !message.internal &&
+          "border-l-slate-300",
+        message.internal && "border-l-amber-500 bg-amber-50/60"
       )}
     >
-      <header className="mb-2 flex items-baseline justify-between gap-3 text-xs">
+      <header className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
         <span
           className={cn(
             "min-w-0 break-words font-medium text-foreground",
@@ -93,7 +99,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
       </header>
 
       <div
-        className="break-words leading-5 text-foreground [overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_li]:ml-5 [&_ol]:list-decimal [&_p+p]:mt-2 [&_ul]:list-disc"
+        className="break-words leading-5 text-foreground [overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_li]:ml-5 [&_ol]:list-decimal [&_p+p]:mt-2 [&_ul]:list-disc"
         dangerouslySetInnerHTML={{ __html: bodyHtml }}
       />
 
@@ -103,7 +109,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
             type="button"
             aria-label="Önceki e-postayı göster"
             aria-expanded={quoteOpen}
-            className="inline-flex min-h-11 items-center rounded-md text-xs font-semibold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex min-h-9 items-center rounded-md text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             onClick={() => setQuoteOpen((current) => !current)}
           >
             Önceki e-postayı göster
@@ -122,7 +128,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
           role="status"
           aria-live="polite"
           aria-label="Gönderiliyor"
-          className="mt-2 flex min-h-11 items-center gap-1 text-xs text-muted-foreground"
+          className="mt-2 flex min-h-8 items-center gap-1 text-xs text-muted-foreground"
         >
           <ReloadIcon className="size-3 animate-spin" />
           <span>Gönderiliyor</span>
@@ -134,7 +140,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
           <button
             type="button"
             aria-label="Gönderilemedi. Tekrar dene"
-            className="mt-2 flex min-h-11 items-center gap-1 rounded-md text-xs text-destructive hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="mt-2 flex min-h-9 items-center gap-1 rounded-md text-xs text-destructive hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             onClick={() => onRetry(message.id)}
           >
             <ExclamationTriangleIcon className="size-3 shrink-0" />

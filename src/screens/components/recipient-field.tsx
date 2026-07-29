@@ -1,12 +1,6 @@
 import { Cross2Icon, EnvelopeClosedIcon } from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
-import {
-  FocusEvent,
-  KeyboardEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { FocusEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { useGrispi } from "@/contexts/grispi-context";
@@ -112,22 +106,25 @@ export const RecipientField = observer(() => {
   return (
     <div
       ref={fieldRef}
-      className="relative flex min-w-0 flex-col gap-1"
+      className="relative z-10 flex min-w-0 flex-col border-b border-border bg-card"
       onBlur={handleBlur}
     >
-      <label
-        htmlFor="compose-recipient"
-        className="text-xs font-semibold text-foreground"
-      >
+      <label htmlFor="compose-recipient" className="sr-only">
         Alıcı
       </label>
       {compose.recipientLabel ? (
-        <div className="flex min-h-11 min-w-0 items-center justify-between rounded-md border border-input bg-card pl-3 text-sm shadow-sm">
+        <div className="flex min-h-12 min-w-0 items-center justify-between pl-4 text-sm">
+          <span
+            aria-hidden="true"
+            className="mr-2 shrink-0 text-muted-foreground"
+          >
+            Kime
+          </span>
           <span className="truncate">{compose.recipientLabel}</span>
           <button
             type="button"
             aria-label="Alıcıyı değiştir"
-            className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex size-10 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             onClick={() => {
               compose.selectFreeEmail("");
               compose.setQuery("");
@@ -146,8 +143,8 @@ export const RecipientField = observer(() => {
           }}
           onFocus={() => setPopupOpen(true)}
           onKeyDown={handleKeyDown}
-          className="h-11"
-          placeholder="İsim veya e-posta ile ara…"
+          className="h-12 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          placeholder="Alıcı ara veya e-posta yaz…"
           role="combobox"
           aria-expanded={hasSelectableOptions}
           aria-controls={hasSelectableOptions ? listboxId : undefined}
@@ -161,7 +158,7 @@ export const RecipientField = observer(() => {
           aria-haspopup={hasSelectableOptions ? "listbox" : undefined}
         />
       )}
-      <span id={helpId} className="text-xs text-muted-foreground">
+      <span id={helpId} className="sr-only">
         Müşteri seçin veya geçerli bir e-posta adresi girin.
       </span>
 
@@ -170,7 +167,7 @@ export const RecipientField = observer(() => {
           id={popupId}
           role="region"
           aria-label="Alıcı arama"
-          className="absolute top-full z-10 mt-1 w-full rounded-md border bg-card shadow"
+          className="absolute left-2 right-2 top-full z-30 mt-1 overflow-hidden rounded-lg border bg-card shadow-lg"
         >
           {searchLoading && (
             <div

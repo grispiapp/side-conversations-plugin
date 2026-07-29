@@ -237,6 +237,11 @@ describe("ChatScreen Query-owned session wiring", () => {
       "h-[var(--panel-header-height)]"
     );
     expect(container.textContent).toContain("İlk yanıt");
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Yanıt gönder"]'
+      )
+    ).not.toBeNull();
     expect(mockStore.activeConversation.mergeCanonical).toHaveBeenCalledWith(
       8,
       "SC-42",
@@ -492,6 +497,17 @@ describe("ChatScreen Query-owned session wiring", () => {
     mockStore.activeConversation.reopen.mockReturnValue(reopen);
     render(<></>);
     render(<ChatScreen />);
+    expect(
+      container.querySelector('[role="textbox"][aria-label="Yanıt"]')
+    ).toBeNull();
+    expect(container.textContent).not.toContain("Yanıt şu kişiye gidecek:");
+    expect(container.textContent).toContain(
+      "Yanıt yazmak için görüşmeyi tekrar açın."
+    );
+    click("Tekrar aç");
+    expect(mockStatusMutation.mutate).toHaveBeenCalledWith(reopen);
+
+    mockStatusMutation.mutate.mockClear();
     click("Görüşme seçenekleri");
     click("Tekrar aç");
     expect(mockStatusMutation.mutate).toHaveBeenCalledWith(reopen);
@@ -516,10 +532,14 @@ describe("ChatScreen Query-owned session wiring", () => {
       )?.disabled
     ).toBe(true);
     expect(
-      container
-        .querySelector('[role="textbox"][aria-label="Yanıt"]')
-        ?.getAttribute("contenteditable")
-    ).toBe("false");
+      container.querySelector('[role="textbox"][aria-label="Yanıt"]')
+    ).toBeNull();
+    expect(container.textContent).toContain("Bu görüşme kapalı.");
+    expect(
+      Array.from(container.querySelectorAll("button")).find(
+        (control) => control.textContent?.trim() === "Tekrar aç"
+      )
+    ).toBeUndefined();
   });
 
   it("traps confirmation focus, makes the background inert, and restores focus", () => {

@@ -15,37 +15,33 @@ import { RichTextComposer } from "@/screens/components/rich-text-composer";
  */
 export interface MessageFieldProps {
   onSubmit: () => void;
+  submitDisabled?: boolean;
 }
 
-export const MessageField = observer(({ onSubmit }: MessageFieldProps) => {
-  const compose = useStore().compose;
+export const MessageField = observer(
+  ({ onSubmit, submitDisabled = false }: MessageFieldProps) => {
+    const compose = useStore().compose;
 
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs font-semibold text-foreground">
-          Mesaj <span aria-hidden="true">*</span>
-        </span>
-        <span className="text-xs text-muted-foreground">Zorunlu</span>
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <RichTextComposer
+          value={compose.message}
+          editorLabel="Mesaj"
+          sectionLabel="Yeni görüşme mesajı"
+          placeholder="Mesajınızı yazın…"
+          mode="compose"
+          submitDisabled={submitDisabled}
+          submitting={compose.submitting}
+          required
+          valueIsTrustedAuthored
+          onChange={(html) => compose.setAuthoredMessage(html)}
+          onSubmit={(html) => {
+            compose.setAuthoredMessage(html);
+            onSubmit();
+          }}
+          disabled={compose.submitting}
+        />
       </div>
-      <RichTextComposer
-        value={compose.message}
-        recipientLabel={compose.recipientLabel || "Henüz alıcı seçilmedi"}
-        recipientPrefix="E-posta şu kişiye gidecek:"
-        editorLabel="Mesaj"
-        sectionLabel="Yeni görüşme mesajı"
-        required
-        valueIsTrustedAuthored
-        onChange={(html) => compose.setAuthoredMessage(html)}
-        onSubmit={(html) => {
-          compose.setAuthoredMessage(html);
-          onSubmit();
-        }}
-        disabled={compose.submitting}
-      />
-      <span className="text-xs text-muted-foreground">
-        Enter: yeni satır · Shift+Enter: gönder
-      </span>
-    </div>
-  );
-});
+    );
+  }
+);

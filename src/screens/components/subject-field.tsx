@@ -15,26 +15,20 @@ export const SubjectField = observer(() => {
   const isEmpty = compose.subject.trim() === "";
 
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label
-        htmlFor="compose-subject"
-        className="text-xs font-semibold text-foreground"
-      >
+    <div className="flex min-w-0 flex-col border-b border-border bg-card">
+      <label htmlFor="compose-subject" className="sr-only">
         Konu
       </label>
       <Input
         id="compose-subject"
         value={compose.subject}
         onChange={(event) => compose.setSubject(event.target.value)}
-        className="h-11"
+        className="h-12 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         placeholder="Konu"
         aria-describedby={isEmpty ? "compose-subject-help" : undefined}
       />
       {isEmpty && (
-        <span
-          id="compose-subject-help"
-          className="text-xs text-muted-foreground"
-        >
+        <span id="compose-subject-help" className="sr-only">
           Konu boş — e-posta konusuz gönderilecek.
         </span>
       )}

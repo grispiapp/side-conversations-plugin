@@ -28,10 +28,21 @@ jest.mock("../components/subject-field", () => ({
   SubjectField: () => <div>Subject</div>,
 }));
 jest.mock("../components/message-field", () => ({
-  MessageField: ({ onSubmit }: { onSubmit: () => void }) => (
-    <button type="button" onClick={onSubmit}>
-      Shift gönder
-    </button>
+  MessageField: ({
+    onSubmit,
+    submitDisabled,
+  }: {
+    onSubmit: () => void;
+    submitDisabled?: boolean;
+  }) => (
+    <>
+      <button type="button" disabled={submitDisabled} onClick={onSubmit}>
+        Gönder
+      </button>
+      <button type="button" onClick={onSubmit}>
+        Shift gönder
+      </button>
+    </>
   ),
 }));
 

@@ -95,7 +95,6 @@ describe("RichTextComposer Tiptap contract", () => {
       "Bağlantı",
       "Madde işaretli liste",
       "Numaralı liste",
-      "Emoji",
       "Alıntı",
       "Geri al",
       "Yinele",
@@ -114,6 +113,7 @@ describe("RichTextComposer Tiptap contract", () => {
     expect(container.textContent).toContain(
       "Yanıt şu kişiye gidecek: Ada <ada@example.test>"
     );
+    expect(container.querySelector('button[aria-label="Emoji"]')).toBeNull();
   });
 
   it("formats a selection with Tiptap commands and tracks active marks", () => {
@@ -172,7 +172,9 @@ describe("RichTextComposer Tiptap contract", () => {
     const linkInput = container.querySelector<HTMLInputElement>(
       'input[aria-label], input[type="url"]'
     );
-    expect(container.querySelector('[aria-label="Bağlantı ekle"]')).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Bağlantı ekle"]')
+    ).not.toBeNull();
     expect(document.activeElement).toBe(linkInput);
 
     act(() => {
@@ -214,7 +216,7 @@ describe("RichTextComposer Tiptap contract", () => {
     expect(prompt).not.toHaveBeenCalled();
   });
 
-  it("creates lists, quotes and emoji through editor commands", () => {
+  it("creates bullet lists, ordered lists and quotes through their own editor commands", () => {
     const onChange = jest.fn();
     render(
       <RichTextComposer
@@ -251,9 +253,6 @@ describe("RichTextComposer Tiptap contract", () => {
     selectAllEditorContent();
     act(() => button("Alıntı").click());
     expect(latestHtml(onChange)).toContain("<blockquote>");
-
-    act(() => button("Emoji").click());
-    expect(latestHtml(onChange)).toContain("🙂");
   });
 
   it("uses Tiptap history for undo and redo", () => {
@@ -267,14 +266,15 @@ describe("RichTextComposer Tiptap contract", () => {
       />
     );
 
-    act(() => button("Emoji").click());
-    expect(latestHtml(onChange)).toContain("🙂");
+    selectAllEditorContent();
+    act(() => button("Kalın").click());
+    expect(latestHtml(onChange)).toContain("<strong>Hello</strong>");
 
     act(() => button("Geri al").click());
     expect(onChange).toHaveBeenLastCalledWith("<p>Hello</p>");
 
     act(() => button("Yinele").click());
-    expect(latestHtml(onChange)).toContain("🙂");
+    expect(latestHtml(onChange)).toContain("<strong>Hello</strong>");
   });
 
   it("sanitizes paste before parsing and external restore before synchronization", () => {
@@ -371,6 +371,35 @@ describe("RichTextComposer Tiptap contract", () => {
       />
     );
     dispatchKey("Enter", { shiftKey: true });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("submits the current sanitized content from the dock action", () => {
+    const onSubmit = jest.fn();
+    render(
+      <RichTextComposer
+        value={'<p onclick="steal()">Dock reply</p><script>bad()</script>'}
+        recipientLabel="Ada"
+        onChange={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    act(() => button("Yanıt gönder").click());
+
+    expect(onSubmit).toHaveBeenCalledWith("<p>Dock reply</p>");
+
+    onSubmit.mockClear();
+    render(
+      <RichTextComposer
+        value="<p><br></p>"
+        recipientLabel="Ada"
+        onChange={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+    expect(button("Yanıt gönder").disabled).toBe(true);
+    act(() => button("Yanıt gönder").click());
     expect(onSubmit).not.toHaveBeenCalled();
   });
 

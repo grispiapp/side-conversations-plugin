@@ -5,7 +5,6 @@ import { SubjectField } from "./components/subject-field";
 import { observer } from "mobx-react-lite";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   Screen,
   ScreenContent,
@@ -119,20 +118,17 @@ export const ComposeScreen = observer(() => {
           }
         }}
       />
-      <ScreenContent className="flex flex-col">
-        <div className="flex flex-1 flex-col gap-4 p-[var(--panel-inset)]">
+      <ScreenContent className="flex flex-col bg-card">
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          aria-label="Yeni görüşme e-postası"
+        >
           <RecipientField />
           <SubjectField />
-          <MessageField onSubmit={() => void submit()} />
-        </div>
-        <div className="sticky bottom-0 border-t bg-card p-[var(--panel-inset)]">
-          <Button
-            className="w-full"
-            disabled={sendDisabled}
-            onClick={() => void submit()}
-          >
-            Gönder
-          </Button>
+          <MessageField
+            submitDisabled={sendDisabled}
+            onSubmit={() => void submit()}
+          />
         </div>
       </ScreenContent>
 

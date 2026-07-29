@@ -1,6 +1,5 @@
 import {
   CounterClockwiseClockIcon,
-  FaceIcon,
   FontBoldIcon,
   FontItalicIcon,
   Link2Icon,
@@ -22,18 +21,20 @@ import {
 } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  sanitizeHtml,
-  sanitizeUntrustedDraftHtml,
-} from "@/lib/html-sanitizer";
+import { sanitizeHtml, sanitizeUntrustedDraftHtml } from "@/lib/html-sanitizer";
 import { cn } from "@/lib/utils";
 
 export interface RichTextComposerProps {
   value: string;
-  recipientLabel: string;
+  recipientLabel?: string;
   recipientPrefix?: string;
   editorLabel?: string;
   sectionLabel?: string;
+  placeholder?: string;
+  mode?: "compose" | "reply";
+  submitLabel?: string;
+  submitDisabled?: boolean;
+  submitting?: boolean;
   required?: boolean;
   onChange: (html: string) => void;
   onSubmit: (html: string) => void;
@@ -49,7 +50,6 @@ type ToolbarCommand =
   | "link"
   | "bulletList"
   | "orderedList"
-  | "emoji"
   | "blockquote"
   | "undo"
   | "redo";
@@ -59,6 +59,7 @@ interface ToolbarAction {
   icon: ReactNode;
   command: ToolbarCommand;
   activeName?: string;
+  groupEnd?: boolean;
 }
 
 const TOOLBAR_ACTIONS: ToolbarAction[] = [
@@ -79,6 +80,7 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
     icon: <Link2Icon />,
     command: "link",
     activeName: "link",
+    groupEnd: true,
   },
   {
     label: "Madde işaretli liste",
@@ -92,12 +94,12 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
     command: "orderedList",
     activeName: "orderedList",
   },
-  { label: "Emoji", icon: <FaceIcon />, command: "emoji" },
   {
     label: "Alıntı",
     icon: <QuoteIcon />,
     command: "blockquote",
     activeName: "blockquote",
+    groupEnd: true,
   },
   {
     label: "Geri al",
@@ -107,8 +109,13 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
   { label: "Yinele", icon: <ReloadIcon />, command: "redo" },
 ];
 
-const EDITOR_CLASS_NAME =
-  "max-h-32 min-h-10 overflow-y-auto break-words px-3 py-2 text-sm leading-5 outline-none";
+function editorClassName(mode: "compose" | "reply", disabled: boolean): string {
+  return cn(
+    "w-full flex-1 overflow-y-auto break-words px-4 py-3 text-sm leading-6 outline-none",
+    mode === "compose" ? "min-h-48" : "max-h-40 min-h-24",
+    disabled && "cursor-not-allowed bg-muted/30 text-muted-foreground"
+  );
+}
 
 function hasMeaningfulContent(html: string): boolean {
   const parsed = new DOMParser().parseFromString(html, "text/html");
@@ -162,6 +169,11 @@ export const RichTextComposer = forwardRef<
       recipientPrefix = "Yanıt şu kişiye gidecek:",
       editorLabel = "Yanıt",
       sectionLabel = "Yanıt oluşturucu",
+      placeholder = "Yanıtınızı yazın…",
+      mode = "reply",
+      submitLabel = "Gönder",
+      submitDisabled = false,
+      submitting = false,
       required = false,
       onChange,
       onSubmit,
@@ -221,7 +233,7 @@ export const RichTextComposer = forwardRef<
             "aria-label": editorLabel,
             "aria-multiline": "true",
             "aria-required": String(required),
-            class: EDITOR_CLASS_NAME,
+            class: editorClassName(mode, disabled),
           },
           handleKeyDown: (view, event) => {
             if (event.key !== "Enter" || !event.shiftKey) return false;
@@ -274,10 +286,9 @@ export const RichTextComposer = forwardRef<
       editor.view.dom.setAttribute("aria-required", String(required));
       editor.view.dom.className = cn(
         "ProseMirror",
-        EDITOR_CLASS_NAME,
-        disabled && "cursor-not-allowed bg-muted text-muted-foreground"
+        editorClassName(mode, disabled)
       );
-    }, [disabled, editor, editorLabel, required]);
+    }, [disabled, editor, editorLabel, mode, required]);
 
     useLayoutEffect(() => {
       if (!editor) return;
@@ -372,9 +383,6 @@ export const RichTextComposer = forwardRef<
         case "orderedList":
           editor.chain().focus().toggleOrderedList().run();
           break;
-        case "emoji":
-          editor.chain().focus().insertContent("🙂").run();
-          break;
         case "blockquote":
           editor.chain().focus().toggleBlockquote().run();
           break;
@@ -387,66 +395,66 @@ export const RichTextComposer = forwardRef<
       }
     };
 
+    const submitCurrentContent = () => {
+      if (!editor || disabled || submitDisabled || submitting) return;
+      const safeHtml = sanitizeHtml(editor.getHTML());
+      if (!hasMeaningfulContent(safeHtml)) return;
+      onSubmitRef.current(safeHtml);
+    };
+
+    const hasContent = hasMeaningfulContent(
+      sanitizeValue(editor?.getHTML() ?? value)
+    );
+
     return (
       <section
         className={cn(
-          "border-t border-border bg-background px-3 py-2",
+          "min-w-0 bg-card",
+          mode === "compose"
+            ? "flex min-h-0 flex-1 flex-col"
+            : "shrink-0 border-t border-border",
           className
         )}
         aria-label={sectionLabel}
       >
-        <p className="mb-1 break-words text-xs text-muted-foreground">
-          <span className="font-semibold text-foreground">
-            {recipientPrefix}
-          </span>{" "}
-          {recipientLabel}
-        </p>
+        {recipientLabel && (
+          <p className="flex min-h-9 min-w-0 items-center gap-1 border-b border-border px-4 py-2 text-xs text-muted-foreground">
+            <span className="shrink-0 font-medium text-foreground">
+              {recipientPrefix}{" "}
+            </span>
+            <span className="truncate">{recipientLabel}</span>
+          </p>
+        )}
 
-        <div className="rounded-md border border-input bg-card focus-within:ring-1 focus-within:ring-ring">
-          <div
-            role="toolbar"
-            aria-label="Metin biçimlendirme"
-            className="flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-border p-1"
-          >
-            {TOOLBAR_ACTIONS.map((action) => (
-              <Button
-                ref={
-                  action.command === "link" ? linkTriggerRef : undefined
-                }
-                key={action.label}
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={action.label}
-                aria-pressed={
-                  action.activeName
-                    ? (editor?.isActive(action.activeName) ?? false)
-                    : undefined
-                }
-                aria-expanded={
-                  action.command === "link" ? linkEditorOpen : undefined
-                }
-                aria-controls={
-                  action.command === "link" && linkEditorOpen
-                    ? linkPanelId
-                    : undefined
-                }
-                title={action.label}
-                disabled={disabled || !editor}
-                className="shrink-0 focus-visible:ring-2"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => runToolbarAction(action)}
-              >
-                {action.icon}
-              </Button>
-            ))}
-          </div>
+        <div
+          className={cn(
+            "relative min-h-0 bg-card focus-within:bg-background",
+            mode === "compose" && "flex flex-1"
+          )}
+        >
+          {!hasContent && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-3 text-sm leading-6 text-muted-foreground/70"
+            >
+              {placeholder}
+            </span>
+          )}
+          <EditorContent
+            editor={editor}
+            className={cn(
+              "min-w-0 flex-1",
+              mode === "compose" && "flex min-h-0"
+            )}
+          />
+        </div>
 
+        <div className="border-t border-border bg-card">
           {linkEditorOpen && (
             <form
               id={linkPanelId}
               aria-label="Bağlantı ekle"
-              className="flex flex-col gap-2 border-b border-border p-2"
+              className="flex flex-col gap-2 border-b border-border bg-muted/20 p-3"
               onSubmit={(event) => {
                 event.preventDefault();
                 applyLink();
@@ -472,7 +480,7 @@ export const RichTextComposer = forwardRef<
                 aria-describedby={
                   linkError ? `${linkPanelId}-error` : undefined
                 }
-                className="h-11 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onChange={(event) => {
                   setLinkHref(event.target.value);
                   setLinkError("");
@@ -503,7 +511,84 @@ export const RichTextComposer = forwardRef<
             </form>
           )}
 
-          <EditorContent editor={editor} />
+          <div className="flex min-w-0 items-center gap-2 px-2 py-2">
+            <div
+              role="toolbar"
+              aria-label="Metin biçimlendirme"
+              className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+            >
+              {TOOLBAR_ACTIONS.map((action) => {
+                const pressed = action.activeName
+                  ? (editor?.isActive(action.activeName) ?? false)
+                  : false;
+                const unavailable =
+                  action.command === "undo"
+                    ? !(editor?.can().chain().focus().undo().run() ?? false)
+                    : action.command === "redo"
+                      ? !(editor?.can().chain().focus().redo().run() ?? false)
+                      : false;
+
+                return (
+                  <div
+                    key={action.label}
+                    className="flex shrink-0 items-center gap-0.5"
+                  >
+                    <Button
+                      ref={
+                        action.command === "link" ? linkTriggerRef : undefined
+                      }
+                      type="button"
+                      variant="ghost"
+                      size="toolbar"
+                      aria-label={action.label}
+                      aria-pressed={action.activeName ? pressed : undefined}
+                      aria-expanded={
+                        action.command === "link" ? linkEditorOpen : undefined
+                      }
+                      aria-controls={
+                        action.command === "link" && linkEditorOpen
+                          ? linkPanelId
+                          : undefined
+                      }
+                      title={action.label}
+                      disabled={disabled || !editor || unavailable}
+                      className={cn(
+                        "shrink-0 text-muted-foreground focus-visible:ring-2 focus-visible:ring-offset-0",
+                        pressed && "bg-accent text-foreground"
+                      )}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => runToolbarAction(action)}
+                    >
+                      {action.icon}
+                    </Button>
+                    {action.groupEnd && (
+                      <span
+                        aria-hidden="true"
+                        className="mx-0.5 h-4 w-px bg-border"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <Button
+              type="button"
+              size="sm"
+              aria-label={`${editorLabel} gönder`}
+              className="shrink-0 px-4"
+              disabled={
+                disabled ||
+                submitDisabled ||
+                submitting ||
+                !editor ||
+                !hasContent
+              }
+              onClick={submitCurrentContent}
+            >
+              {submitting ? "Gönderiliyor…" : submitLabel}
+            </Button>
+          </div>
         </div>
       </section>
     );

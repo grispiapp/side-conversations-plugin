@@ -212,12 +212,13 @@ describe("RichTextComposer", () => {
       "İtalik",
       "Bağlantı",
       "Madde işaretli liste",
-      "Emoji",
+      "Numaralı liste",
       "Alıntı",
     ].forEach(
       (name) => expect(button(name)).toBeTruthy()
     );
     expect(container.textContent).not.toMatch(/Görsel|Tablo|Dosya/);
+    expect(container.querySelector('button[aria-label="Emoji"]')).toBeNull();
     expect(editor().className).toContain("overflow-y-auto");
   });
 
@@ -234,11 +235,22 @@ describe("RichTextComposer", () => {
       />
     );
 
-    act(() => button("Emoji").click());
+    act(() => {
+      editor().focus();
+      editor().dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "a",
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    act(() => button("Kalın").click());
 
     const reportedHtml = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(reportedHtml).toContain("Safe");
-    expect(reportedHtml).toContain("🙂");
+    expect(reportedHtml).toContain("<strong>Safe</strong>");
     expect(reportedHtml).not.toMatch(/style=|onclick|img|script/i);
     expect(
       editor().querySelector("img, script, [onclick], [style]")
