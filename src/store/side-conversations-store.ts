@@ -154,20 +154,12 @@ export function refreshConversationRowUnseen(
   return hasUnseen === row.hasUnseen ? row : { ...row, hasUnseen };
 }
 
-function sortConversationRows(rows: ConversationRowVM[]): ConversationRowVM[] {
-  const groupOrder = (row: ConversationRowVM) => {
-    if (row.lifecycle !== "open") return 2;
-    return row.actionBadge === "yeni-yanit" ? 0 : 1;
-  };
-
-  return [...rows].sort((a, b) => {
-    const groupDiff = groupOrder(a) - groupOrder(b);
-    if (groupDiff !== 0) return groupDiff;
-    return (b.lastPublicCommentAt ?? 0) - (a.lastPublicCommentAt ?? 0);
-  });
-}
-
-export function dedupeAndSortConversationRows(
+/**
+ * Preserve advanced-search's global order while flattening paginated rows.
+ * Sorting hydrated rows again would override the requested `updatedAt DESC`
+ * chronology and produce inconsistent results between pages.
+ */
+export function dedupeConversationRows(
   tenantId: string,
   rows: ConversationRowVM[]
 ): ConversationRowVM[] {
@@ -177,5 +169,5 @@ export function dedupeAndSortConversationRows(
       byKey.set(row.key, refreshConversationRowUnseen(tenantId, row));
     }
   }
-  return sortConversationRows(Array.from(byKey.values()));
+  return Array.from(byKey.values());
 }
