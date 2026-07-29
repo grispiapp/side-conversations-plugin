@@ -3,6 +3,7 @@ import {
   sanitizeHtml,
   splitQuotedHtml,
 } from "../html-sanitizer";
+import DOMPurify from "dompurify";
 
 describe("sanitizeHtml", () => {
   it("preserves only the lightweight formatting allowlist", () => {
@@ -64,6 +65,62 @@ describe("sanitizeHtml", () => {
         '<div class="gmail_quote"><p>Current</p><section><strong>kept</strong></section></div>'
       )
     ).toBe("<p>Current</p><strong>kept</strong>");
+  });
+
+  it("delegates the shared HTML boundary to DOMPurify", () => {
+    const sanitize = jest.spyOn(DOMPurify, "sanitize");
+
+    expect(sanitizeHtml("<p>Safe</p>")).toBe("<p>Safe</p>");
+    expect(sanitize).toHaveBeenCalledTimes(1);
+
+    sanitize.mockRestore();
+  });
+
+  it("drops active and data-bearing families with their payloads", () => {
+    const result = sanitizeHtml(
+      "<script><p>script payload</p></script>" +
+        "<style><p>style payload</p></style>" +
+        "<svg><text>svg payload</text></svg>" +
+        "<math><mtext>math payload</mtext></math>" +
+        "<iframe><p>frame payload</p></iframe>" +
+        '<img src="https://tracker.test/pixel" alt="image payload">' +
+        "<table><tbody><tr><td>table payload</td></tr></tbody></table>" +
+        "<template><p>template payload</p></template>"
+    );
+
+    expect(result).toBe("");
+  });
+
+  it("strips event, style, data and aria attributes from pasted provider HTML", () => {
+    expect(
+      sanitizeHtml(
+        '<p class="MsoNormal" style="margin:0" data-provider="word" aria-label="hidden" onmouseover="steal()">' +
+          '<span style="font-family:Arial">Word</span><o:p>&nbsp;</o:p></p>' +
+          '<div dir="ltr" class="gmail_default"><strong>Gmail</strong></div>'
+      )
+    ).toBe("<p>Word&nbsp;</p><strong>Gmail</strong>");
+  });
+
+  it("accepts only canonical web and mail links after URI obfuscation checks", () => {
+    const result = sanitizeHtml(
+      '<a href="https:\n//example.test/path">web</a>' +
+        '<a href="mailto:ada@example.test">mail</a>' +
+        '<a href="/relative">relative</a>' +
+        '<a href="data:text/html,boom">data</a>' +
+        '<a href="java&#x0A;script:alert(1)">encoded-js</a>' +
+        '<a href="jav&#x61;script:alert(1)">entity-js</a>'
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.test/path" target="_blank" rel="noopener noreferrer">web</a>'
+    );
+    expect(result).toContain(
+      '<a href="mailto:ada@example.test" rel="noopener noreferrer">mail</a>'
+    );
+    expect(result).toContain("<a>relative</a>");
+    expect(result).toContain("<a>data</a>");
+    expect(result).toContain("<a>encoded-js</a>");
+    expect(result).toContain("<a>entity-js</a>");
   });
 });
 

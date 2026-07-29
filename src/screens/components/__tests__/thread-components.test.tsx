@@ -73,6 +73,29 @@ describe("ThreadMessage", () => {
     expect(container.textContent).toContain("Earlier");
   });
 
+  it("never lets raw remote HTML bypass the shared split-and-sanitize sink", () => {
+    render(
+      <ThreadMessage
+        message={{
+          ...baseMessage,
+          body:
+            '<p aria-label="spoofed" data-secret="leak">Visible</p>' +
+            '<a href="javascript:steal()" onclick="steal()">unsafe link</a>' +
+            "<blockquote><img src=x onerror=steal()><p>Safe quote</p></blockquote>",
+        }}
+        onRetry={jest.fn()}
+      />
+    );
+
+    expect(container.querySelector("script, img, [onclick], [onerror]")).toBeNull();
+    expect(container.querySelector("[aria-label='spoofed'], [data-secret]")).toBeNull();
+    expect(container.querySelector("a")?.hasAttribute("href")).toBe(false);
+
+    act(() => button("Önceki e-postayı göster").click());
+    expect(container.textContent).toContain("Safe quote");
+    expect(container.querySelector("img")).toBeNull();
+  });
+
   it("uses minimal successive/own identity and explicit internal-note treatment", () => {
     render(<ThreadMessage message={baseMessage} onRetry={jest.fn()} />);
     expect(container.textContent).toContain("Ada Lovelace");
