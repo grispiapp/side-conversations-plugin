@@ -175,26 +175,28 @@ describe("RichTextComposer", () => {
     expect(editor().className).toContain("overflow-y-auto");
   });
 
-  it("sanitizes editor input before reporting changes", () => {
+  it("sanitizes editor updates before reporting changes", () => {
     const onChange = jest.fn();
     render(
       <RichTextComposer
-        value=""
+        value={
+          '<p style="color:red" onclick="steal()">Safe</p><img src=x><script>bad()</script>'
+        }
         recipientLabel="Ada"
         onChange={onChange}
         onSubmit={jest.fn()}
       />
     );
-    const editable = editor();
 
-    editable.innerHTML =
-      '<p style="color:red" onclick="steal()">Safe</p><img src=x><script>bad()</script>';
-    act(() =>
-      editable.dispatchEvent(new InputEvent("input", { bubbles: true }))
-    );
+    act(() => button("Emoji").click());
 
-    expect(onChange).toHaveBeenLastCalledWith("<p>Safe</p>");
-    expect(editable.innerHTML).toBe("<p>Safe</p>");
+    const reportedHtml = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+    expect(reportedHtml).toContain("Safe");
+    expect(reportedHtml).toContain("🙂");
+    expect(reportedHtml).not.toMatch(/style=|onclick|img|script/i);
+    expect(
+      editor().querySelector("img, script, [onclick], [style]")
+    ).toBeNull();
   });
 
   it("sanitizes pasted HTML before it enters the controlled draft", () => {
@@ -243,7 +245,7 @@ describe("RichTextComposer", () => {
     });
 
     act(() => editable.dispatchEvent(enter));
-    expect(enter.defaultPrevented).toBe(false);
+    expect(editable.querySelectorAll("p")).toHaveLength(2);
     expect(onSubmit).not.toHaveBeenCalled();
 
     act(() =>
@@ -256,7 +258,9 @@ describe("RichTextComposer", () => {
         })
       )
     );
-    expect(onSubmit).toHaveBeenCalledWith("<p>Hello</p>");
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0]).toContain("Hello");
+    expect(onSubmit.mock.calls[0][0]).not.toMatch(/onclick|script/i);
 
     onSubmit.mockClear();
     render(

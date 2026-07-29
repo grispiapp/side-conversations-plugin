@@ -1,22 +1,18 @@
 import {
+  CounterClockwiseClockIcon,
   FaceIcon,
   FontBoldIcon,
   FontItalicIcon,
   Link2Icon,
   ListBulletIcon,
   QuoteIcon,
+  ReloadIcon,
+  RowsIcon,
 } from "@radix-ui/react-icons";
-import {
-  ClipboardEvent,
-  FormEvent,
-  KeyboardEvent,
-  MouseEvent,
-  ReactNode,
-  forwardRef,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-} from "react";
+import Link from "@tiptap/extension-link";
+import { Editor, EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { ReactNode, forwardRef, useLayoutEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
@@ -32,30 +28,107 @@ export interface RichTextComposerProps {
   className?: string;
 }
 
+type ToolbarCommand =
+  | "bold"
+  | "italic"
+  | "link"
+  | "bulletList"
+  | "orderedList"
+  | "emoji"
+  | "blockquote"
+  | "undo"
+  | "redo";
+
 interface ToolbarAction {
   label: string;
   icon: ReactNode;
-  command: string;
-  value?: string;
+  command: ToolbarCommand;
+  activeName?: string;
 }
 
 const TOOLBAR_ACTIONS: ToolbarAction[] = [
-  { label: "Kalın", icon: <FontBoldIcon />, command: "bold" },
-  { label: "İtalik", icon: <FontItalicIcon />, command: "italic" },
-  { label: "Bağlantı", icon: <Link2Icon />, command: "createLink" },
-  { label: "Liste", icon: <ListBulletIcon />, command: "insertUnorderedList" },
-  { label: "Emoji", icon: <FaceIcon />, command: "insertText", value: "🙂" },
+  {
+    label: "Kalın",
+    icon: <FontBoldIcon />,
+    command: "bold",
+    activeName: "bold",
+  },
+  {
+    label: "İtalik",
+    icon: <FontItalicIcon />,
+    command: "italic",
+    activeName: "italic",
+  },
+  {
+    label: "Bağlantı",
+    icon: <Link2Icon />,
+    command: "link",
+    activeName: "link",
+  },
+  {
+    label: "Liste",
+    icon: <ListBulletIcon />,
+    command: "bulletList",
+    activeName: "bulletList",
+  },
+  {
+    label: "Numaralı liste",
+    icon: <RowsIcon />,
+    command: "orderedList",
+    activeName: "orderedList",
+  },
+  { label: "Emoji", icon: <FaceIcon />, command: "emoji" },
   {
     label: "Alıntı",
     icon: <QuoteIcon />,
-    command: "formatBlock",
-    value: "blockquote",
+    command: "blockquote",
+    activeName: "blockquote",
   },
+  {
+    label: "Geri al",
+    icon: <CounterClockwiseClockIcon />,
+    command: "undo",
+  },
+  { label: "Yinele", icon: <ReloadIcon />, command: "redo" },
 ];
+
+const EDITOR_CLASS_NAME =
+  "max-h-32 min-h-10 overflow-y-auto break-words px-3 py-2 text-sm leading-5 outline-none";
 
 function hasMeaningfulContent(html: string): boolean {
   const parsed = new DOMParser().parseFromString(html, "text/html");
   return Boolean(parsed.body.textContent?.replace(/\u00a0/g, " ").trim());
+}
+
+function isAllowedLink(rawHref: string): boolean {
+  const href = rawHref.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+
+  if (/^mailto:[^:]+$/i.test(href)) return true;
+  if (!/^https?:\/\//i.test(href)) return false;
+
+  try {
+    const url = new URL(href);
+    return /^(?:http|https):$/.test(url.protocol) && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function plainTextHtml(text: string): string {
+  const container = document.createElement("div");
+  container.textContent = text;
+  return container.innerHTML.replace(/\r?\n/g, "<br>");
+}
+
+function assignForwardedRef(
+  forwardedRef: React.ForwardedRef<HTMLDivElement>,
+  node: HTMLDivElement | null
+): void {
+  if (typeof forwardedRef === "function") {
+    forwardedRef(node);
+  } else if (forwardedRef) {
+    forwardedRef.current = node;
+  }
 }
 
 export const RichTextComposer = forwardRef<
@@ -74,131 +147,167 @@ export const RichTextComposer = forwardRef<
     },
     forwardedRef
   ) => {
-    const editorRef = useRef<HTMLDivElement | null>(null);
-    const savedRange = useRef<Range | null>(null);
+    const editorRef = useRef<Editor | null>(null);
+    const onChangeRef = useRef(onChange);
+    const onSubmitRef = useRef(onSubmit);
+    const disabledRef = useRef(disabled);
+    const lastEmittedHtml = useRef(sanitizeHtml(value));
 
-    const setEditorRef = useCallback(
-      (node: HTMLDivElement | null) => {
-        editorRef.current = node;
-        if (typeof forwardedRef === "function") {
-          forwardedRef(node);
-        } else if (forwardedRef) {
-          forwardedRef.current = node;
-        }
+    onChangeRef.current = onChange;
+    onSubmitRef.current = onSubmit;
+    disabledRef.current = disabled;
+
+    const editor = useEditor(
+      {
+        content: lastEmittedHtml.current,
+        editable: !disabled,
+        extensions: [
+          StarterKit.configure({
+            code: false,
+            codeBlock: false,
+            heading: false,
+            horizontalRule: false,
+            strike: false,
+          }),
+          Link.configure({
+            autolink: false,
+            linkOnPaste: false,
+            openOnClick: false,
+            protocols: ["http", "https", "mailto"],
+            HTMLAttributes: {
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
+            isAllowedUri: (url) => isAllowedLink(url),
+          }),
+        ],
+        editorProps: {
+          attributes: {
+            role: "textbox",
+            "aria-label": "Yanıt",
+            "aria-multiline": "true",
+            class: EDITOR_CLASS_NAME,
+          },
+          handleKeyDown: (view, event) => {
+            if (event.key !== "Enter" || !event.shiftKey) return false;
+            if (event.isComposing || view.composing) return false;
+            if (disabledRef.current) return true;
+
+            const currentEditor = editorRef.current;
+            if (!currentEditor) return true;
+
+            const safeHtml = sanitizeHtml(currentEditor.getHTML());
+            if (hasMeaningfulContent(safeHtml)) {
+              onSubmitRef.current(safeHtml);
+            }
+            return true;
+          },
+          handlePaste: (_view, event) => {
+            if (disabledRef.current) return true;
+
+            const clipboardHtml = event.clipboardData?.getData("text/html");
+            const clipboardText =
+              event.clipboardData?.getData("text/plain") || "";
+            const safePaste = sanitizeHtml(
+              clipboardHtml || plainTextHtml(clipboardText)
+            );
+            if (!safePaste) return true;
+
+            editorRef.current?.chain().focus().insertContent(safePaste).run();
+            return true;
+          },
+        },
+        onUpdate: ({ editor: currentEditor }) => {
+          if (disabledRef.current) return;
+
+          const safeHtml = sanitizeHtml(currentEditor.getHTML());
+          lastEmittedHtml.current = safeHtml;
+          onChangeRef.current(safeHtml);
+        },
       },
-      [forwardedRef]
+      []
     );
 
+    editorRef.current = editor;
+
     useLayoutEffect(() => {
-      const editor = editorRef.current;
+      if (!editor) return;
+
+      editor.setEditable(!disabled);
+      editor.view.dom.setAttribute("aria-disabled", String(disabled));
+      editor.view.dom.className = cn(
+        "ProseMirror",
+        EDITOR_CLASS_NAME,
+        disabled && "cursor-not-allowed bg-muted text-muted-foreground"
+      );
+    }, [disabled, editor]);
+
+    useLayoutEffect(() => {
       if (!editor) return;
 
       const safeValue = sanitizeHtml(value);
-      if (editor.innerHTML !== safeValue) editor.innerHTML = safeValue;
-    }, [value]);
+      if (safeValue === lastEmittedHtml.current) return;
+
+      lastEmittedHtml.current = safeValue;
+      editor.commands.setContent(safeValue, false);
+    }, [editor, value]);
 
     useLayoutEffect(() => {
-      if (autoFocus && !disabled) editorRef.current?.focus();
-    }, [autoFocus, disabled]);
+      const editorElement = (editor?.view.dom as HTMLDivElement) ?? null;
+      assignForwardedRef(forwardedRef, editorElement);
+      return () => assignForwardedRef(forwardedRef, null);
+    }, [editor, forwardedRef]);
 
-    const rememberSelection = () => {
-      const selection = window.getSelection();
-      const editor = editorRef.current;
-      if (
-        selection &&
-        selection.rangeCount > 0 &&
-        editor?.contains(selection.anchorNode)
-      ) {
-        savedRange.current = selection.getRangeAt(0).cloneRange();
+    useLayoutEffect(() => {
+      if (autoFocus && !disabled && editor) {
+        editor.commands.focus("end");
+        editor.view.focus();
       }
-    };
-
-    const restoreSelection = () => {
-      const selection = window.getSelection();
-      if (!selection || !savedRange.current) return;
-      selection.removeAllRanges();
-      selection.addRange(savedRange.current);
-    };
-
-    const reportSanitizedValue = () => {
-      const editor = editorRef.current;
-      if (!editor) return;
-
-      const safeValue = sanitizeHtml(editor.innerHTML);
-      if (editor.innerHTML !== safeValue) editor.innerHTML = safeValue;
-      onChange(safeValue);
-      rememberSelection();
-    };
-
-    const onInput = (event: FormEvent<HTMLDivElement>) => {
-      if (disabled) {
-        event.preventDefault();
-        return;
-      }
-      reportSanitizedValue();
-    };
-
-    const insertHtml = (html: string) => {
-      restoreSelection();
-      const inserted = document.execCommand?.("insertHTML", false, html);
-      if (inserted || !editorRef.current) return;
-
-      const selection = window.getSelection();
-      const range =
-        selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-      if (
-        !range ||
-        !editorRef.current.contains(range.commonAncestorContainer)
-      ) {
-        editorRef.current.insertAdjacentHTML("beforeend", html);
-        return;
-      }
-      range.deleteContents();
-      range.insertNode(range.createContextualFragment(html));
-      range.collapse(false);
-    };
-
-    const onPaste = (event: ClipboardEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      if (disabled) return;
-
-      const clipboardHtml = event.clipboardData.getData("text/html");
-      const clipboardText = event.clipboardData.getData("text/plain");
-      const plainContainer = document.createElement("div");
-      plainContainer.textContent = clipboardText;
-      const safePaste = sanitizeHtml(
-        clipboardHtml || plainContainer.innerHTML.replace(/\n/g, "<br>")
-      );
-      insertHtml(safePaste);
-      reportSanitizedValue();
-    };
+    }, [autoFocus, disabled, editor]);
 
     const runToolbarAction = (action: ToolbarAction) => {
-      if (disabled || !editorRef.current) return;
+      if (!editor || disabled) return;
 
-      editorRef.current.focus();
-      restoreSelection();
-
-      let value = action.value;
-      if (action.command === "createLink") {
-        value = window.prompt("Bağlantı adresi", "https://") || undefined;
-        if (!value) return;
+      switch (action.command) {
+        case "bold":
+          editor.chain().focus().toggleBold().run();
+          break;
+        case "italic":
+          editor.chain().focus().toggleItalic().run();
+          break;
+        case "link": {
+          const href = window.prompt("Bağlantı adresi", "https://")?.trim();
+          if (!href || !isAllowedLink(href)) return;
+          editor
+            .chain()
+            .focus()
+            .setLink({
+              href,
+              target: /^https?:/i.test(href) ? "_blank" : null,
+              rel: "noopener noreferrer",
+            })
+            .run();
+          break;
+        }
+        case "bulletList":
+          editor.chain().focus().toggleBulletList().run();
+          break;
+        case "orderedList":
+          editor.chain().focus().toggleOrderedList().run();
+          break;
+        case "emoji":
+          editor.chain().focus().insertContent("🙂").run();
+          break;
+        case "blockquote":
+          editor.chain().focus().toggleBlockquote().run();
+          break;
+        case "undo":
+          editor.chain().focus().undo().run();
+          break;
+        case "redo":
+          editor.chain().focus().redo().run();
+          break;
       }
-
-      document.execCommand?.(action.command, false, value);
-      reportSanitizedValue();
-    };
-
-    const preserveSelection = (event: MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-    };
-
-    const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-      if (disabled || event.key !== "Enter" || !event.shiftKey) return;
-
-      event.preventDefault();
-      const safeValue = sanitizeHtml(event.currentTarget.innerHTML);
-      if (hasMeaningfulContent(safeValue)) onSubmit(safeValue);
     };
 
     return (
@@ -229,10 +338,15 @@ export const RichTextComposer = forwardRef<
                 variant="ghost"
                 size="icon"
                 aria-label={action.label}
+                aria-pressed={
+                  action.activeName
+                    ? (editor?.isActive(action.activeName) ?? false)
+                    : undefined
+                }
                 title={action.label}
-                disabled={disabled}
-                className="size-7 shrink-0"
-                onMouseDown={preserveSelection}
+                disabled={disabled || !editor}
+                className="size-7 shrink-0 focus-visible:ring-2"
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => runToolbarAction(action)}
               >
                 {action.icon}
@@ -240,25 +354,7 @@ export const RichTextComposer = forwardRef<
             ))}
           </div>
 
-          <div
-            ref={setEditorRef}
-            role="textbox"
-            aria-label="Yanıt"
-            aria-multiline="true"
-            aria-disabled={disabled}
-            contentEditable={!disabled}
-            suppressContentEditableWarning
-            className={cn(
-              "max-h-32 min-h-10 overflow-y-auto break-words px-3 py-2 text-sm leading-5 outline-none",
-              disabled && "cursor-not-allowed bg-muted text-muted-foreground"
-            )}
-            onInput={onInput}
-            onPaste={onPaste}
-            onKeyDown={onKeyDown}
-            onKeyUp={rememberSelection}
-            onMouseUp={rememberSelection}
-            onBlur={rememberSelection}
-          />
+          <EditorContent editor={editor} />
         </div>
       </section>
     );

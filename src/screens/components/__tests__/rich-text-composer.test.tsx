@@ -1,6 +1,5 @@
 import { RichTextComposer } from "../rich-text-composer";
-import { RefObject, createRef } from "react";
-import { ReactElement, act } from "react";
+import { ReactElement, RefObject, act, createRef, useState } from "react";
 import { Root, createRoot } from "react-dom/client";
 
 let container: HTMLDivElement;
@@ -109,7 +108,9 @@ describe("RichTextComposer Tiptap contract", () => {
       "Liste",
       "Numaralı liste",
       "Alıntı",
-    ].forEach((label) => expect(button(label)).toHaveAttribute("aria-pressed"));
+    ].forEach((label) =>
+      expect(button(label).hasAttribute("aria-pressed")).toBe(true)
+    );
     expect(container.textContent).toContain(
       "Yanıt şu kişiye gidecek: Ada <ada@example.test>"
     );
@@ -131,6 +132,27 @@ describe("RichTextComposer Tiptap contract", () => {
 
     expect(onChange).toHaveBeenLastCalledWith("<p><strong>Hello</strong></p>");
     expect(button("Kalın").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("does not reset the selection when the controlled parent mirrors onUpdate", () => {
+    function ControlledComposer(): ReactElement {
+      const [value, setValue] = useState("<p>Hello</p>");
+      return (
+        <RichTextComposer
+          value={value}
+          recipientLabel="Ada"
+          onChange={setValue}
+          onSubmit={jest.fn()}
+        />
+      );
+    }
+
+    render(<ControlledComposer />);
+    selectAllEditorContent();
+    act(() => button("İtalik").click());
+
+    expect(editor().innerHTML).toContain("<em>Hello</em>");
+    expect(button("İtalik").getAttribute("aria-pressed")).toBe("true");
   });
 
   it("creates safe links, lists, quotes and emoji through editor commands", () => {
@@ -274,19 +296,21 @@ describe("RichTextComposer Tiptap contract", () => {
     );
 
     const enter = dispatchKey("Enter");
-    expect(enter.defaultPrevented).toBe(false);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(editor().querySelectorAll("p")).toHaveLength(2);
     expect(onSubmit).not.toHaveBeenCalled();
 
     const composingSubmit = dispatchKey("Enter", {
       shiftKey: true,
       isComposing: true,
     });
-    expect(composingSubmit.defaultPrevented).toBe(false);
     expect(onSubmit).not.toHaveBeenCalled();
 
     const submit = dispatchKey("Enter", { shiftKey: true });
     expect(submit.defaultPrevented).toBe(true);
-    expect(onSubmit).toHaveBeenCalledWith("<p>Hello</p><p></p>");
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0]).toContain("Hello");
+    expect(onSubmit.mock.calls[0][0]).not.toMatch(/onclick|script/i);
 
     onSubmit.mockClear();
     render(
@@ -327,5 +351,22 @@ describe("RichTextComposer Tiptap contract", () => {
     dispatchKey("Enter", { shiftKey: true });
     expect(onSubmit).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("forwards the editable surface and honors autoFocus when enabled", () => {
+    const ref: RefObject<HTMLDivElement> = createRef();
+    render(
+      <RichTextComposer
+        ref={ref}
+        value="<p>Focus me</p>"
+        recipientLabel="Ada"
+        autoFocus
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    expect(ref.current).toBe(editor());
+    expect(document.activeElement).toBe(editor());
   });
 });
