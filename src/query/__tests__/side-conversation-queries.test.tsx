@@ -83,9 +83,7 @@ describe("side-conversation query contracts", () => {
       },
       { size: 10, page: 0 }
     );
-    expect(
-      options.getNextPageParam(firstPage, [firstPage], 0, [0])
-    ).toBe(1);
+    expect(options.getNextPageParam(firstPage, [firstPage], 0, [0])).toBe(1);
     expect(
       options.getNextPageParam(
         makeListPage(1, 2),
