@@ -160,7 +160,6 @@ export interface AdvancedSearchCondition {
 export interface AdvancedSearchRequest {
   allConditions: AdvancedSearchCondition[];
   anyConditions: AdvancedSearchCondition[];
-  orderByFieldKey?: string;
 }
 
 /**

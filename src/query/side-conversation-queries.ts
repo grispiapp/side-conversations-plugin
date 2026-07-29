@@ -184,7 +184,6 @@ async function fetchSideConversationPage(
           },
         ],
         anyConditions: [],
-        orderByFieldKey: "updatedAt DESC",
       },
       { size: PAGE_SIZE, page }
     );
