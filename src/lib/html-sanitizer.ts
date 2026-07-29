@@ -1,42 +1,53 @@
-const ALLOWED_TAGS = new Set([
-  "A",
-  "B",
-  "BLOCKQUOTE",
-  "BR",
-  "EM",
-  "I",
-  "LI",
-  "OL",
-  "P",
-  "STRONG",
-  "UL",
-]);
+import DOMPurify, { Config } from "dompurify";
+
+const ALLOWED_TAGS = [
+  "a",
+  "b",
+  "blockquote",
+  "br",
+  "em",
+  "i",
+  "li",
+  "ol",
+  "p",
+  "strong",
+  "ul",
+];
 
 /**
  * These elements are removed with their contents. Other unknown elements are
  * unwrapped so harmless provider wrappers do not make message text disappear.
  */
-const DROP_WITH_CONTENT = new Set([
-  "AUDIO",
-  "BASE",
-  "EMBED",
-  "FORM",
-  "IFRAME",
-  "IMG",
-  "LINK",
-  "MATH",
-  "META",
-  "OBJECT",
-  "SCRIPT",
-  "SOURCE",
-  "STYLE",
-  "SVG",
-  "TABLE",
-  "TEMPLATE",
-  "VIDEO",
-]);
+const DROP_WITH_CONTENT = [
+  "audio",
+  "base",
+  "embed",
+  "form",
+  "iframe",
+  "img",
+  "link",
+  "math",
+  "meta",
+  "object",
+  "script",
+  "source",
+  "style",
+  "svg",
+  "table",
+  "template",
+  "video",
+];
 
-const SAFE_HREF = /^(?:https?:|mailto:)/i;
+const SANITIZE_CONFIG: Config = {
+  ALLOWED_TAGS,
+  ALLOWED_ATTR: ["href"],
+  ALLOW_ARIA_ATTR: false,
+  ALLOW_DATA_ATTR: false,
+  ALLOW_UNKNOWN_PROTOCOLS: false,
+  ALLOWED_URI_REGEXP: /^(?:https?:\/\/|mailto:)/i,
+  FORBID_TAGS: DROP_WITH_CONTENT,
+  FORBID_CONTENTS: DROP_WITH_CONTENT,
+};
 
 export interface QuotedHtmlParts {
   bodyHtml: string;
@@ -67,24 +78,36 @@ function parseBody(html: string): HTMLElement | null {
   }
 }
 
-function isSafeHref(rawHref: string): boolean {
+function canonicalizeHref(rawHref: string): string | undefined {
   // Browsers ignore ASCII whitespace/control characters while resolving a
   // scheme. Remove them for the policy check so `java\nscript:` cannot pass.
-  const canonical = rawHref.replace(/[\u0000-\u0020\u007f]+/g, "");
-  return SAFE_HREF.test(canonical);
+  const canonical = rawHref.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+
+  if (/^https?:\/\//i.test(canonical)) {
+    try {
+      const url = new URL(canonical);
+      return /^(?:http|https):$/.test(url.protocol) && url.hostname
+        ? canonical
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return /^mailto:[^:]+$/i.test(canonical) ? canonical : undefined;
 }
 
 function normalizeAnchor(anchor: HTMLAnchorElement): void {
-  const rawHref = anchor.getAttribute("href")?.trim();
+  const safeHref = canonicalizeHref(anchor.getAttribute("href") || "");
 
   for (const attribute of Array.from(anchor.attributes)) {
     anchor.removeAttribute(attribute.name);
   }
 
-  if (!rawHref || !isSafeHref(rawHref)) return;
+  if (!safeHref) return;
 
-  anchor.setAttribute("href", rawHref);
-  if (/^https?:/i.test(rawHref)) {
+  anchor.setAttribute("href", safeHref);
+  if (/^https?:/i.test(safeHref)) {
     anchor.setAttribute("target", "_blank");
   }
   anchor.setAttribute("rel", "noopener noreferrer");
@@ -92,7 +115,7 @@ function normalizeAnchor(anchor: HTMLAnchorElement): void {
 
 /**
  * Sanitizes both remote message HTML and locally-created editor HTML with one
- * deterministic DOM policy. No caller-specific exception is permitted.
+ * explicit DOMPurify policy. No caller-specific exception is permitted.
  *
  * If DOM parsing is unavailable, the original value is escaped. That fallback
  * is safe at an HTML sink and displays as plain text instead of attempting to
@@ -104,47 +127,15 @@ export function sanitizeHtml(input: string): string {
   const body = parseBody(input);
   if (!body) return escapeHtml(input);
 
-  const walker = body.ownerDocument.createTreeWalker(
-    body,
-    NodeFilter.SHOW_ELEMENT
-  );
-  const elements: Element[] = [];
-  let current = walker.nextNode();
+  const sanitized = DOMPurify.sanitize(input, SANITIZE_CONFIG);
+  const sanitizedBody = parseBody(sanitized);
+  if (!sanitizedBody) return escapeHtml(input);
 
-  while (current) {
-    elements.push(current as Element);
-    current = walker.nextNode();
+  for (const anchor of Array.from(sanitizedBody.querySelectorAll("a"))) {
+    normalizeAnchor(anchor);
   }
 
-  // Work inside-out so unwrapping an unknown provider element retains its
-  // already-sanitized descendants.
-  for (const element of elements.reverse()) {
-    if (!element.parentNode) continue;
-    const tagName = element.tagName.toUpperCase();
-
-    if (DROP_WITH_CONTENT.has(tagName)) {
-      element.remove();
-      continue;
-    }
-
-    if (!ALLOWED_TAGS.has(tagName)) {
-      const fragment = body.ownerDocument.createDocumentFragment();
-      while (element.firstChild) fragment.appendChild(element.firstChild);
-      element.replaceWith(fragment);
-      continue;
-    }
-
-    if (tagName === "A") {
-      normalizeAnchor(element as HTMLAnchorElement);
-      continue;
-    }
-
-    for (const attribute of Array.from(element.attributes)) {
-      element.removeAttribute(attribute.name);
-    }
-  }
-
-  return body.innerHTML;
+  return sanitizedBody.innerHTML;
 }
 
 /**

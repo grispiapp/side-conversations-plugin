@@ -87,8 +87,12 @@ describe("ThreadMessage", () => {
       />
     );
 
-    expect(container.querySelector("script, img, [onclick], [onerror]")).toBeNull();
-    expect(container.querySelector("[aria-label='spoofed'], [data-secret]")).toBeNull();
+    expect(
+      container.querySelector("script, img, [onclick], [onerror]")
+    ).toBeNull();
+    expect(
+      container.querySelector("[aria-label='spoofed'], [data-secret]")
+    ).toBeNull();
     expect(container.querySelector("a")?.hasAttribute("href")).toBe(false);
 
     act(() => button("Önceki e-postayı göster").click());
