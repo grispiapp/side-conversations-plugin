@@ -162,7 +162,7 @@ it("renders a labelled header action and flush textual queue states", () => {
   ).toBeGreaterThanOrEqual(3);
 });
 
-it("labels failed hydration neutrally without claiming a new reply", () => {
+it("keeps failed hydration silent while preserving the dimmed subject row", () => {
   mockListQuery.rows = [
     {
       ...row("SC-UNKNOWN"),
@@ -173,8 +173,14 @@ it("labels failed hydration neutrally without claiming a new reply", () => {
 
   render(<ConversationsListScreen />);
 
-  expect(container.textContent).toContain("Durum alınamadı");
+  const failedRow = container.querySelector<HTMLButtonElement>(
+    '[role="listitem"] button'
+  );
+  expect(failedRow?.textContent).toContain("Subject SC-UNKNOWN");
+  expect(failedRow?.textContent).not.toContain("Summary SC-UNKNOWN");
+  expect(failedRow?.textContent).not.toContain("Durum alınamadı");
   expect(container.textContent).not.toContain("Yeni yanıt");
+  expect(failedRow?.className).toContain("opacity-60");
 });
 
 it("renders a status-5 projected row as Kapalı rather than Çözüldü", () => {

@@ -57,27 +57,27 @@ export const ConversationRow = observer(
             <p className="min-w-0 flex-1 truncate text-muted-foreground">
               {row.hydrationFailed ? "" : row.summary}
             </p>
-            <span
-              className={cn(
-                "shrink-0 font-semibold",
-                row.lifecycle !== "open"
-                  ? "text-slate-600"
-                  : row.actionBadge === "yeni-yanit"
-                    ? "text-amber-800"
-                    : "text-emerald-800"
-              )}
-            >
-              {row.hasUnseen && "Görülmemiş · "}
-              {row.hydrationFailed
-                ? "Durum alınamadı"
-                : row.lifecycle !== "open"
-                ? row.lifecycle === "closed"
-                  ? "Kapalı"
-                  : "Çözüldü"
-                : row.actionBadge !== null
-                  ? BADGE_LABEL[row.actionBadge]
-                  : "Açık"}
-            </span>
+            {!row.hydrationFailed && (
+              <span
+                className={cn(
+                  "shrink-0 font-semibold",
+                  row.lifecycle !== "open"
+                    ? "text-slate-600"
+                    : row.actionBadge === "yeni-yanit"
+                      ? "text-amber-800"
+                      : "text-emerald-800"
+                )}
+              >
+                {row.hasUnseen && "Görülmemiş · "}
+                {row.lifecycle !== "open"
+                  ? row.lifecycle === "closed"
+                    ? "Kapalı"
+                    : "Çözüldü"
+                  : row.actionBadge !== null
+                    ? BADGE_LABEL[row.actionBadge]
+                    : "Açık"}
+              </span>
+            )}
           </div>
         </button>
       </div>
