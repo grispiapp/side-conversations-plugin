@@ -1,6 +1,12 @@
 import { Cross2Icon, EnvelopeClosedIcon } from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
-import { KeyboardEvent, useEffect, useState } from "react";
+import {
+  FocusEvent,
+  KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Input } from "@/components/ui/input";
 import { useGrispi } from "@/contexts/grispi-context";
@@ -25,6 +31,8 @@ export const RecipientField = observer(() => {
   const customerQuery = useCustomersQuery(tenantId, compose.query);
   const results = customerQuery.customers;
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [popupOpen, setPopupOpen] = useState(true);
+  const fieldRef = useRef<HTMLDivElement>(null);
   const listboxId = "compose-recipient-options";
   const helpId = "compose-recipient-help";
 
@@ -36,12 +44,14 @@ export const RecipientField = observer(() => {
   }, [results]);
 
   const trimmedQuery = compose.query.trim();
-  const panelOpen = !compose.recipientLabel && trimmedQuery.length >= 3;
+  const panelOpen =
+    popupOpen && !compose.recipientLabel && trimmedQuery.length >= 3;
   const searchLoading =
     customerQuery.isDebouncing ||
     customerQuery.isPending ||
     customerQuery.isFetching;
-  const searchSettled = panelOpen && !searchLoading;
+  const searchError = panelOpen && !searchLoading && customerQuery.isError;
+  const searchSettled = panelOpen && !searchLoading && !searchError;
   const showFreeEmailRow =
     searchSettled &&
     isValidEmail(trimmedQuery) &&
@@ -51,6 +61,12 @@ export const RecipientField = observer(() => {
   const selectableCount = results.length + (showFreeEmailRow ? 1 : 0);
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === "Escape" && panelOpen) {
+      event.preventDefault();
+      setHighlightedIndex(-1);
+      setPopupOpen(false);
+      return;
+    }
     if (!searchSettled || selectableCount === 0) return;
 
     if (event.key === "ArrowDown") {
@@ -69,6 +85,13 @@ export const RecipientField = observer(() => {
     }
   }
 
+  function handleBlur(event: FocusEvent<HTMLDivElement>): void {
+    const nextFocus = event.relatedTarget as Node | null;
+    if (nextFocus && fieldRef.current?.contains(nextFocus)) return;
+    setHighlightedIndex(-1);
+    setPopupOpen(false);
+  }
+
   // D-06/D-04: once the current Query key settles empty, a valid address
   // becomes the free-email row; an invalid value gets only generic Turkish
   // validation copy. Raw remote errors are never rendered.
@@ -76,6 +99,7 @@ export const RecipientField = observer(() => {
     searchSettled &&
     results.length === 0 &&
     !showFreeEmailRow &&
+    trimmedQuery.includes("@") &&
     !isValidEmail(trimmedQuery);
   const showNoResults =
     searchSettled &&
@@ -84,7 +108,11 @@ export const RecipientField = observer(() => {
     !showInvalidWarning;
 
   return (
-    <div className="relative flex min-w-0 flex-col gap-1.5">
+    <div
+      ref={fieldRef}
+      className="relative flex min-w-0 flex-col gap-1.5"
+      onBlur={handleBlur}
+    >
       <label
         htmlFor="compose-recipient"
         className="text-xs font-semibold text-foreground"
@@ -110,7 +138,11 @@ export const RecipientField = observer(() => {
         <Input
           id="compose-recipient"
           value={compose.query}
-          onChange={(event) => compose.setQuery(event.target.value)}
+          onChange={(event) => {
+            compose.setQuery(event.target.value);
+            setPopupOpen(true);
+          }}
+          onFocus={() => setPopupOpen(true)}
           onKeyDown={handleKeyDown}
           className="h-11"
           placeholder="İsim veya e-posta ile ara…"
@@ -140,6 +172,22 @@ export const RecipientField = observer(() => {
           {searchLoading && (
             <div className="px-3 py-2 text-xs text-muted-foreground">
               Aranıyor…
+            </div>
+          )}
+
+          {searchError && (
+            <div
+              role="alert"
+              className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-destructive"
+            >
+              <span>Alıcılar aranamadı.</span>
+              <button
+                type="button"
+                className="min-h-11 shrink-0 rounded px-2 font-semibold underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => void customerQuery.refetch()}
+              >
+                Yeniden dene
+              </button>
             </div>
           )}
 

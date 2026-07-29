@@ -81,6 +81,8 @@ beforeEach(() => {
     isDebouncing: false,
     isPending: false,
     isFetching: false,
+    isError: false,
+    refetch: jest.fn(),
   };
 });
 
@@ -198,8 +200,15 @@ describe("unified compose surface", () => {
     ).toBe("compose-recipient-options");
     expect(container.textContent).toContain("Aranıyor…");
 
-    mockStore.compose.query = "geçersiz";
+    mockStore.compose.query = "Davut";
     mockCustomersQuery.isFetching = false;
+    remountCompose();
+    expect(container.textContent).toContain("Sonuç bulunamadı");
+    expect(container.textContent).not.toContain(
+      "Geçerli bir e-posta adresi girin."
+    );
+
+    mockStore.compose.query = "geçersiz@";
     remountCompose();
     expect(container.textContent).toContain(
       "Geçerli bir e-posta adresi girin."
@@ -242,5 +251,54 @@ describe("unified compose surface", () => {
       container.querySelectorAll<HTMLButtonElement>("button")
     ).find((button) => button.textContent?.trim() === "Gönder");
     expect(send?.disabled).toBe(true);
+  });
+
+  it("renders a distinct recipient query error with retry and no fallback states", () => {
+    mockStore.compose.recipientEmail = "";
+    mockStore.compose.recipientLabel = "";
+    mockStore.compose.query = "vendor@example.test";
+    mockCustomersQuery.isError = true;
+
+    act(() => root.render(<ComposeScreen />));
+
+    expect(container.textContent).toContain("Alıcılar aranamadı.");
+    expect(container.textContent).not.toContain("Sonuç bulunamadı");
+    expect(container.textContent).not.toContain("adresini kullan");
+    const retry = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button")
+    ).find((button) => button.textContent?.trim() === "Yeniden dene");
+    act(() => retry?.click());
+    expect(mockCustomersQuery.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses the recipient popup with Escape and when focus leaves the combobox", () => {
+    mockStore.compose.recipientEmail = "";
+    mockStore.compose.recipientLabel = "";
+    mockStore.compose.query = "Davut";
+
+    act(() => root.render(<ComposeScreen />));
+    const input =
+      container.querySelector<HTMLInputElement>('[role="combobox"]');
+    expect(input?.getAttribute("aria-expanded")).toBe("true");
+
+    act(() => {
+      input?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(input?.getAttribute("aria-expanded")).toBe("false");
+    expect(input?.getAttribute("aria-activedescendant")).toBeNull();
+
+    act(() => input?.focus());
+    expect(input?.getAttribute("aria-expanded")).toBe("true");
+    const subject = container.querySelector<HTMLInputElement>(
+      "#compose-subject"
+    );
+    act(() => subject?.focus());
+    expect(input?.getAttribute("aria-expanded")).toBe("false");
   });
 });
