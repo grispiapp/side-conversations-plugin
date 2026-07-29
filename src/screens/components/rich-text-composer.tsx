@@ -105,7 +105,12 @@ function hasMeaningfulContent(html: string): boolean {
 }
 
 function isAllowedLink(rawHref: string): boolean {
-  const href = rawHref.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+  const href = Array.from(rawHref.trim())
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint > 0x20 && codePoint !== 0x7f;
+    })
+    .join("");
 
   if (/^mailto:[^:]+$/i.test(href)) return true;
   if (!/^https?:\/\//i.test(href)) return false;

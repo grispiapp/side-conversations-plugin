@@ -81,7 +81,12 @@ function parseBody(html: string): HTMLElement | null {
 function canonicalizeHref(rawHref: string): string | undefined {
   // Browsers ignore ASCII whitespace/control characters while resolving a
   // scheme. Remove them for the policy check so `java\nscript:` cannot pass.
-  const canonical = rawHref.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+  const canonical = Array.from(rawHref.trim())
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint > 0x20 && codePoint !== 0x7f;
+    })
+    .join("");
 
   if (/^https?:\/\//i.test(canonical)) {
     try {
