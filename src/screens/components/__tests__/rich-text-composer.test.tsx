@@ -93,7 +93,7 @@ describe("RichTextComposer Tiptap contract", () => {
       "Kalın",
       "İtalik",
       "Bağlantı",
-      "Liste",
+      "Madde işaretli liste",
       "Numaralı liste",
       "Emoji",
       "Alıntı",
@@ -105,7 +105,7 @@ describe("RichTextComposer Tiptap contract", () => {
       "Kalın",
       "İtalik",
       "Bağlantı",
-      "Liste",
+      "Madde işaretli liste",
       "Numaralı liste",
       "Alıntı",
     ].forEach((label) =>
@@ -155,9 +155,9 @@ describe("RichTextComposer Tiptap contract", () => {
     expect(button("İtalik").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("creates safe links, lists, quotes and emoji through editor commands", () => {
+  it("creates safe links through a labelled validated embedded flow with focus return", () => {
     const onChange = jest.fn();
-    jest.spyOn(window, "prompt").mockReturnValue("https://example.test/help");
+    const prompt = jest.spyOn(window, "prompt");
     render(
       <RichTextComposer
         value="<p>Hello</p>"
@@ -169,10 +169,53 @@ describe("RichTextComposer Tiptap contract", () => {
 
     selectAllEditorContent();
     act(() => button("Bağlantı").click());
+    const linkInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label], input[type="url"]'
+    );
+    expect(container.querySelector('[aria-label="Bağlantı ekle"]')).not.toBeNull();
+    expect(document.activeElement).toBe(linkInput);
+
+    act(() => {
+      if (!linkInput) return;
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      valueSetter?.call(linkInput, "javascript:bad()");
+      linkInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => {
+      Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+        .find((control) => control.textContent?.trim() === "Uygula")
+        ?.click();
+    });
+    expect(container.textContent).toContain(
+      "Geçerli bir http, https veya mailto adresi girin."
+    );
+
+    act(() => {
+      if (!linkInput) return;
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      valueSetter?.call(linkInput, "https://example.test/help");
+      linkInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => {
+      Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+        .find((control) => control.textContent?.trim() === "Uygula")
+        ?.click();
+    });
     expect(onChange).toHaveBeenLastCalledWith(
       '<p><a href="https://example.test/help" target="_blank" rel="noopener noreferrer">Hello</a></p>'
     );
+    expect(document.activeElement).toBe(button("Bağlantı"));
+    expect(prompt).not.toHaveBeenCalled();
+  });
 
+  it("creates lists, quotes and emoji through editor commands", () => {
+    const onChange = jest.fn();
     render(
       <RichTextComposer
         value="<p>One</p><p>Two</p>"
@@ -182,7 +225,7 @@ describe("RichTextComposer Tiptap contract", () => {
       />
     );
     selectAllEditorContent();
-    act(() => button("Liste").click());
+    act(() => button("Madde işaretli liste").click());
     expect(latestHtml(onChange)).toContain("<ul>");
 
     render(

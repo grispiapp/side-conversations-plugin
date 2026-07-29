@@ -172,7 +172,14 @@ describe("RichTextComposer", () => {
     expect(container.textContent).toContain(
       "Yanıt şu kişiye gidecek: Ada Lovelace <ada@example.test>"
     );
-    ["Kalın", "İtalik", "Bağlantı", "Liste", "Emoji", "Alıntı"].forEach(
+    [
+      "Kalın",
+      "İtalik",
+      "Bağlantı",
+      "Madde işaretli liste",
+      "Emoji",
+      "Alıntı",
+    ].forEach(
       (name) => expect(button(name)).toBeTruthy()
     );
     expect(container.textContent).not.toMatch(/Görsel|Tablo|Dosya/);

@@ -12,7 +12,14 @@ import {
 import Link from "@tiptap/extension-link";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { ReactNode, forwardRef, useLayoutEffect, useRef } from "react";
+import {
+  ReactNode,
+  forwardRef,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
@@ -70,7 +77,7 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
     activeName: "link",
   },
   {
-    label: "Liste",
+    label: "Madde işaretli liste",
     icon: <ListBulletIcon />,
     command: "bulletList",
     activeName: "bulletList",
@@ -165,6 +172,12 @@ export const RichTextComposer = forwardRef<
     const onSubmitRef = useRef(onSubmit);
     const disabledRef = useRef(disabled);
     const lastEmittedHtml = useRef(sanitizeHtml(value));
+    const linkTriggerRef = useRef<HTMLButtonElement>(null);
+    const linkInputRef = useRef<HTMLInputElement>(null);
+    const linkPanelId = useId();
+    const [linkEditorOpen, setLinkEditorOpen] = useState(false);
+    const [linkHref, setLinkHref] = useState("https://");
+    const [linkError, setLinkError] = useState("");
 
     onChangeRef.current = onChange;
     onSubmitRef.current = onSubmit;
@@ -281,6 +294,45 @@ export const RichTextComposer = forwardRef<
       }
     }, [autoFocus, disabled, editor]);
 
+    useLayoutEffect(() => {
+      if (!linkEditorOpen) return;
+      linkInputRef.current?.focus();
+      linkInputRef.current?.select();
+    }, [linkEditorOpen]);
+
+    useLayoutEffect(() => {
+      if (disabled && linkEditorOpen) {
+        setLinkEditorOpen(false);
+        setLinkError("");
+      }
+    }, [disabled, linkEditorOpen]);
+
+    const closeLinkEditor = () => {
+      setLinkEditorOpen(false);
+      setLinkError("");
+      linkTriggerRef.current?.focus();
+    };
+
+    const applyLink = () => {
+      if (!editor || disabled) return;
+      const href = linkHref.trim();
+      if (!isAllowedLink(href)) {
+        setLinkError("Geçerli bir http, https veya mailto adresi girin.");
+        linkInputRef.current?.focus();
+        return;
+      }
+      editor
+        .chain()
+        .focus()
+        .setLink({
+          href,
+          target: /^https?:/i.test(href) ? "_blank" : null,
+          rel: "noopener noreferrer",
+        })
+        .run();
+      closeLinkEditor();
+    };
+
     const runToolbarAction = (action: ToolbarAction) => {
       if (!editor || disabled) return;
 
@@ -292,17 +344,18 @@ export const RichTextComposer = forwardRef<
           editor.chain().focus().toggleItalic().run();
           break;
         case "link": {
-          const href = window.prompt("Bağlantı adresi", "https://")?.trim();
-          if (!href || !isAllowedLink(href)) return;
-          editor
-            .chain()
-            .focus()
-            .setLink({
-              href,
-              target: /^https?:/i.test(href) ? "_blank" : null,
-              rel: "noopener noreferrer",
-            })
-            .run();
+          if (linkEditorOpen) {
+            closeLinkEditor();
+            return;
+          }
+          const currentHref = editor.getAttributes("link").href;
+          setLinkHref(
+            typeof currentHref === "string" && currentHref
+              ? currentHref
+              : "https://"
+          );
+          setLinkError("");
+          setLinkEditorOpen(true);
           break;
         }
         case "bulletList":
@@ -334,7 +387,7 @@ export const RichTextComposer = forwardRef<
         )}
         aria-label={sectionLabel}
       >
-        <p className="mb-1.5 break-words text-xs text-muted-foreground">
+        <p className="mb-1 break-words text-xs text-muted-foreground">
           <span className="font-semibold text-foreground">
             {recipientPrefix}
           </span>{" "}
@@ -345,10 +398,13 @@ export const RichTextComposer = forwardRef<
           <div
             role="toolbar"
             aria-label="Metin biçimlendirme"
-            className="flex flex-nowrap items-center gap-0.5 overflow-x-auto border-b border-border p-1"
+            className="flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-border p-1"
           >
             {TOOLBAR_ACTIONS.map((action) => (
               <Button
+                ref={
+                  action.command === "link" ? linkTriggerRef : undefined
+                }
                 key={action.label}
                 type="button"
                 variant="ghost"
@@ -357,6 +413,14 @@ export const RichTextComposer = forwardRef<
                 aria-pressed={
                   action.activeName
                     ? (editor?.isActive(action.activeName) ?? false)
+                    : undefined
+                }
+                aria-expanded={
+                  action.command === "link" ? linkEditorOpen : undefined
+                }
+                aria-controls={
+                  action.command === "link" && linkEditorOpen
+                    ? linkPanelId
                     : undefined
                 }
                 title={action.label}
@@ -369,6 +433,67 @@ export const RichTextComposer = forwardRef<
               </Button>
             ))}
           </div>
+
+          {linkEditorOpen && (
+            <form
+              id={linkPanelId}
+              aria-label="Bağlantı ekle"
+              className="flex flex-col gap-2 border-b border-border p-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                applyLink();
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                closeLinkEditor();
+              }}
+            >
+              <label
+                htmlFor={`${linkPanelId}-url`}
+                className="text-xs font-semibold text-foreground"
+              >
+                Bağlantı adresi
+              </label>
+              <input
+                ref={linkInputRef}
+                id={`${linkPanelId}-url`}
+                type="url"
+                value={linkHref}
+                aria-invalid={Boolean(linkError)}
+                aria-describedby={
+                  linkError ? `${linkPanelId}-error` : undefined
+                }
+                className="h-11 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onChange={(event) => {
+                  setLinkHref(event.target.value);
+                  setLinkError("");
+                }}
+              />
+              {linkError && (
+                <p
+                  id={`${linkPanelId}-error`}
+                  role="alert"
+                  className="text-xs text-destructive"
+                >
+                  {linkError}
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={closeLinkEditor}
+                >
+                  İptal
+                </Button>
+                <Button type="submit" size="sm">
+                  Uygula
+                </Button>
+              </div>
+            </form>
+          )}
 
           <EditorContent editor={editor} />
         </div>
