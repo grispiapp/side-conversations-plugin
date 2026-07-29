@@ -111,6 +111,17 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd:plan-phase 03.1 to break down)
+
 ### Phase 4: Zenginleştirmeler ve Dayanıklılık
 
 **Goal**: Uçtan uca döngü çalışırken deneyimi tamamlar: dosya ekleme, talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme.
