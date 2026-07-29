@@ -174,6 +174,7 @@ describe("side-conversation query contracts", () => {
           },
         ],
         anyConditions: [],
+        orderByFieldKey: "updatedAt DESC",
       },
       { size: 10, page: 0 }
     );
