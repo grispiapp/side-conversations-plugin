@@ -2,7 +2,6 @@ import { observer } from "mobx-react-lite";
 import { KeyboardEvent } from "react";
 
 import { Textarea } from "@/components/ui/textarea";
-import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 
 /**
@@ -15,14 +14,17 @@ import { useStore } from "@/contexts/store-context";
  * SAME `submit` and get the SAME protection for free — `submitting` here
  * only disables the field as a visible extra cue, not the actual guard.
  */
-export const MessageField = observer(() => {
-  const { agentEmail, ticket } = useGrispi();
+export interface MessageFieldProps {
+  onSubmit: () => void;
+}
+
+export const MessageField = observer(({ onSubmit }: MessageFieldProps) => {
   const compose = useStore().compose;
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     if (event.key === "Enter" && event.shiftKey) {
       event.preventDefault();
-      void compose.submit(agentEmail, ticket?.key ?? "");
+      onSubmit();
     }
   }
 

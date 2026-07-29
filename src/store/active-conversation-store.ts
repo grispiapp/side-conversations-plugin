@@ -38,8 +38,6 @@ export interface MessageVM {
   quotedHtml?: string;
 }
 
-export type ActiveConversationStatus = "idle" | "loading" | "ready" | "error";
-
 export type MutationEnvelope =
   | {
       kind: "create";
@@ -163,45 +161,6 @@ export class ActiveConversationStore {
   private envelopes = new Map<string, MutationEnvelope>();
   private matchedCanonicalIds = new Map<string, Set<string>>();
 
-  /** Transitional local-only aliases removed when Task 3 rewires the screen. */
-  get status(): ActiveConversationStatus {
-    return "ready" as ActiveConversationStatus;
-  }
-
-  get loadError(): string | null {
-    return null;
-  }
-
-  get ticketKey(): string | null {
-    return this.activeSideKey;
-  }
-
-  get parentKey(): null {
-    return null;
-  }
-
-  get recipientLabel(): string {
-    return this.localPresentation?.recipientLabel ?? "";
-  }
-
-  get subject(): string {
-    return this.localPresentation?.subject ?? "";
-  }
-
-  get solved(): boolean {
-    return false;
-  }
-
-  get messages(): MessageVM[] {
-    return this.activeSessionKey === null
-      ? []
-      : this.getOverlayMessages(this.activeSessionKey, this.activeSideKey);
-  }
-
-  get scrollTargetMessageId(): string | null {
-    return null;
-  }
-
   constructor(_rootStore: RootStore) {
     makeAutoObservable<this, "envelopes" | "matchedCanonicalIds">(
       this,
@@ -280,15 +239,7 @@ export class ActiveConversationStore {
 
   sendReply(
     params: ReplyParams
-  ): Extract<MutationEnvelope, { kind: "reply" }> | null;
-  /** @deprecated Task-3 migration compatibility. */
-  sendReply(
-    agentEmail: string
-  ): Extract<MutationEnvelope, { kind: "reply" }> | null;
-  sendReply(
-    params: ReplyParams | string
   ): Extract<MutationEnvelope, { kind: "reply" }> | null {
-    if (typeof params === "string") return null;
     if (
       params.solved ||
       this.activeSessionKey !== params.sessionKey ||
@@ -352,25 +303,13 @@ export class ActiveConversationStore {
 
   setSolved(
     params: LifecycleParams
-  ): Extract<MutationEnvelope, { kind: "solve" | "reopen" }> | null;
-  /** @deprecated Task-3 migration compatibility. */
-  setSolved(): null;
-  setSolved(
-    params?: LifecycleParams
   ): Extract<MutationEnvelope, { kind: "solve" | "reopen" }> | null {
-    if (!params) return null;
     return params.solved ? null : this.createLifecycleEnvelope("solve", params);
   }
 
   reopen(
     params: LifecycleParams
-  ): Extract<MutationEnvelope, { kind: "solve" | "reopen" }> | null;
-  /** @deprecated Task-3 migration compatibility. */
-  reopen(): null;
-  reopen(
-    params?: LifecycleParams
   ): Extract<MutationEnvelope, { kind: "solve" | "reopen" }> | null {
-    if (!params) return null;
     return params.solved
       ? this.createLifecycleEnvelope("reopen", params)
       : null;
@@ -543,16 +482,6 @@ export class ActiveConversationStore {
     return this.envelopes.get(clientMessageId) ?? null;
   }
 
-  /** @deprecated Task-3 migration compatibility. */
-  retry(clientMessageId: string): MutationEnvelope | null {
-    const envelope = this.getRetryEnvelope(clientMessageId);
-    if (envelope) this.mutationStarted(envelope);
-    return envelope;
-  }
-
-  /** @deprecated Canonical loading is Query-owned. */
-  async load(_sideKey: string, _parentKey: string): Promise<void> {}
-
   getOverlayMessages(sessionKey: number, sideKey: string | null): MessageVM[] {
     return this.overlayRecords
       .filter(
@@ -589,12 +518,7 @@ export class ActiveConversationStore {
     this.focusRequest = { sessionKey, sideKey, value: true };
   }
 
-  consumeComposerFocus(): boolean;
-  consumeComposerFocus(sessionKey: number, sideKey: string | null): boolean;
-  consumeComposerFocus(
-    sessionKey = this.activeSessionKey ?? -1,
-    sideKey = this.activeSideKey
-  ): boolean {
+  consumeComposerFocus(sessionKey: number, sideKey: string | null): boolean {
     if (
       !this.focusRequest ||
       this.focusRequest.sessionKey !== sessionKey ||

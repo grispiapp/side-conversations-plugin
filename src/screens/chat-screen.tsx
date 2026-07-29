@@ -1,3 +1,6 @@
+import { ConfirmDialog } from "./components/confirm-dialog";
+import { RichTextComposer } from "./components/rich-text-composer";
+import { ThreadMessage } from "./components/thread-message";
 import {
   ChevronLeftIcon,
   DotsHorizontalIcon,
@@ -10,11 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Screen, ScreenTitle } from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
-import { MessageVM } from "@/store/active-conversation-store";
-
-import { ConfirmDialog } from "./components/confirm-dialog";
-import { RichTextComposer } from "./components/rich-text-composer";
-import { ThreadMessage } from "./components/thread-message";
+import {
+  MutationBoundary,
+  useCreateSideConversationMutation,
+  useReplySideConversationMutation,
+  useSideConversationDetailQuery,
+  useStatusSideConversationMutation,
+} from "@/query/side-conversation-queries";
+import { MessageVM, MutationEnvelope } from "@/store/active-conversation-store";
 
 const SOLVE_CONFIRMATION =
   "Görüşme çözüldü olarak işaretlensin mi? Yeni bir e-posta yanıtı gelirse tekrar aktif olur.";
@@ -25,9 +31,7 @@ function messagePresentation(
   let externalSeen = false;
   return messages.map((message) => {
     const showFullSender =
-      message.direction === "incoming" &&
-      !message.internal &&
-      !externalSeen;
+      message.direction === "incoming" && !message.internal && !externalSeen;
     if (message.direction === "incoming" && !message.internal) {
       externalSeen = true;
     }
@@ -35,71 +39,125 @@ function messagePresentation(
   });
 }
 
-/**
- * The complete Phase 3 email-thread screen. The store remains authoritative
- * for loading, reply and lifecycle state; this component only connects those
- * states to the narrow-panel interaction contract.
- */
 export const ChatScreen = observer(() => {
-  const activeConversation = useStore().activeConversation;
-  const panelNavigation = useStore().panelNavigation;
-  const { agentEmail } = useGrispi();
+  const store = useStore();
+  const activeConversation = store.activeConversation;
+  const panelNavigation = store.panelNavigation;
+  const selected = panelNavigation.selectedConversation;
+  const { tenantId, agentEmail } = useGrispi();
+  const sideKey = selected?.ticketKey ?? null;
+  const parentKey = selected?.parentKey ?? null;
+  const sessionKey = selected?.sessionKey ?? null;
+
+  const boundary: MutationBoundary = {
+    activeConversation,
+    getSelectedConversation: () => panelNavigation.selectedConversation,
+    bindCreatedTicket: (selectedSessionKey, createdSideKey) =>
+      panelNavigation.bindCreatedTicket(selectedSessionKey, createdSideKey),
+  };
+  const detail = useSideConversationDetailQuery(
+    tenantId,
+    sideKey,
+    parentKey,
+    sessionKey,
+    activeConversation
+  );
+  const createMutation = useCreateSideConversationMutation(boundary);
+  const replyMutation = useReplySideConversationMutation(boundary);
+  const statusMutation = useStatusSideConversationMutation(boundary);
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [solveDialogOpen, setSolveDialogOpen] = useState(false);
   const [draftDialogOpen, setDraftDialogOpen] = useState(false);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const messageRefs = useRef(new Map<string, HTMLElement>());
-  const consumedScrollTarget = useRef<string | null>(null);
-  const shouldFocusComposer = activeConversation.consumeComposerFocus();
+
+  const canonicalMessages = detail.data?.messages ?? [];
+  const messages =
+    sessionKey === null
+      ? []
+      : sideKey
+        ? activeConversation.mergeCanonical(
+            sessionKey,
+            sideKey,
+            canonicalMessages
+          )
+        : activeConversation.getOverlayMessages(sessionKey, null);
+  const localPresentation =
+    sessionKey === null
+      ? null
+      : activeConversation.getLocalPresentation(sessionKey);
+  const recipientLabel =
+    detail.data?.recipientLabel ?? localPresentation?.recipientLabel ?? "";
+  const subject = detail.data?.subject ?? localPresentation?.subject ?? "";
+  const solved = detail.data?.solved ?? false;
 
   useEffect(() => {
-    const targetId = activeConversation.scrollTargetMessageId;
+    if (sessionKey === null) return;
+    const targetId = activeConversation.consumeScrollRequest(
+      sessionKey,
+      sideKey
+    );
     if (!targetId) return;
-
-    const targetKey = `${activeConversation.ticketKey ?? ""}:${targetId}`;
-    if (consumedScrollTarget.current === targetKey) return;
-
-    const target = messageRefs.current.get(targetId);
-    if (!target) return;
-
-    target.scrollIntoView?.({ block: "center" });
-    consumedScrollTarget.current = targetKey;
-  }, [
-    activeConversation.messages,
-    activeConversation.scrollTargetMessageId,
-    activeConversation.ticketKey,
-  ]);
+    messageRefs.current.get(targetId)?.scrollIntoView?.({ block: "center" });
+  }, [activeConversation, detail.dataUpdatedAt, messages, sessionKey, sideKey]);
 
   useEffect(() => {
-    if (shouldFocusComposer) {
+    if (
+      sessionKey !== null &&
+      activeConversation.consumeComposerFocus(sessionKey, sideKey)
+    ) {
       composerRef.current?.focus();
     }
-  }, [shouldFocusComposer]);
+  }, [activeConversation, sessionKey, sideKey, statusMutation.status]);
 
-  const requestBack = () => {
-    if (panelNavigation.requestChatBack()) {
-      setDraftDialogOpen(true);
-    }
-  };
-
-  const retryLoad = () => {
-    if (activeConversation.ticketKey && activeConversation.parentKey) {
-      void activeConversation.load(
-        activeConversation.ticketKey,
-        activeConversation.parentKey
-      );
+  const executeEnvelope = (envelope: MutationEnvelope | null) => {
+    if (!envelope) return;
+    if (envelope.kind === "create") {
+      createMutation.mutate(envelope);
+    } else if (envelope.kind === "reply") {
+      replyMutation.mutate(envelope);
+    } else {
+      statusMutation.mutate(envelope);
     }
   };
 
   const submitReply = (html: string) => {
-    if (!agentEmail) return;
+    if (
+      !tenantId ||
+      !agentEmail ||
+      !sideKey ||
+      !parentKey ||
+      sessionKey === null
+    ) {
+      return;
+    }
+
     activeConversation.setDraftHtml(html);
-    activeConversation.sendReply(agentEmail);
+    executeEnvelope(
+      activeConversation.sendReply({
+        tenantId,
+        parentKey,
+        sideKey,
+        sessionKey,
+        agentEmail,
+        canonicalMessages,
+        solved,
+      })
+    );
   };
 
-  const lifecycleActionLabel = activeConversation.solved
-    ? "Tekrar aç"
-    : "Çözüldü olarak işaretle";
+  const lifecycleParams =
+    tenantId && sideKey && parentKey && sessionKey !== null
+      ? {
+          tenantId,
+          parentKey,
+          sideKey,
+          sessionKey,
+          solved,
+        }
+      : null;
+  const lifecycleActionLabel = solved ? "Tekrar aç" : "Çözüldü olarak işaretle";
 
   return (
     <Screen>
@@ -109,13 +167,17 @@ export const ChatScreen = observer(() => {
           size="icon"
           variant="ghost"
           aria-label="Görüşme listesine dön"
-          onClick={requestBack}
+          onClick={() => {
+            if (panelNavigation.requestChatBack()) {
+              setDraftDialogOpen(true);
+            }
+          }}
         >
           <ChevronLeftIcon className="size-5" />
         </Button>
 
         <ScreenTitle className="min-w-0 flex-1 truncate text-center text-sm font-semibold">
-          {activeConversation.recipientLabel} · {activeConversation.subject}
+          {recipientLabel} · {subject}
         </ScreenTitle>
 
         <Button
@@ -124,6 +186,7 @@ export const ChatScreen = observer(() => {
           variant="ghost"
           aria-label="Görüşme seçenekleri"
           aria-expanded={menuOpen}
+          disabled={!sideKey || detail.isPending || detail.isError}
           onClick={() => setMenuOpen((open) => !open)}
         >
           <DotsHorizontalIcon className="size-5" />
@@ -143,8 +206,9 @@ export const ChatScreen = observer(() => {
               className="w-full rounded px-3 py-2 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
               onClick={() => {
                 setMenuOpen(false);
-                if (activeConversation.solved) {
-                  activeConversation.reopen();
+                if (!lifecycleParams) return;
+                if (solved) {
+                  executeEnvelope(activeConversation.reopen(lifecycleParams));
                 } else {
                   setSolveDialogOpen(true);
                 }
@@ -157,7 +221,7 @@ export const ChatScreen = observer(() => {
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {activeConversation.solved && (
+        {solved && (
           <div
             role="status"
             className="border-b border-border bg-muted px-4 py-2 text-center text-sm font-medium text-muted-foreground"
@@ -176,7 +240,9 @@ export const ChatScreen = observer(() => {
               type="button"
               aria-label="Yaşam döngüsü işlemini tekrar dene"
               className="font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              onClick={() => activeConversation.retryLifecycle()}
+              onClick={() =>
+                executeEnvelope(activeConversation.retryLifecycle())
+              }
             >
               Tekrar dene
             </button>
@@ -193,7 +259,7 @@ export const ChatScreen = observer(() => {
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-background">
-          {activeConversation.status === "loading" && (
+          {sideKey && detail.isPending && (
             <div
               role="status"
               className="flex h-full items-center justify-center gap-2 p-6 text-sm text-muted-foreground"
@@ -203,34 +269,33 @@ export const ChatScreen = observer(() => {
             </div>
           )}
 
-          {activeConversation.status === "error" && (
+          {sideKey && detail.isError && (
             <div
               role="alert"
               className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
             >
               <p className="text-sm text-destructive">
-                {activeConversation.loadError ??
-                  "Görüşme yüklenemedi. Lütfen tekrar deneyin."}
+                Görüşme yüklenemedi. Lütfen tekrar deneyin.
               </p>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
                 aria-label="Görüşmeyi tekrar yükle"
-                onClick={retryLoad}
+                onClick={() => void detail.refetch()}
               >
                 Tekrar dene
               </Button>
             </div>
           )}
 
-          {activeConversation.status === "ready" &&
-            (activeConversation.messages.length === 0 ? (
+          {(!sideKey || (!detail.isPending && !detail.isError)) &&
+            (messages.length === 0 ? (
               <p className="p-6 text-center text-sm text-muted-foreground">
                 Henüz mesaj yok.
               </p>
             ) : (
-              messagePresentation(activeConversation.messages).map(
+              messagePresentation(messages).map(
                 ({ message, showFullSender }) => (
                   <div
                     key={message.id}
@@ -242,7 +307,11 @@ export const ChatScreen = observer(() => {
                     <ThreadMessage
                       message={message}
                       showFullSender={showFullSender}
-                      onRetry={(id) => activeConversation.retry(id)}
+                      onRetry={(clientMessageId) =>
+                        executeEnvelope(
+                          activeConversation.getRetryEnvelope(clientMessageId)
+                        )
+                      }
                     />
                   </div>
                 )
@@ -253,18 +322,21 @@ export const ChatScreen = observer(() => {
         <RichTextComposer
           ref={composerRef}
           value={activeConversation.draftHtml}
-          recipientLabel={activeConversation.recipientLabel}
+          recipientLabel={recipientLabel}
           disabled={
-            activeConversation.solved ||
-            activeConversation.status !== "ready" ||
-            !agentEmail
+            solved ||
+            !tenantId ||
+            !agentEmail ||
+            !sideKey ||
+            detail.isPending ||
+            detail.isError
           }
           onChange={(html) => activeConversation.setDraftHtml(html)}
           onSubmit={submitReply}
         />
       </main>
 
-      {solveDialogOpen && (
+      {solveDialogOpen && lifecycleParams && (
         <ConfirmDialog
           title="Çözüldü olarak işaretle"
           body={SOLVE_CONFIRMATION}
@@ -273,7 +345,7 @@ export const ChatScreen = observer(() => {
           onCancel={() => setSolveDialogOpen(false)}
           onConfirm={() => {
             setSolveDialogOpen(false);
-            activeConversation.setSolved();
+            executeEnvelope(activeConversation.setSolved(lifecycleParams));
           }}
         />
       )}

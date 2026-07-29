@@ -113,6 +113,10 @@ export class ComposeStore {
     return false;
   }
 
+  getEffectiveParentKey(parentKey: string): string {
+    return this.pinnedParentKey ?? parentKey;
+  }
+
   /**
    * Builds the `createTicket` request and hands it to
    * `ActiveConversationStore.startNew` (COMP-04). `agentEmail`/`parentKey`
@@ -144,21 +148,7 @@ export class ComposeStore {
     agentEmail: string | null,
     parentKey: string,
     sessionKey: number
-  ): Promise<MutationEnvelope | null>;
-  /** @deprecated Task-3 migration compatibility. */
-  async submit(
-    agentEmail: string | null,
-    parentKey: string
-  ): Promise<MutationEnvelope | null>;
-  async submit(
-    tenantIdOrAgentEmail: string | null,
-    agentEmailOrParentKey: string | null,
-    parentKey?: string,
-    sessionKey?: number
-  ): Promise<MutationEnvelope | null> {
-    if (parentKey === undefined || sessionKey === undefined) return null;
-    const tenantId = tenantIdOrAgentEmail;
-    const agentEmail = agentEmailOrParentKey;
+  ): Promise<Extract<MutationEnvelope, { kind: "create" }> | null> {
     if (this.submitting) return null; // D-17 — before any await
     this.submitting = true;
 
@@ -177,7 +167,7 @@ export class ComposeStore {
 
     this.submitGeneration += 1;
 
-    const effectiveParentKey = this.pinnedParentKey ?? parentKey;
+    const effectiveParentKey = this.getEffectiveParentKey(parentKey);
 
     const request: CreateTicketRequest = {
       comment: {

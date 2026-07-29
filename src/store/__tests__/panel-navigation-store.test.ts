@@ -14,10 +14,12 @@ function makeStore(): {
   const resetMock = jest.fn();
   const loadMock = jest.fn();
   const setDraftHtmlMock = jest.fn();
+  const activateSessionMock = jest.fn();
   const rootStore = {
     compose: { reset: resetMock },
     activeConversation: {
       draftHtml: "",
+      activateSession: activateSessionMock,
       load: loadMock,
       setDraftHtml: setDraftHtmlMock,
     },
@@ -83,6 +85,28 @@ describe("PanelNavigationStore", () => {
       sessionKey: 2,
     });
     expect(loadMock).not.toHaveBeenCalled();
+  });
+
+  it("opens and binds a pending create session without allowing stale binding", () => {
+    const { store } = makeStore();
+
+    const pending = store.openPendingConversation("PARENT-1");
+    expect(pending).toEqual({
+      ticketKey: null,
+      parentKey: "PARENT-1",
+      sessionKey: 1,
+    });
+
+    store.openPendingConversation("PARENT-2");
+    store.bindCreatedTicket(1, "SIDE-STALE");
+    expect(store.selectedConversation?.ticketKey).toBeNull();
+
+    store.bindCreatedTicket(2, "SIDE-2");
+    expect(store.selectedConversation).toEqual({
+      ticketKey: "SIDE-2",
+      parentKey: "PARENT-2",
+      sessionKey: 2,
+    });
   });
 
   it("requestChatBack() returns to the list immediately for an empty reply draft", () => {

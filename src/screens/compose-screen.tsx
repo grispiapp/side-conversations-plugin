@@ -15,6 +15,7 @@ import {
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 import { formatPrefillSubject } from "@/lib/side-conversation";
+import { useCreateSideConversationMutation } from "@/query/side-conversation-queries";
 
 /**
  * Compose screen (COMP-01/02/03/04). RecipientField/SubjectField/MessageField
@@ -25,18 +26,43 @@ import { formatPrefillSubject } from "@/lib/side-conversation";
  * `ConfirmDialog` instead of silently swallowing the back-tap.
  */
 export const ComposeScreen = observer(() => {
-  const { agentEmail, ticket } = useGrispi();
+  const { tenantId, agentEmail, ticket } = useGrispi();
   const panelNav = useStore().panelNavigation;
   const compose = useStore().compose;
+  const activeConversation = useStore().activeConversation;
+  const createMutation = useCreateSideConversationMutation({
+    activeConversation,
+    getSelectedConversation: () => panelNav.selectedConversation,
+    bindCreatedTicket: (sessionKey, sideKey) =>
+      panelNav.bindCreatedTicket(sessionKey, sideKey),
+  });
 
   const [discardOpen, setDiscardOpen] = useState(false);
 
   const isDirty = compose.isDirty;
 
   const sendDisabled =
+    !tenantId ||
+    !agentEmail ||
+    !ticket?.key ||
     !compose.recipientEmail ||
     compose.message.trim() === "" ||
     compose.submitting;
+
+  const submit = async () => {
+    if (!tenantId || !agentEmail || !ticket?.key || sendDisabled) return;
+
+    const selected = panelNav.openPendingConversation(
+      compose.getEffectiveParentKey(ticket.key)
+    );
+    const envelope = await compose.submit(
+      tenantId,
+      agentEmail,
+      ticket.key,
+      selected.sessionKey
+    );
+    if (envelope) createMutation.mutate(envelope);
+  };
 
   // D-08/D-09: prefill the subject exactly once per mounted ticket, using
   // the SAME `[ticket?.key]` effect-bridging pattern as
@@ -83,13 +109,13 @@ export const ComposeScreen = observer(() => {
         <div className="flex flex-1 flex-col gap-2 p-4">
           <RecipientField />
           <SubjectField />
-          <MessageField />
+          <MessageField onSubmit={() => void submit()} />
         </div>
         <div className="sticky bottom-0 border-t bg-card p-4">
           <Button
             className="w-full"
             disabled={sendDisabled}
-            onClick={() => compose.submit(agentEmail, ticket?.key ?? "")}
+            onClick={() => void submit()}
           >
             Gönder
           </Button>

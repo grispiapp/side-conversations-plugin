@@ -11,7 +11,7 @@ let mockCreateMutation: any;
 let mockReplyMutation: any;
 let mockStatusMutation: any;
 
-const mockUseDetail = jest.fn(() => mockDetail);
+const mockUseDetail = jest.fn();
 
 jest.mock("@/contexts/store-context", () => ({
   useStore: () => mockStore,
@@ -22,8 +22,14 @@ jest.mock("@/contexts/grispi-context", () => ({
 }));
 
 jest.mock("@/query/side-conversation-queries", () => ({
-  useSideConversationDetailQuery: (...args: unknown[]) =>
-    mockUseDetail(...args),
+  useSideConversationDetailQuery: (
+    tenantId: unknown,
+    sideKey: unknown,
+    parentKey: unknown,
+    sessionKey: unknown,
+    activeConversation: unknown
+  ) =>
+    mockUseDetail(tenantId, sideKey, parentKey, sessionKey, activeConversation),
   useCreateSideConversationMutation: () => mockCreateMutation,
   useReplySideConversationMutation: () => mockReplyMutation,
   useStatusSideConversationMutation: () => mockStatusMutation,
@@ -194,7 +200,8 @@ beforeEach(() => {
     tenantId: "tenant-1",
     agentEmail: "agent@example.test",
   };
-  mockUseDetail.mockClear();
+  mockUseDetail.mockReset();
+  mockUseDetail.mockImplementation(() => mockDetail);
 });
 
 afterEach(() => {

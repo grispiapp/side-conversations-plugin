@@ -9,7 +9,7 @@ import { makeAutoObservable } from "mobx";
 export type PanelScreen = "list" | "compose" | "chat";
 
 export interface SelectedConversation {
-  ticketKey: string;
+  ticketKey: string | null;
   parentKey: string;
   sessionKey: number;
 }
@@ -56,6 +56,37 @@ export class PanelNavigationStore {
     this.screen = "chat";
   }
 
+  openPendingConversation(parentKey: string): SelectedConversation {
+    this.selectedConversationSession += 1;
+    this.selectedConversation = {
+      ticketKey: null,
+      parentKey,
+      sessionKey: this.selectedConversationSession,
+    };
+    this.rootStore.activeConversation.activateSession(
+      this.selectedConversation.sessionKey,
+      null
+    );
+    this.screen = "chat";
+    return this.selectedConversation;
+  }
+
+  bindCreatedTicket(sessionKey: number, sideKey: string): void {
+    if (
+      !this.selectedConversation ||
+      this.selectedConversation.sessionKey !== sessionKey ||
+      this.selectedConversation.ticketKey !== null
+    ) {
+      return;
+    }
+
+    this.selectedConversation = {
+      ...this.selectedConversation,
+      ticketKey: sideKey,
+    };
+    this.rootStore.activeConversation.activateSession(sessionKey, sideKey);
+  }
+
   /**
    * The row-selection trust boundary. Both keys are captured from the same
    * render so a later host-ticket change cannot redirect thread mutations to
@@ -68,6 +99,10 @@ export class PanelNavigationStore {
       parentKey,
       sessionKey: this.selectedConversationSession,
     };
+    this.rootStore.activeConversation.activateSession(
+      this.selectedConversation.sessionKey,
+      ticketKey
+    );
     this.activatingRowKey = rowKey;
     this.screen = "chat";
   }
