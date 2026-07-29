@@ -46,12 +46,17 @@ function render(ui: ReactElement): void {
   });
 }
 
-function makeStore(focusKey: string | null = null) {
+function makeStore(
+  focusTarget:
+    | { kind: "row"; key: string }
+    | { kind: "create-action" }
+    | null = null
+) {
   return {
     panelNavigation: {
       openCompose: jest.fn(),
       openConversation: jest.fn(),
-      consumeListFocusRequest: jest.fn(() => focusKey),
+      consumeListFocusRequest: jest.fn(() => focusTarget),
     },
   };
 }
@@ -156,7 +161,7 @@ it("labels failed hydration neutrally without claiming a new reply", () => {
 });
 
 it("restores focus to the exact activating row once after rows render", () => {
-  mockStore = makeStore("SC-B");
+  mockStore = makeStore({ kind: "row", key: "SC-B" });
 
   render(<ConversationsListScreen />);
 
@@ -170,7 +175,7 @@ it("restores focus to the exact activating row once after rows render", () => {
 });
 
 it("falls back to the labeled header create action when the activating row disappeared", () => {
-  mockStore = makeStore("SC-REMOVED");
+  mockStore = makeStore({ kind: "row", key: "SC-REMOVED" });
   mockListQuery.rows = [row("SC-A")];
 
   render(<ConversationsListScreen />);
@@ -181,6 +186,16 @@ it("falls back to the labeled header create action when the activating row disap
   expect(
     mockStore.panelNavigation.consumeListFocusRequest
   ).toHaveBeenCalledTimes(1);
+});
+
+it("focuses the create action for a compose-origin return", () => {
+  mockStore = makeStore({ kind: "create-action" });
+
+  render(<ConversationsListScreen />);
+
+  expect(document.activeElement).toBe(
+    container.querySelector('[aria-label="Yeni görüşme başlat"]')
+  );
 });
 
 it("derives skeleton, empty, retry and pagination controls from Query state", () => {

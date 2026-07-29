@@ -14,6 +14,10 @@ export interface SelectedConversation {
   sessionKey: number;
 }
 
+export type ListFocusTarget =
+  | { kind: "row"; key: string }
+  | { kind: "create-action" };
+
 /**
  * Owns list/compose/chat navigation plus the D-02/D-03 dirty-guard return
  * contracts (02-CONTEXT.md, RESEARCH.md Pattern 5 — this is the concrete
@@ -28,8 +32,8 @@ export class PanelNavigationStore {
   selectedConversation: SelectedConversation | null = null;
 
   private selectedConversationSession = 0;
-  private activatingRowKey: string | null = null;
-  private listFocusRequest: string | null = null;
+  private navigationFocusOrigin: ListFocusTarget | null = null;
+  private listFocusRequest: ListFocusTarget | null = null;
 
   constructor(rootStore: RootStore) {
     makeAutoObservable(this);
@@ -49,6 +53,7 @@ export class PanelNavigationStore {
    */
   openCompose(): void {
     this.rootStore.compose.reset();
+    this.navigationFocusOrigin = { kind: "create-action" };
     this.screen = "compose";
   }
 
@@ -67,6 +72,7 @@ export class PanelNavigationStore {
       this.selectedConversation.sessionKey,
       null
     );
+    this.navigationFocusOrigin = { kind: "create-action" };
     this.screen = "chat";
     return this.selectedConversation;
   }
@@ -103,7 +109,7 @@ export class PanelNavigationStore {
       this.selectedConversation.sessionKey,
       ticketKey
     );
-    this.activatingRowKey = rowKey;
+    this.navigationFocusOrigin = { kind: "row", key: rowKey };
     this.screen = "chat";
   }
 
@@ -118,7 +124,7 @@ export class PanelNavigationStore {
       .replace(/&nbsp;|&#160;/gi, " ")
       .trim();
     if (text) return true;
-    this.listFocusRequest = this.activatingRowKey;
+    this.listFocusRequest = this.navigationFocusOrigin;
     this.screen = "list";
     return false;
   }
@@ -126,11 +132,11 @@ export class PanelNavigationStore {
   /** D-12 confirm path: explicitly discard only the active reply draft. */
   confirmDiscardReplyAndReturnToList(): void {
     this.rootStore.activeConversation.setDraftHtml("");
-    this.listFocusRequest = this.activatingRowKey;
+    this.listFocusRequest = this.navigationFocusOrigin;
     this.screen = "list";
   }
 
-  consumeListFocusRequest(): string | null {
+  consumeListFocusRequest(): ListFocusTarget | null {
     const request = this.listFocusRequest;
     this.listFocusRequest = null;
     return request;
@@ -145,12 +151,14 @@ export class PanelNavigationStore {
    */
   requestBack(isDirty: boolean): boolean {
     if (isDirty) return true;
+    this.listFocusRequest = { kind: "create-action" };
     this.screen = "list";
     return false;
   }
 
   /** D-02 confirm path: user explicitly discarded a dirty draft. */
   confirmDiscardAndReturnToList(): void {
+    this.listFocusRequest = { kind: "create-action" };
     this.screen = "list";
   }
 
@@ -169,6 +177,7 @@ export class PanelNavigationStore {
   ): "closed-silently" | "needs-confirm" | "no-op" {
     if (this.screen !== "compose") return "no-op";
     if (!isDirty) {
+      this.listFocusRequest = { kind: "create-action" };
       this.screen = "list";
       return "closed-silently";
     }

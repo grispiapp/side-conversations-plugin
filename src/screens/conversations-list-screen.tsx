@@ -29,10 +29,14 @@ export const ConversationsListScreen = observer(() => {
   useEffect(() => {
     if (list.isPending) return;
 
-    const rowKey = panelNavigation.consumeListFocusRequest();
-    if (!rowKey) return;
+    const target = panelNavigation.consumeListFocusRequest();
+    if (!target) return;
 
-    (rowRefs.current.get(rowKey) ?? createActionRef.current)?.focus();
+    if (target.kind === "row") {
+      (rowRefs.current.get(target.key) ?? createActionRef.current)?.focus();
+    } else {
+      createActionRef.current?.focus();
+    }
   }, [list.isPending, list.rows, panelNavigation]);
 
   if (loading) {

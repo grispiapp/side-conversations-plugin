@@ -117,7 +117,10 @@ describe("PanelNavigationStore", () => {
 
     expect(needsConfirm).toBe(false);
     expect(store.screen).toBe("list");
-    expect(store.consumeListFocusRequest()).toBe("row-SC-42");
+    expect(store.consumeListFocusRequest()).toEqual({
+      kind: "row",
+      key: "row-SC-42",
+    });
     expect(store.consumeListFocusRequest()).toBeNull();
   });
 
@@ -142,7 +145,10 @@ describe("PanelNavigationStore", () => {
     expect(setDraftHtmlMock).toHaveBeenCalledWith("");
     expect(resetMock).not.toHaveBeenCalled();
     expect(store.screen).toBe("list");
-    expect(store.consumeListFocusRequest()).toBe("row-SC-42");
+    expect(store.consumeListFocusRequest()).toEqual({
+      kind: "row",
+      key: "row-SC-42",
+    });
   });
 
   it("requestBack(false) returns false and goes straight back to list (D-02, empty form)", () => {
@@ -153,6 +159,9 @@ describe("PanelNavigationStore", () => {
 
     expect(needsConfirm).toBe(false);
     expect(store.screen).toBe("list");
+    expect(store.consumeListFocusRequest()).toEqual({
+      kind: "create-action",
+    });
   });
 
   it("requestBack(true) returns true and does NOT change the screen (D-02, dirty form requires confirm)", () => {
@@ -170,6 +179,21 @@ describe("PanelNavigationStore", () => {
     store.openCompose();
     store.confirmDiscardAndReturnToList();
     expect(store.screen).toBe("list");
+    expect(store.consumeListFocusRequest()).toEqual({
+      kind: "create-action",
+    });
+  });
+
+  it("restores create-action focus after a compose-origin pending thread", () => {
+    const { store } = makeStore();
+    store.openConversation("OLD", "PARENT-OLD", "old-row");
+    store.openCompose();
+    store.openPendingConversation("PARENT-NEW");
+
+    expect(store.requestChatBack()).toBe(false);
+    expect(store.consumeListFocusRequest()).toEqual({
+      kind: "create-action",
+    });
   });
 
   it("handleParentTicketChanged(false) while composing closes silently to list (D-03, empty draft)", () => {
