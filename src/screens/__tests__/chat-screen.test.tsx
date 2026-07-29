@@ -245,6 +245,16 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the selected-session callback stable across ordinary local renders", () => {
+    render(<ChatScreen />);
+    const firstSelector = mockUseDetail.mock.calls[0][5];
+
+    click("Görüşme seçenekleri");
+
+    const latestCall = mockUseDetail.mock.calls.at(-1);
+    expect(latestCall?.[5]).toBe(firstSelector);
+  });
+
   it("renders Query loading/error and retries only the exact detail query", () => {
     mockDetail = makeDetail({ data: undefined, isPending: true });
     render(<ChatScreen />);

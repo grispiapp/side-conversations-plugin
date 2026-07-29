@@ -49,10 +49,14 @@ export const ChatScreen = observer(() => {
   const sideKey = selected?.ticketKey ?? null;
   const parentKey = selected?.parentKey ?? null;
   const sessionKey = selected?.sessionKey ?? null;
+  const getSelectedConversation = useCallback(
+    () => panelNavigation.selectedConversation,
+    [panelNavigation]
+  );
 
   const boundary: MutationBoundary = {
     activeConversation,
-    getSelectedConversation: () => panelNavigation.selectedConversation,
+    getSelectedConversation,
     bindCreatedTicket: (selectedSessionKey, createdSideKey) =>
       panelNavigation.bindCreatedTicket(selectedSessionKey, createdSideKey),
   };
@@ -62,7 +66,7 @@ export const ChatScreen = observer(() => {
     parentKey,
     sessionKey,
     activeConversation,
-    () => panelNavigation.selectedConversation
+    getSelectedConversation
   );
   const createMutation = useCreateSideConversationMutation(boundary);
   const replyMutation = useReplySideConversationMutation(boundary);

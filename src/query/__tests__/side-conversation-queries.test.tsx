@@ -686,6 +686,69 @@ describe("canonical detail and mutation executors", () => {
     container.remove();
   });
 
+  it("does not replay detail side effects for unrelated renders with a stable selected-session callback", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    selected = {
+      ticketKey: "SIDE-1",
+      parentKey: "PARENT-1",
+      sessionKey: 1,
+    };
+    store.activateSession(1, "SIDE-1");
+    const detail = {
+      sideKey: "SIDE-1",
+      recipientLabel: "Vendor",
+      subject: "Konu",
+      lifecycle: "open" as const,
+      solved: false,
+      reopenable: false,
+      messages: [],
+      scrollTargetMessageId: null,
+      latestRelevantExternalAt: null,
+    };
+    client.setQueryData(["side-conversation", "tenant-1", "SIDE-1"], detail);
+    const invalidate = jest
+      .spyOn(client, "invalidateQueries")
+      .mockResolvedValue();
+    const getSelectedConversation = () => selected;
+
+    function DetailHarness({ renderCount }: { renderCount: number }) {
+      useSideConversationDetailQuery(
+        "tenant-1",
+        "SIDE-1",
+        "PARENT-1",
+        1,
+        store,
+        getSelectedConversation
+      );
+      return <span>{renderCount}</span>;
+    }
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <DetailHarness renderCount={0} />
+        </QueryClientProvider>
+      );
+      await Promise.resolve();
+    });
+    expect(invalidate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <DetailHarness renderCount={1} />
+        </QueryClientProvider>
+      );
+      await Promise.resolve();
+    });
+    expect(invalidate).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it("passes the exact reply request, accepts the transport once, then awaits exact list/detail convergence", async () => {
     const envelope = replyEnvelope();
     const listRefresh = deferred<void>();
