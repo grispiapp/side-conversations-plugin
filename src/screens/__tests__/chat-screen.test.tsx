@@ -1,7 +1,6 @@
+import { ChatScreen } from "../chat-screen";
 import { ReactElement, act } from "react";
 import { Root, createRoot } from "react-dom/client";
-
-import { ChatScreen } from "../chat-screen";
 
 let mockStore: any;
 let mockGrispi: any;
@@ -177,10 +176,14 @@ describe("ChatScreen", () => {
       '[role="textbox"][aria-label="Yanıt"]'
     );
     if (!editor) throw new Error("Editor not found");
-    editor.innerHTML = "<p>Yeni yanıt</p>";
-    act(() =>
-      editor.dispatchEvent(new InputEvent("input", { bubbles: true }))
-    );
+    const paste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, "clipboardData", {
+      value: {
+        getData: (type: string) =>
+          type === "text/html" ? "<p>Yeni yanıt</p>" : "Yeni yanıt",
+      },
+    });
+    act(() => editor.dispatchEvent(paste));
     expect(mockStore.activeConversation.setDraftHtml).toHaveBeenCalledWith(
       "<p>Yeni yanıt</p>"
     );
@@ -216,9 +219,9 @@ describe("ChatScreen", () => {
 
     expect(container.textContent).toContain("İşlem tamamlanamadı.");
     click("Yaşam döngüsü işlemini tekrar dene");
-    expect(
-      mockStore.activeConversation.retryLifecycle
-    ).toHaveBeenCalledTimes(1);
+    expect(mockStore.activeConversation.retryLifecycle).toHaveBeenCalledTimes(
+      1
+    );
   });
 
   it("keeps a solved thread mounted, disables reply, and exposes reopen", () => {
@@ -250,9 +253,9 @@ describe("ChatScreen", () => {
     const editor = container.querySelector<HTMLElement>(
       '[role="textbox"][aria-label="Yanıt"]'
     );
-    expect(mockStore.activeConversation.consumeComposerFocus).toHaveBeenCalledTimes(
-      1
-    );
+    expect(
+      mockStore.activeConversation.consumeComposerFocus
+    ).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(editor);
 
     click("Görüşme listesine dön");
