@@ -60,7 +60,7 @@ export const ConversationRow = observer(
             <span
               className={cn(
                 "shrink-0 font-semibold",
-                row.lifecycle === "solved"
+                row.lifecycle !== "open"
                   ? "text-slate-600"
                   : row.actionBadge === "yeni-yanit"
                     ? "text-amber-800"
@@ -70,8 +70,10 @@ export const ConversationRow = observer(
               {row.hasUnseen && "Görülmemiş · "}
               {row.hydrationFailed
                 ? "Durum alınamadı"
-                : row.lifecycle === "solved"
-                ? "Çözüldü"
+                : row.lifecycle !== "open"
+                ? row.lifecycle === "closed"
+                  ? "Kapalı"
+                  : "Çözüldü"
                 : row.actionBadge !== null
                   ? BADGE_LABEL[row.actionBadge]
                   : "Açık"}

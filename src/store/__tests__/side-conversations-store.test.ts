@@ -120,6 +120,26 @@ describe("side-conversation row projection", () => {
     });
   });
 
+  it("preserves CLOSED independently from SOLVED in projected rows", () => {
+    const row = projectConversationRow(
+      "tenant-1",
+      summary("SIDE-CLOSED", 5),
+      makeTicket({
+        key: "SIDE-CLOSED",
+        comments: [
+          makeComment(4_000, "ROLE_END_USER", "vendor@example.test"),
+        ],
+      })
+    );
+
+    expect(row).toMatchObject({
+      key: "SIDE-CLOSED",
+      lifecycle: "closed",
+      actionBadge: null,
+      hasUnseen: false,
+    });
+  });
+
   it("deduplicates by ticket key and globally sorts new, waiting, then solved", () => {
     const base = {
       recipientEmail: "x@example.test",

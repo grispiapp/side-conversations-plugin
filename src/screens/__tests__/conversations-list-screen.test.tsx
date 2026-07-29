@@ -2,6 +2,9 @@ import { ConversationsListScreen } from "../conversations-list-screen";
 import { ReactElement, act } from "react";
 import { Root, createRoot } from "react-dom/client";
 
+import { projectConversationRow } from "@/store/side-conversations-store";
+import { SideTicketSummary, Ticket } from "@/types/grispi.type";
+
 let mockStore: any;
 let mockGrispi: any;
 let mockListQuery: any;
@@ -30,6 +33,20 @@ const row = (key: string) => ({
   lastPublicCommentAt: 1,
   hydrationFailed: false,
 });
+
+function projectedClosedRow() {
+  const summary: SideTicketSummary = {
+    key: "SC-CLOSED",
+    subject: "Closed subject",
+    status: { id: 5, name: "Closed" },
+  };
+  const ticket = {
+    key: "SC-CLOSED",
+    comments: [],
+    fieldMap: {},
+  } as unknown as Ticket;
+  return projectConversationRow("tenant-1", summary, ticket);
+}
 
 let container: HTMLDivElement;
 let root: Root;
@@ -158,6 +175,15 @@ it("labels failed hydration neutrally without claiming a new reply", () => {
 
   expect(container.textContent).toContain("Durum alınamadı");
   expect(container.textContent).not.toContain("Yeni yanıt");
+});
+
+it("renders a status-5 projected row as Kapalı rather than Çözüldü", () => {
+  mockListQuery.rows = [projectedClosedRow()];
+
+  render(<ConversationsListScreen />);
+
+  expect(container.textContent).toContain("Kapalı");
+  expect(container.textContent).not.toContain("Çözüldü");
 });
 
 it("restores focus to the exact activating row once after rows render", () => {

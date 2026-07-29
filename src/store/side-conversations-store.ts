@@ -2,15 +2,13 @@ import {
   ConversationBadge,
   ConversationLifecycleStatus,
   deriveBadge,
+  parseConversationLifecycleStatus,
 } from "@/lib/conversation-status";
 import { htmlToText } from "@/lib/html-to-text";
 import { getLastSeenAt } from "@/lib/last-seen-store";
 import { SideTicketSummary, Ticket } from "@/types/grispi.type";
 
-export type ConversationLifecycle = Exclude<
-  ConversationLifecycleStatus,
-  "closed"
->;
+export type ConversationLifecycle = ConversationLifecycleStatus;
 export type ConversationActionBadge = Exclude<ConversationBadge, "kapali">;
 
 export interface ConversationRowVM {
@@ -67,10 +65,13 @@ function resolveRowState(
     statusId: summary.status?.id ?? null,
     publicComments,
   });
+  const lifecycle = parseConversationLifecycleStatus(
+    summary.status?.id ?? null
+  );
 
-  if (derived.badge === "kapali") {
+  if (lifecycle !== "open") {
     return {
-      lifecycle: "solved",
+      lifecycle,
       actionBadge: null,
       hasUnseen: false,
       lastPublicCommentAt: derived.lastPublicCommentAt,
@@ -85,7 +86,7 @@ function resolveRowState(
 
   return {
     lifecycle: "open",
-    actionBadge: derived.badge,
+    actionBadge: derived.badge === "kapali" ? null : derived.badge,
     hasUnseen,
     lastPublicCommentAt: derived.lastPublicCommentAt,
   };
@@ -97,13 +98,16 @@ export function projectConversationRow(
   ticket: Ticket | null
 ): ConversationRowVM {
   if (!ticket) {
+    const lifecycle = parseConversationLifecycleStatus(
+      summary.status?.id ?? null
+    );
     return {
       key: summary.key,
       recipientEmail: RECIPIENT_UNKNOWN_PLACEHOLDER,
       requesterId: null,
       subject: summary.subject || summary.key,
       summary: "",
-      lifecycle: "open",
+      lifecycle,
       actionBadge: null,
       hasUnseen: false,
       lastPublicCommentAt: null,
@@ -152,7 +156,7 @@ export function refreshConversationRowUnseen(
 
 function sortConversationRows(rows: ConversationRowVM[]): ConversationRowVM[] {
   const groupOrder = (row: ConversationRowVM) => {
-    if (row.lifecycle === "solved") return 2;
+    if (row.lifecycle !== "open") return 2;
     return row.actionBadge === "yeni-yanit" ? 0 : 1;
   };
 
