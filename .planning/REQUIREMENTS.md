@@ -34,10 +34,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Görüşme Detayı (THRD)
 
-- [ ] **THRD-01**: Temsilci görüşmenin tüm mesajlarını kronolojik ve yön ayrımıyla (siz / karşı taraf) görür
-- [ ] **THRD-02**: Temsilci görüşmeye yanıt yazar; yanıt alıcıya e-posta olarak gider ve thread'e eklenir
-- [ ] **THRD-03**: Temsilci görüşmeyi kapatabilir ve yeniden açabilir; kapalı görüşmeye gelen yanıt görüşmeyi tekrar aktif gösterir
-- [ ] **THRD-04**: Görüşme açıldığında "Yeni yanıt" durumu okundu sayılır (temsilci bazında, localStorage)
+- [x] **THRD-01**: Temsilci görüşmenin tüm mesajlarını kronolojik ve yön ayrımıyla (siz / karşı taraf) görür
+- [x] **THRD-02**: Temsilci görüşmeye yanıt yazar; yanıt alıcıya e-posta olarak gider ve thread'e eklenir
+- [x] **THRD-03**: Temsilci görüşmeyi kapatabilir ve yeniden açabilir; kapalı görüşmeye gelen yanıt görüşmeyi tekrar aktif gösterir
+- [x] **THRD-04**: Görüşme açıldığında "Yeni yanıt" durumu okundu sayılır (temsilci bazında, localStorage)
 - [ ] **THRD-05**: Temsilci yanıta dosya ekleyebilir (Base64)
 
 ### Tazelik (SYNC)
@@ -88,10 +88,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMP-03 | Phase 2 | Complete |
 | COMP-04 | Phase 2 | Complete |
 | SYNC-02 | Phase 2 | Complete |
-| THRD-01 | Phase 3 | Pending |
-| THRD-02 | Phase 3 | Pending |
-| THRD-03 | Phase 3 | Pending |
-| THRD-04 | Phase 3 | Pending |
+| THRD-01 | Phase 3 | Complete |
+| THRD-02 | Phase 3 | Complete |
+| THRD-03 | Phase 3 | Complete |
+| THRD-04 | Phase 3 | Complete |
 | COMP-05 | Phase 4 | Pending |
 | COMP-06 | Phase 4 | Pending |
 | COMP-07 | Phase 4 | Pending |

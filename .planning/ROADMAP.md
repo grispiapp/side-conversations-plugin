@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Temel ve Salt Okunur Görüşme Listesi** - Panel, aktif talebe bağlı yan görüşmeleri rozetleriyle, doğru sırayla ve sayfalanmış olarak gösterir (completed 2026-07-23)
 - [x] **Phase 2: Yeni Yan Görüşme Başlatma** - Temsilci alıcı/konu/mesaj ile yeni görüşme açar; side ticket oluşur ve alıcıya gerçek e-posta gider (completed 2026-07-23)
 - [ ] **Phase 3: Görüşme Detayı ve Yaşam Döngüsü** - Temsilci mesajları yön ayrımıyla görür, yanıtlar, kapatır/yeniden açar ve okundu işaretler
-- [ ] **Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu** - Tiptap/DOMPurify, tenant-scoped React Query, senkron thread navigasyonu ve ortak 372px inbox kabuğuyla Phase 3 deneyimini güvenli ve tutarlı hâle getirir
+- [x] **Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu** - Tiptap/DOMPurify, tenant-scoped React Query, senkron thread navigasyonu ve ortak 372px inbox kabuğuyla Phase 3 deneyimini güvenli ve tutarlı hâle getirir (completed 2026-07-29)
 - [ ] **Phase 4: Zenginleştirmeler ve Dayanıklılık** - Dosya ekleme, talep özeti, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
 
 ## Phase Details
@@ -126,24 +126,24 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Liste, compose ve detay tek 48px header/44px target sisteminde, 64–72px yoğun liste ve ortak rich composer ile ~372px'te yatay taşmadan, klavye/screen-reader erişilebilir çalışır
   6. Odaklı ve tam test suite'i, TypeScript, güvenlik gate'leri ve production build geçer; Phase 3'ün on maddelik canlı tenant/mailbox UAT'ı son test geçişine kadar açıkça `DEFERRED — NOT TESTED` kalır
 
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
 **Wave 1**
 
-- [ ] 03.1-01-PLAN.md — Tiptap 2.27.2 editör ve DOMPurify tek HTML güven sınırı
-- [ ] 03.1-02-PLAN.md — Plugin/standalone tenant kaynağı, QueryClient, exact query key/options sözleşmeleri
+- [x] 03.1-01-PLAN.md — Tiptap 2.27.2 editör ve DOMPurify tek HTML güven sınırı
+- [x] 03.1-02-PLAN.md — Plugin/standalone tenant kaynağı, QueryClient, exact query key/options sözleşmeleri
 
 **Wave 2** *(blocked on 03.1-02)*
 
-- [ ] 03.1-03-PLAN.md — Senkron selected-thread session, listeye focus dönüşü ve Query-owned liste/müşteri GET state'i
+- [x] 03.1-03-PLAN.md — Senkron selected-thread session, listeye focus dönüşü ve Query-owned liste/müşteri GET state'i
 
 **Wave 3** *(blocked on 03.1-01, 03.1-02, 03.1-03)*
 
-- [ ] 03.1-04-PLAN.md — Query-owned detail/mutation lifecycle, immutable retry envelope ve canonical overlay reconciliation
+- [x] 03.1-04-PLAN.md — Query-owned detail/mutation lifecycle, immutable retry envelope ve canonical overlay reconciliation
 
 **Wave 4** *(blocked on 03.1-01, 03.1-03, 03.1-04)*
 
-- [ ] 03.1-05-PLAN.md — Ortak erişilebilir 372px inbox/list/compose/detail kabuğu, tam test/build/UI doğrulaması
+- [x] 03.1-05-PLAN.md — Ortak erişilebilir 372px inbox/list/compose/detail kabuğu, tam test/build/UI doğrulaması
 
 ### Phase 4: Zenginleştirmeler ve Dayanıklılık
 
@@ -171,5 +171,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4
 | 1. Temel ve Salt Okunur Görüşme Listesi | 4/4 | Complete    | 2026-07-23 |
 | 2. Yeni Yan Görüşme Başlatma | 6/6 | Complete    | 2026-07-23 |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 5/6 | In Progress|  |
-| 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 0/5 | Not started | - |
+| 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
 | 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
