@@ -53,7 +53,7 @@ export const ConversationsListScreen = observer(() => {
             size="sm"
             variant="ghost"
             aria-label="Yeni görüşme başlat"
-            className="gap-1.5 px-2 text-primary"
+            className="gap-1 px-2 text-primary"
             onClick={() => panelNavigation.openCompose()}
           >
             <PlusIcon className="size-4" aria-hidden="true" />

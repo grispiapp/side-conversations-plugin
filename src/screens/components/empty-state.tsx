@@ -26,7 +26,7 @@ export const EmptyState: FC = () => {
         Tedarikçi ya da başka bir ekiple, talep sahibinin görmediği ayrı bir
         e-posta akışı başlatın.
       </p>
-      <p className="text-sm font-semibold text-primary">
+      <p className="text-sm font-semibold text-foreground">
         Talep sahibi bu yazışmayı görmez.
       </p>
       <Button

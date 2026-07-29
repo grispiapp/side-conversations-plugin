@@ -15,7 +15,7 @@ export const SubjectField = observer(() => {
   const isEmpty = compose.subject.trim() === "";
 
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1">
       <label
         htmlFor="compose-subject"
         className="text-xs font-semibold text-foreground"

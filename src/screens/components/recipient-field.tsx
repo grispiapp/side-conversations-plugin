@@ -110,7 +110,7 @@ export const RecipientField = observer(() => {
   return (
     <div
       ref={fieldRef}
-      className="relative flex min-w-0 flex-col gap-1.5"
+      className="relative flex min-w-0 flex-col gap-1"
       onBlur={handleBlur}
     >
       <label
@@ -200,7 +200,7 @@ export const RecipientField = observer(() => {
                 role="option"
                 aria-selected={index === highlightedIndex}
                 className={cn(
-                  "flex min-h-11 w-full flex-col items-start justify-center gap-0.5 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                  "flex min-h-11 w-full flex-col items-start justify-center gap-1 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                   index === highlightedIndex ? "bg-accent" : "hover:bg-accent"
                 )}
                 onClick={() => compose.selectRecipient(vm)}

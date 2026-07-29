@@ -21,7 +21,7 @@ export const MessageField = observer(({ onSubmit }: MessageFieldProps) => {
   const compose = useStore().compose;
 
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-xs font-semibold text-foreground">
           Mesaj <span aria-hidden="true">*</span>
@@ -35,7 +35,6 @@ export const MessageField = observer(({ onSubmit }: MessageFieldProps) => {
         editorLabel="Mesaj"
         sectionLabel="Yeni görüşme mesajı"
         required
-        className="rounded-lg border border-border bg-card px-3 py-3"
         onChange={(html) => compose.setMessage(html)}
         onSubmit={(html) => {
           compose.setMessage(html);
