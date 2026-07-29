@@ -3,14 +3,20 @@ import { ReactElement, act } from "react";
 import { Root, createRoot } from "react-dom/client";
 
 import { grispiAPI } from "@/grispi/client/api";
+import { NetworkError } from "@/grispi/client/http-handler";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
 import { createTestQueryClient } from "@/query/query-client";
 import {
   customerSearchOptions,
+  executeCreateMutation,
+  executeReplyMutation,
+  executeStatusMutation,
   sideConversationDetailOptions,
   sideConversationListOptions,
   useCustomersQuery,
 } from "@/query/side-conversation-queries";
+import { ActiveConversationStore } from "@/store/active-conversation-store";
+import { RootStore } from "@/store/root-store";
 import {
   AdvancedSearchResponse,
   Customer,
@@ -22,7 +28,9 @@ jest.mock("@/grispi/client/api", () => ({
   grispiAPI: {
     tickets: {
       advancedSearch: jest.fn(),
+      createTicket: jest.fn(),
       getTicket: jest.fn(),
+      patchTicket: jest.fn(),
     },
     customers: {
       search: jest.fn(),
@@ -34,7 +42,9 @@ jest.mock("@/grispi/client/api", () => ({
 }));
 
 const mockedAdvancedSearch = grispiAPI.tickets.advancedSearch as jest.Mock;
+const mockedCreateTicket = grispiAPI.tickets.createTicket as jest.Mock;
 const mockedGetTicket = grispiAPI.tickets.getTicket as jest.Mock;
+const mockedPatchTicket = grispiAPI.tickets.patchTicket as jest.Mock;
 const mockedCustomerSearch = grispiAPI.customers.search as jest.Mock;
 const mockedGetUser = grispiAPI.users.getUser as jest.Mock;
 
@@ -425,5 +435,286 @@ describe("useCustomersQuery", () => {
       size: 10,
       page: 0,
     });
+  });
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+describe("canonical detail and mutation executors", () => {
+  let client: ReturnType<typeof createTestQueryClient>;
+  let store: ActiveConversationStore;
+  let selected: {
+    ticketKey: string | null;
+    parentKey: string;
+    sessionKey: number;
+  };
+
+  function boundary() {
+    return {
+      activeConversation: store,
+      getSelectedConversation: () => selected,
+      bindCreatedTicket: (sessionKey: number, sideKey: string) => {
+        if (selected.sessionKey === sessionKey) {
+          selected = { ...selected, ticketKey: sideKey };
+        }
+      },
+    };
+  }
+
+  function replyEnvelope() {
+    store.activateSession(1, "SIDE-1");
+    store.setDraftHtml("<p>Yanıt</p>");
+    const envelope = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-1",
+      sessionKey: 1,
+      agentEmail: "agent@example.test",
+      canonicalMessages: [],
+    });
+    if (!envelope) throw new Error("reply envelope missing");
+    return envelope;
+  }
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    client = createTestQueryClient();
+    store = new ActiveConversationStore({} as RootStore);
+    selected = {
+      ticketKey: "SIDE-1",
+      parentKey: "PARENT-1",
+      sessionKey: 1,
+    };
+  });
+
+  afterEach(() => {
+    client.clear();
+  });
+
+  it("normalizes canonical detail chronologically with safe quote/internal metadata and server lifecycle", async () => {
+    const external = makeTicket("SIDE-1").comments[0].creator;
+    const agent = {
+      ...external,
+      id: 99,
+      email: "agent@example.test",
+      fullName: "Agent",
+      role: {
+        authority: "ROLE_ADMIN",
+        impliedAuthorities: [],
+        teamUser: true,
+      },
+    };
+    mockedGetTicket.mockResolvedValue({
+      ...makeTicket("SIDE-1"),
+      comments: [
+        {
+          ...makeTicket("SIDE-1").comments[0],
+          id: 3,
+          createdAt: 3_000,
+          creator: agent,
+          publicVisible: false,
+          body: '<p onclick="bad()">Not</p><script>x()</script>',
+        },
+        {
+          ...makeTicket("SIDE-1").comments[0],
+          id: 2,
+          createdAt: 2_000,
+          creator: agent,
+          body: "<p>Own</p><blockquote><p>Old</p></blockquote>",
+        },
+        {
+          ...makeTicket("SIDE-1").comments[0],
+          id: 1,
+          createdAt: 1_000,
+          creator: external,
+          body: "<p>Incoming</p>",
+        },
+      ],
+      fieldMap: {
+        "ts.requester": { key: "ts.requester", value: "7" },
+        "ts.subject": { key: "ts.subject", value: "Konu" },
+        "ts.status": { key: "ts.status", value: "4" },
+      },
+    });
+
+    const detail = await client.fetchQuery(
+      sideConversationDetailOptions("tenant-1", "SIDE-1")
+    );
+
+    expect(detail).toMatchObject({
+      sideKey: "SIDE-1",
+      recipientLabel: "side-1@example.test",
+      subject: "Konu",
+      solved: true,
+      scrollTargetMessageId: "comment-1",
+      latestRelevantExternalAt: 1_000,
+    });
+    expect(detail.messages).toEqual([
+      expect.objectContaining({
+        id: "comment-1",
+        direction: "incoming",
+        body: "<p>Incoming</p>",
+      }),
+      expect.objectContaining({
+        id: "comment-2",
+        direction: "own",
+        quotedHtml: "<p>Old</p>",
+      }),
+      expect.objectContaining({
+        id: "comment-3",
+        direction: "own",
+        internal: true,
+        body: "<p>Not</p>",
+      }),
+    ]);
+  });
+
+  it("passes the exact reply request, awaits exact all-list then detail refresh, and only then accepts", async () => {
+    const envelope = replyEnvelope();
+    const listRefresh = deferred<void>();
+    const detailRefresh = deferred<void>();
+    mockedPatchTicket.mockResolvedValue({ key: "SIDE-1" });
+    client.setQueryData(["side-conversation", "tenant-1", "SIDE-1"], {
+      sideKey: "SIDE-1",
+      recipientLabel: "Vendor",
+      subject: "Konu",
+      solved: false,
+      messages: [
+        {
+          id: "comment-10",
+          direction: "own",
+          body: envelope.request.comment.body,
+          status: "sent",
+          createdAt: envelope.startedAt + 1,
+          senderEmail: "agent@example.test",
+          internal: false,
+        },
+      ],
+      scrollTargetMessageId: "comment-10",
+      latestRelevantExternalAt: null,
+    });
+    const invalidate = jest
+      .spyOn(client, "invalidateQueries")
+      .mockReturnValue(listRefresh.promise);
+    const refetch = jest
+      .spyOn(client, "refetchQueries")
+      .mockReturnValue(detailRefresh.promise);
+
+    const mutation = executeReplyMutation(client, boundary(), envelope);
+    await Promise.resolve();
+    expect(mockedPatchTicket).toHaveBeenCalledWith("SIDE-1", envelope.request);
+    expect(mockedPatchTicket.mock.calls[0][1]).toBe(envelope.request);
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["side-conversations", "tenant-1", "PARENT-1"],
+      exact: true,
+      refetchType: "all",
+    });
+    expect(refetch).not.toHaveBeenCalled();
+    expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("pending");
+
+    listRefresh.resolve();
+    await Promise.resolve();
+    expect(refetch).toHaveBeenCalledWith({
+      queryKey: ["side-conversation", "tenant-1", "SIDE-1"],
+      exact: true,
+      type: "all",
+    });
+    expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("pending");
+
+    detailRefresh.resolve();
+    await mutation;
+    expect(store.getOverlayMessages(1, "SIDE-1")).toEqual([]);
+  });
+
+  it("performs zero invalidation or refetch on failure and keeps the retry envelope", async () => {
+    const envelope = replyEnvelope();
+    mockedPatchTicket.mockRejectedValue(new NetworkError(new Error("offline")));
+    const invalidate = jest.spyOn(client, "invalidateQueries");
+    const refetch = jest.spyOn(client, "refetchQueries");
+
+    await expect(
+      executeReplyMutation(client, boundary(), envelope)
+    ).rejects.toBeInstanceOf(NetworkError);
+
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(refetch).not.toHaveBeenCalled();
+    expect(store.getRetryEnvelope(envelope.clientMessageId)).toBe(envelope);
+    expect(store.getOverlayMessages(1, "SIDE-1")[0]).toMatchObject({
+      status: "failed",
+      errorKind: "network",
+    });
+  });
+
+  it("binds a created side key before exact refresh and ignores stale A success after B selection", async () => {
+    selected = { ticketKey: null, parentKey: "PARENT-1", sessionKey: 1 };
+    const create = store.startNew({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sessionKey: 1,
+      recipientLabel: "Vendor",
+      subject: "Konu",
+      body: "<p>Merhaba</p>",
+      request: {
+        comment: {
+          body: "<p>Merhaba</p>",
+          publicVisible: true,
+          creator: [{ key: "us.email", value: "agent@example.test" }],
+        },
+        fields: [],
+      },
+    });
+    const response = deferred<Ticket>();
+    mockedCreateTicket.mockReturnValue(response.promise);
+    const invalidate = jest
+      .spyOn(client, "invalidateQueries")
+      .mockResolvedValue();
+
+    const mutation = executeCreateMutation(client, boundary(), create);
+    selected = { ticketKey: "SIDE-B", parentKey: "PARENT-B", sessionKey: 2 };
+    store.activateSession(2, "SIDE-B");
+    response.resolve(makeTicket("SIDE-A"));
+    await mutation;
+
+    expect(selected.ticketKey).toBe("SIDE-B");
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(store.getOverlayMessages(2, "SIDE-B")).toEqual([]);
+  });
+
+  it("keeps solve/reopen non-optimistic and requests focus only after canonical OPEN detail", async () => {
+    store.activateSession(1, "SIDE-1");
+    const reopen = store.reopen({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-1",
+      sessionKey: 1,
+      solved: true,
+    });
+    if (!reopen) throw new Error("reopen envelope missing");
+    mockedPatchTicket.mockResolvedValue({ key: "SIDE-1" });
+    jest.spyOn(client, "invalidateQueries").mockResolvedValue();
+    jest.spyOn(client, "refetchQueries").mockImplementation(async () => {
+      client.setQueryData(["side-conversation", "tenant-1", "SIDE-1"], {
+        sideKey: "SIDE-1",
+        recipientLabel: "Vendor",
+        subject: "Konu",
+        solved: false,
+        messages: [],
+        scrollTargetMessageId: null,
+        latestRelevantExternalAt: null,
+      });
+    });
+
+    expect(store.lifecyclePending).toBe("reopen");
+    await executeStatusMutation(client, boundary(), reopen);
+    expect(store.lifecyclePending).toBeNull();
+    expect(store.consumeComposerFocus(1, "SIDE-1")).toBe(true);
   });
 });
