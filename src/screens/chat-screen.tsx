@@ -1,16 +1,17 @@
 import { ConfirmDialog } from "./components/confirm-dialog";
 import { RichTextComposer } from "./components/rich-text-composer";
 import { ThreadMessage } from "./components/thread-message";
-import {
-  ChevronLeftIcon,
-  DotsHorizontalIcon,
-  ReloadIcon,
-} from "@radix-ui/react-icons";
+import { DotsHorizontalIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Screen, ScreenTitle } from "@/components/ui/screen";
+import {
+  Screen,
+  ScreenContent,
+  ScreenHeader,
+  ScreenTitle,
+} from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 import {
@@ -71,6 +72,9 @@ export const ChatScreen = observer(() => {
   const [draftDialogOpen, setDraftDialogOpen] = useState(false);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const messageRefs = useRef(new Map<string, HTMLElement>());
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuItemRef = useRef<HTMLButtonElement | null>(null);
 
   const canonicalMessages = detail.data?.messages ?? [];
   const messages =
@@ -83,6 +87,9 @@ export const ChatScreen = observer(() => {
             canonicalMessages
           )
         : activeConversation.getOverlayMessages(sessionKey, null);
+  const scrollMessageVersion = messages
+    .map((message) => `${message.id}:${message.status}`)
+    .join("|");
   const localPresentation =
     sessionKey === null
       ? null
@@ -92,6 +99,40 @@ export const ChatScreen = observer(() => {
   const subject = detail.data?.subject ?? localPresentation?.subject ?? "";
   const solved = detail.data?.solved ?? false;
 
+  const closeMenu = useCallback((returnFocus = true) => {
+    setMenuOpen(false);
+    if (returnFocus) menuTriggerRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    menuItemRef.current?.focus();
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        menuTriggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      closeMenu();
+    };
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeMenu();
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeMenu, menuOpen]);
+
   useEffect(() => {
     if (sessionKey === null) return;
     const targetId = activeConversation.consumeScrollRequest(
@@ -100,7 +141,13 @@ export const ChatScreen = observer(() => {
     );
     if (!targetId) return;
     messageRefs.current.get(targetId)?.scrollIntoView?.({ block: "center" });
-  }, [activeConversation, detail.dataUpdatedAt, messages, sessionKey, sideKey]);
+  }, [
+    activeConversation,
+    detail.dataUpdatedAt,
+    scrollMessageVersion,
+    sessionKey,
+    sideKey,
+  ]);
 
   useEffect(() => {
     if (
@@ -161,66 +208,87 @@ export const ChatScreen = observer(() => {
 
   return (
     <Screen>
-      <header className="relative flex min-h-12 items-center gap-2 bg-white px-3 py-2 shadow backdrop-blur">
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label="Görüşme listesine dön"
-          onClick={() => {
-            if (panelNavigation.requestChatBack()) {
-              setDraftDialogOpen(true);
-            }
-          }}
-        >
-          <ChevronLeftIcon className="size-5" />
-        </Button>
-
-        <ScreenTitle className="min-w-0 flex-1 truncate text-center text-sm font-semibold">
-          {recipientLabel} · {subject}
-        </ScreenTitle>
-
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label="Görüşme seçenekleri"
-          aria-expanded={menuOpen}
-          disabled={!sideKey || detail.isPending || detail.isError}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <DotsHorizontalIcon className="size-5" />
-        </Button>
-
-        {menuOpen && (
-          <div
-            role="menu"
-            aria-label="Görüşme işlemleri"
-            className="absolute right-3 top-11 z-10 min-w-52 rounded-md border border-border bg-card p-1 shadow-lg"
-          >
-            <button
+      <ScreenHeader
+        title={
+          <ScreenTitle className="text-sm">
+            {recipientLabel || "Görüşme"}
+          </ScreenTitle>
+        }
+        subtitle={`Konu: ${subject || "Konu yok"}`}
+        onBack={() => {
+          if (panelNavigation.requestChatBack()) {
+            setDraftDialogOpen(true);
+          }
+        }}
+        backLabel="Görüşme listesine dön"
+        trailing={
+          <div className="relative">
+            <Button
+              ref={menuTriggerRef}
               type="button"
-              role="menuitem"
-              aria-label={lifecycleActionLabel}
-              disabled={activeConversation.lifecyclePending !== null}
-              className="w-full rounded px-3 py-2 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+              size="header"
+              variant="ghost"
+              aria-label="Görüşme seçenekleri"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              disabled={!sideKey || detail.isPending || detail.isError}
               onClick={() => {
-                setMenuOpen(false);
-                if (!lifecycleParams) return;
-                if (solved) {
-                  executeEnvelope(activeConversation.reopen(lifecycleParams));
-                } else {
-                  setSolveDialogOpen(true);
-                }
+                if (menuOpen) closeMenu();
+                else setMenuOpen(true);
               }}
             >
-              {lifecycleActionLabel}
-            </button>
-          </div>
-        )}
-      </header>
+              <DotsHorizontalIcon className="size-5" aria-hidden="true" />
+            </Button>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {menuOpen && (
+              <div
+                ref={menuRef}
+                role="menu"
+                aria-label="Görüşme işlemleri"
+                className="absolute right-0 top-full z-20 mt-1 min-w-56 rounded-md border border-border bg-card p-1 shadow-lg"
+              >
+                <button
+                  ref={menuItemRef}
+                  type="button"
+                  role="menuitem"
+                  aria-label={lifecycleActionLabel}
+                  disabled={activeConversation.lifecyclePending !== null}
+                  className="min-h-11 w-full rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "ArrowDown" ||
+                      event.key === "ArrowUp" ||
+                      event.key === "Home" ||
+                      event.key === "End"
+                    ) {
+                      event.preventDefault();
+                      menuItemRef.current?.focus();
+                    }
+                  }}
+                  onClick={() => {
+                    closeMenu();
+                    if (!lifecycleParams) return;
+                    if (solved) {
+                      executeEnvelope(
+                        activeConversation.reopen(lifecycleParams)
+                      );
+                    } else {
+                      setSolveDialogOpen(true);
+                    }
+                  }}
+                >
+                  {lifecycleActionLabel}
+                </button>
+              </div>
+            )}
+          </div>
+        }
+      />
+
+      <ScreenContent
+        role="main"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
         {solved && (
           <div
             role="status"
@@ -239,7 +307,7 @@ export const ChatScreen = observer(() => {
             <button
               type="button"
               aria-label="Yaşam döngüsü işlemini tekrar dene"
-              className="font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="min-h-11 shrink-0 rounded-md px-2 font-semibold underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               onClick={() =>
                 executeEnvelope(activeConversation.retryLifecycle())
               }
@@ -291,7 +359,10 @@ export const ChatScreen = observer(() => {
 
           {(!sideKey || (!detail.isPending && !detail.isError)) &&
             (messages.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
+              <p
+                role="status"
+                className="p-6 text-center text-sm text-muted-foreground"
+              >
                 Henüz mesaj yok.
               </p>
             ) : (
@@ -333,8 +404,9 @@ export const ChatScreen = observer(() => {
           }
           onChange={(html) => activeConversation.setDraftHtml(html)}
           onSubmit={submitReply}
+          className="shrink-0"
         />
-      </main>
+      </ScreenContent>
 
       {solveDialogOpen && lifecycleParams && (
         <ConfirmDialog

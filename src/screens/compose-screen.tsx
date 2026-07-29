@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
+import { htmlToText } from "@/lib/html-to-text";
 import { formatPrefillSubject } from "@/lib/side-conversation";
 import { useCreateSideConversationMutation } from "@/query/side-conversation-queries";
 
@@ -46,7 +47,7 @@ export const ComposeScreen = observer(() => {
     !agentEmail ||
     !ticket?.key ||
     !compose.recipientEmail ||
-    compose.message.trim() === "" ||
+    htmlToText(compose.message) === "" ||
     compose.submitting;
 
   const submit = async () => {
@@ -94,6 +95,8 @@ export const ComposeScreen = observer(() => {
   return (
     <Screen>
       <ScreenHeader
+        title={<ScreenTitle>Yeni Görüşme</ScreenTitle>}
+        backLabel="Yan görüşme listesine dön"
         onBack={() => {
           // D-02: `requestBack` returns `true` only when the form is dirty —
           // in that case it deliberately does NOT change screens, so the
@@ -102,16 +105,14 @@ export const ComposeScreen = observer(() => {
             setDiscardOpen(true);
           }
         }}
-      >
-        <ScreenTitle>Yeni Görüşme</ScreenTitle>
-      </ScreenHeader>
+      />
       <ScreenContent className="flex flex-col">
-        <div className="flex flex-1 flex-col gap-2 p-4">
+        <div className="flex flex-1 flex-col gap-4 p-[var(--panel-inset)]">
           <RecipientField />
           <SubjectField />
           <MessageField onSubmit={() => void submit()} />
         </div>
-        <div className="sticky bottom-0 border-t bg-card p-4">
+        <div className="sticky bottom-0 border-t bg-card p-[var(--panel-inset)]">
           <Button
             className="w-full"
             disabled={sendDisabled}

@@ -26,7 +26,7 @@ function senderLabel(
   message: ThreadMessageData,
   showFullSender: boolean
 ): string {
-  if (message.internal) return "İç not";
+  if (message.internal) return "İç not · Salt okunur";
   if (message.direction === "own") return "Siz";
 
   const name = message.senderName || message.senderEmail || "Gönderen";
@@ -58,7 +58,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
     <article
       data-testid={`thread-message-${message.id}`}
       className={cn(
-        "w-full border-b border-border px-4 py-4 text-sm",
+        "w-full min-w-0 overflow-hidden border-b border-border px-[var(--panel-inset)] py-4 text-sm",
         message.internal && "border-l-[3px] border-l-amber-500 bg-amber-50/60"
       )}
     >
@@ -81,7 +81,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
       </header>
 
       <div
-        className="break-words leading-5 text-foreground [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_li]:ml-5 [&_ol]:list-decimal [&_p+p]:mt-2 [&_ul]:list-disc"
+        className="break-words leading-5 text-foreground [overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_li]:ml-5 [&_ol]:list-decimal [&_p+p]:mt-2 [&_ul]:list-disc"
         dangerouslySetInnerHTML={{ __html: bodyHtml }}
       />
 
@@ -91,7 +91,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
             type="button"
             aria-label="Önceki e-postayı göster"
             aria-expanded={quoteOpen}
-            className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex min-h-11 items-center rounded-md text-xs font-semibold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             onClick={() => setQuoteOpen((current) => !current)}
           >
             Önceki e-postayı göster
@@ -107,8 +107,10 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
 
       {message.status === "pending" && (
         <div
+          role="status"
+          aria-live="polite"
           aria-label="Gönderiliyor"
-          className="mt-2 flex items-center gap-1 text-xs text-muted-foreground"
+          className="mt-2 flex min-h-11 items-center gap-1 text-xs text-muted-foreground"
         >
           <ReloadIcon className="size-3 animate-spin" />
           <span>Gönderiliyor</span>
@@ -116,19 +118,21 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
       )}
 
       {message.status === "failed" && (
-        <button
-          type="button"
-          aria-label="Gönderilemedi. Tekrar dene"
-          className="mt-2 flex items-center gap-1 text-xs text-destructive hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          onClick={() => onRetry(message.id)}
-        >
-          <ExclamationTriangleIcon className="size-3 shrink-0" />
-          <span>
-            {message.errorKind === "network"
-              ? "Bağlantı sorunu · Gönderilemedi. Tekrar dene"
-              : "Gönderilemedi · Tekrar dene"}
-          </span>
-        </button>
+        <div role="alert">
+          <button
+            type="button"
+            aria-label="Gönderilemedi. Tekrar dene"
+            className="mt-2 flex min-h-11 items-center gap-1 rounded-md text-xs text-destructive hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={() => onRetry(message.id)}
+          >
+            <ExclamationTriangleIcon className="size-3 shrink-0" />
+            <span>
+              {message.errorKind === "network"
+                ? "Bağlantı sorunu · Gönderilemedi. Tekrar dene"
+                : "Gönderilemedi · Tekrar dene"}
+            </span>
+          </button>
+        </div>
       )}
     </article>
   );

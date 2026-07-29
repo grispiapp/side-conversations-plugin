@@ -21,6 +21,10 @@ import { cn } from "@/lib/utils";
 export interface RichTextComposerProps {
   value: string;
   recipientLabel: string;
+  recipientPrefix?: string;
+  editorLabel?: string;
+  sectionLabel?: string;
+  required?: boolean;
   onChange: (html: string) => void;
   onSubmit: (html: string) => void;
   disabled?: boolean;
@@ -139,6 +143,10 @@ export const RichTextComposer = forwardRef<
     {
       value,
       recipientLabel,
+      recipientPrefix = "Yanıt şu kişiye gidecek:",
+      editorLabel = "Yanıt",
+      sectionLabel = "Yanıt oluşturucu",
+      required = false,
       onChange,
       onSubmit,
       disabled = false,
@@ -184,8 +192,9 @@ export const RichTextComposer = forwardRef<
         editorProps: {
           attributes: {
             role: "textbox",
-            "aria-label": "Yanıt",
+            "aria-label": editorLabel,
             "aria-multiline": "true",
+            "aria-required": String(required),
             class: EDITOR_CLASS_NAME,
           },
           handleKeyDown: (view, event) => {
@@ -235,12 +244,14 @@ export const RichTextComposer = forwardRef<
 
       editor.setEditable(!disabled);
       editor.view.dom.setAttribute("aria-disabled", String(disabled));
+      editor.view.dom.setAttribute("aria-label", editorLabel);
+      editor.view.dom.setAttribute("aria-required", String(required));
       editor.view.dom.className = cn(
         "ProseMirror",
         EDITOR_CLASS_NAME,
         disabled && "cursor-not-allowed bg-muted text-muted-foreground"
       );
-    }, [disabled, editor]);
+    }, [disabled, editor, editorLabel, required]);
 
     useLayoutEffect(() => {
       if (!editor) return;
@@ -316,11 +327,11 @@ export const RichTextComposer = forwardRef<
           "border-t border-border bg-background px-3 py-2",
           className
         )}
-        aria-label="Yanıt oluşturucu"
+        aria-label={sectionLabel}
       >
         <p className="mb-1.5 break-words text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">
-            Yanıt şu kişiye gidecek:
+          <span className="font-semibold text-foreground">
+            {recipientPrefix}
           </span>{" "}
           {recipientLabel}
         </p>
@@ -345,7 +356,7 @@ export const RichTextComposer = forwardRef<
                 }
                 title={action.label}
                 disabled={disabled || !editor}
-                className="size-7 shrink-0 focus-visible:ring-2"
+                className="shrink-0 focus-visible:ring-2"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => runToolbarAction(action)}
               >

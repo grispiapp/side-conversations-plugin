@@ -1,8 +1,7 @@
 import { observer } from "mobx-react-lite";
-import { KeyboardEvent } from "react";
 
-import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/contexts/store-context";
+import { RichTextComposer } from "@/screens/components/rich-text-composer";
 
 /**
  * Mesaj alanı (D-10/D-11/D-12). Plain Enter is left COMPLETELY untouched —
@@ -21,20 +20,27 @@ export interface MessageFieldProps {
 export const MessageField = observer(({ onSubmit }: MessageFieldProps) => {
   const compose = useStore().compose;
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
-    if (event.key === "Enter" && event.shiftKey) {
-      event.preventDefault();
-      onSubmit();
-    }
-  }
-
   return (
-    <div className="flex flex-col gap-1">
-      <Textarea
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-semibold text-foreground">
+          Mesaj <span aria-hidden="true">*</span>
+        </span>
+        <span className="text-xs text-muted-foreground">Zorunlu</span>
+      </div>
+      <RichTextComposer
         value={compose.message}
-        onChange={(event) => compose.setMessage(event.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Mesajınızı yazın…"
+        recipientLabel={compose.recipientLabel || "Henüz alıcı seçilmedi"}
+        recipientPrefix="E-posta şu kişiye gidecek:"
+        editorLabel="Mesaj"
+        sectionLabel="Yeni görüşme mesajı"
+        required
+        className="rounded-lg border border-border bg-card px-3 py-3"
+        onChange={(html) => compose.setMessage(html)}
+        onSubmit={(html) => {
+          compose.setMessage(html);
+          onSubmit();
+        }}
         disabled={compose.submitting}
       />
       <span className="text-xs text-muted-foreground">

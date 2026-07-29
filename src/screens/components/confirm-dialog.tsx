@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useEffect, useId, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -23,13 +23,50 @@ export const ConfirmDialog: FC<{
   onConfirm: () => void;
   onCancel: () => void;
 }> = ({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel }) => {
+  const titleId = useId();
+  const bodyId = useId();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    cancelRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onCancelRef.current();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
-      <div className="mx-4 flex w-full max-w-sm flex-col gap-3 rounded-lg bg-card p-6 shadow-lg">
-        <h3 className="text-base font-semibold">{title}</h3>
-        <p className="text-sm text-muted-foreground">{body}</p>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={bodyId}
+        className="mx-4 flex w-full max-w-sm flex-col gap-3 rounded-lg bg-card p-6 shadow-lg"
+      >
+        <h2 id={titleId} className="text-base font-semibold">
+          {title}
+        </h2>
+        <p id={bodyId} className="text-sm text-muted-foreground">
+          {body}
+        </p>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>
+          <Button
+            ref={cancelRef}
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+          >
             {cancelLabel}
           </Button>
           <Button variant="destructive" size="sm" onClick={onConfirm}>

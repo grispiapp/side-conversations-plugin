@@ -125,6 +125,7 @@ describe("ThreadMessage", () => {
       />
     );
     expect(container.textContent).toContain("İç not");
+    expect(container.textContent).toContain("Salt okunur");
     expect(
       container.querySelector('[data-testid="thread-message-m3"]')?.className
     ).toContain("border-l-amber-500");
@@ -140,6 +141,9 @@ describe("ThreadMessage", () => {
     );
     expect(
       container.querySelector('[aria-label="Gönderiliyor"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[role="status"][aria-label="Gönderiliyor"]')
     ).not.toBeNull();
 
     render(

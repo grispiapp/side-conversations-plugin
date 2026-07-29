@@ -220,8 +220,10 @@ describe("ChatScreen Query-owned session wiring", () => {
       8,
       mockStore.activeConversation
     );
-    expect(container.textContent).toContain(
-      "Ada <ada@example.test> · Teslimat"
+    expect(container.textContent).toContain("Ada <ada@example.test>");
+    expect(container.textContent).toContain("Konu: Teslimat");
+    expect(container.querySelector("header")?.className).toContain(
+      "h-[var(--panel-header-height)]"
     );
     expect(container.textContent).toContain("İlk yanıt");
     expect(mockStore.activeConversation.mergeCanonical).toHaveBeenCalledWith(
@@ -326,12 +328,82 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(mockReplyMutation.mutate).toHaveBeenCalledWith(reply);
   });
 
+  it("continues a new compose submission as a pending first outbound email block", () => {
+    mockStore.panelNavigation.selectedConversation = {
+      ticketKey: null,
+      parentKey: "PARENT-7",
+      sessionKey: 8,
+    };
+    mockDetail = makeDetail({ data: undefined });
+    mockStore.activeConversation.getLocalPresentation.mockReturnValue({
+      recipientLabel: "Vendor <vendor@example.test>",
+      subject: "Yeni sipariş",
+    });
+    mockStore.activeConversation.getOverlayMessages.mockReturnValue([
+      {
+        id: "pending-create",
+        direction: "own",
+        body: "<p>İlk e-posta</p>",
+        status: "pending",
+        createdAt: 10_000,
+      },
+    ]);
+
+    render(<ChatScreen />);
+
+    expect(container.textContent).toContain("Vendor <vendor@example.test>");
+    expect(container.textContent).toContain("Konu: Yeni sipariş");
+    expect(container.textContent).toContain("İlk e-posta");
+    expect(
+      container.querySelector('[role="status"][aria-label="Gönderiliyor"]')
+    ).not.toBeNull();
+  });
+
+  it("manages lifecycle menu focus, keyboard dismissal and outside dismissal", () => {
+    render(<ChatScreen />);
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Görüşme seçenekleri"]'
+    );
+    expect(trigger?.getAttribute("aria-haspopup")).toBe("menu");
+
+    click("Görüşme seçenekleri");
+    const item =
+      container.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    expect(item?.textContent).toBe("Çözüldü olarak işaretle");
+    expect(document.activeElement).toBe(item);
+    expect(item?.className).toContain("min-h-11");
+
+    act(() => {
+      item?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+
+    click("Görüşme seçenekleri");
+    act(() => {
+      document.body.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true })
+      );
+    });
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("keeps lifecycle canonical and executes solve/reopen/retry envelopes through Query", () => {
     const solve = envelope("solve");
     mockStore.activeConversation.setSolved.mockReturnValue(solve);
     render(<ChatScreen />);
     click("Görüşme seçenekleri");
     click("Çözüldü olarak işaretle");
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.activeElement?.textContent).toBe("Vazgeç");
     click("Çözmeyi onayla");
     expect(mockStatusMutation.mutate).toHaveBeenCalledWith(solve);
     expect(container.textContent).not.toContain("ÇözüldüTekrar");
