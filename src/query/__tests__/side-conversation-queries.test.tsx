@@ -530,7 +530,18 @@ describe("canonical detail and mutation executors", () => {
           id: 2,
           createdAt: 2_000,
           creator: agent,
-          body: "<p>Own</p><blockquote><p>Old</p></blockquote>",
+          body:
+            "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>" +
+            "<blockquote><p>Incoming</p></blockquote>",
+        },
+        {
+          ...makeTicket("SIDE-1").comments[0],
+          id: 4,
+          createdAt: 4_000,
+          creator: agent,
+          body:
+            "<p>Next</p><blockquote><p>Incoming</p>" +
+            "<blockquote><p>Agent quote</p></blockquote><p>After quote</p></blockquote>",
         },
         {
           ...makeTicket("SIDE-1").comments[0],
@@ -569,7 +580,9 @@ describe("canonical detail and mutation executors", () => {
       expect.objectContaining({
         id: "comment-2",
         direction: "own",
-        quotedHtml: "<p>Old</p>",
+        authoredBodyHtml:
+          "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
+        quotedHtml: "<p>Incoming</p>",
       }),
       expect.objectContaining({
         id: "comment-3",
@@ -577,7 +590,15 @@ describe("canonical detail and mutation executors", () => {
         internal: true,
         body: "<p>Not</p>",
       }),
+      expect.objectContaining({
+        id: "comment-4",
+        direction: "own",
+        authoredBodyHtml: "<p>Next</p>",
+        quotedHtml:
+          "<p>Incoming</p><blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
+      }),
     ]);
+    expect(detail.messages[3].quotedHtml).not.toContain("Not");
     expect(
       window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-1")
     ).toBeNull();

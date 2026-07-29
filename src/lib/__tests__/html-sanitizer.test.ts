@@ -2,6 +2,7 @@ import {
   buildQuotedReplyParts,
   sanitizeHtml,
   sanitizeUntrustedDraftHtml,
+  splitGeneratedReplyHtml,
   splitQuotedHtml,
 } from "../html-sanitizer";
 import DOMPurify from "dompurify";
@@ -195,6 +196,34 @@ describe("quote boundary helpers", () => {
       historyHtml: "<p>Canonical body</p>",
       outboundHtml:
       "<blockquote><p>Agent quote</p></blockquote><p>After quote</p><blockquote><p>Canonical body</p></blockquote>"
+    });
+  });
+
+  it("recognizes generated history only when the final quote exactly matches structured public context", () => {
+    const context = [
+      {
+        authoredBodyHtml: "<p>Earlier</p>",
+        publicVisible: true,
+      },
+    ];
+    expect(
+      splitGeneratedReplyHtml(
+        "<blockquote><p>Agent quote</p></blockquote><p>After quote</p><blockquote><p>Earlier</p></blockquote>",
+        context
+      )
+    ).toEqual({
+      bodyHtml:
+        "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
+      quotedHtml: "<p>Earlier</p>",
+    });
+    expect(
+      splitGeneratedReplyHtml(
+        "<p>Authored</p><blockquote><p>Different authored quote</p></blockquote>",
+        context
+      )
+    ).toEqual({
+      bodyHtml:
+        "<p>Authored</p><blockquote><p>Different authored quote</p></blockquote>",
     });
   });
 });

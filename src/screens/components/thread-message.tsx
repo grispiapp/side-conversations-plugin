@@ -1,7 +1,7 @@
 import { ExclamationTriangleIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { FC, useState } from "react";
 
-import { splitQuotedHtml } from "@/lib/html-sanitizer";
+import { sanitizeHtml, splitQuotedHtml } from "@/lib/html-sanitizer";
 import { cn } from "@/lib/utils";
 
 export interface ThreadMessageData {
@@ -14,6 +14,8 @@ export interface ThreadMessageData {
   senderName?: string;
   senderEmail?: string;
   internal?: boolean;
+  authoredBodyHtml?: string;
+  quotedHtml?: string;
 }
 
 export interface ThreadMessageProps {
@@ -52,7 +54,17 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
   onRetry,
 }) => {
   const [quoteOpen, setQuoteOpen] = useState(false);
-  const { bodyHtml, quotedHtml } = splitQuotedHtml(message.body);
+  const legacyParts =
+    message.authoredBodyHtml === undefined
+      ? splitQuotedHtml(message.body)
+      : undefined;
+  const bodyHtml = sanitizeHtml(
+    message.authoredBodyHtml ?? legacyParts?.bodyHtml ?? message.body
+  );
+  const quotedHtml =
+    message.quotedHtml !== undefined
+      ? sanitizeHtml(message.quotedHtml)
+      : legacyParts?.quotedHtml;
 
   return (
     <article

@@ -156,6 +156,41 @@ describe("ThreadMessage", () => {
     expect(onRetry).toHaveBeenCalledWith("m1");
     expect(container.textContent).toContain("Bağlantı sorunu");
   });
+
+  it("keeps authored quotes and trailing text visible for pending and canonical own replies", () => {
+    const authoredBodyHtml =
+      "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>";
+    const historyHtml = "<p>Earlier public message</p>";
+    const outboundHtml = `${authoredBodyHtml}<blockquote>${historyHtml}</blockquote>`;
+    const pending = {
+      ...baseMessage,
+      id: "pending-own",
+      direction: "own" as const,
+      body: outboundHtml,
+      authoredBodyHtml,
+      quotedHtml: historyHtml,
+      status: "pending" as const,
+    };
+
+    render(<ThreadMessage message={pending} onRetry={jest.fn()} />);
+    expect(container.textContent).toContain("Agent quote");
+    expect(container.textContent).toContain("After quote");
+    expect(container.textContent).not.toContain("Earlier public message");
+    act(() => button("Önceki e-postayı göster").click());
+    expect(container.textContent).toContain("Earlier public message");
+
+    render(
+      <ThreadMessage
+        key="comment-2"
+        message={{ ...pending, id: "comment-2", status: "sent" }}
+        onRetry={jest.fn()}
+      />
+    );
+    expect(container.textContent).toContain("Agent quote");
+    expect(container.textContent).toContain("After quote");
+    expect(container.textContent).not.toContain("Earlier public message");
+    expect(container.textContent).not.toContain("Gönderiliyor");
+  });
 });
 
 describe("RichTextComposer", () => {

@@ -16,7 +16,12 @@ import {
   ConversationLifecycleStatus,
   parseConversationLifecycleStatus,
 } from "@/lib/conversation-status";
-import { sanitizeHtml, splitQuotedHtml } from "@/lib/html-sanitizer";
+import {
+  QuotedContextPart,
+  sanitizeHtml,
+  splitGeneratedReplyHtml,
+  splitQuotedHtml,
+} from "@/lib/html-sanitizer";
 import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
 import {
@@ -395,15 +400,23 @@ export function useCustomersQuery(tenantId: string | null, term: string) {
   };
 }
 
-function normalizeComment(comment: Comment): MessageVM {
+function normalizeComment(
+  comment: Comment,
+  publicContext: readonly QuotedContextPart[]
+): MessageVM {
   const sanitized = sanitizeHtml(comment.body ?? "");
-  const quoted = splitQuotedHtml(sanitized);
+  const direction =
+    comment.creator?.role?.authority === "ROLE_END_USER" ? "incoming" : "own";
+  const quoted =
+    direction === "own" && comment.publicVisible
+      ? splitGeneratedReplyHtml(sanitized, publicContext)
+      : splitQuotedHtml(sanitized);
 
   return {
     id: `comment-${comment.id}`,
-    direction:
-      comment.creator?.role?.authority === "ROLE_END_USER" ? "incoming" : "own",
+    direction,
     body: sanitized,
+    authoredBodyHtml: quoted.bodyHtml,
     status: "sent",
     createdAt: comment.createdAt,
     senderName: comment.creator?.fullName || undefined,
@@ -444,11 +457,21 @@ export function resolveDetailScrollTarget(
 export function normalizeSideConversationDetail(
   ticket: Ticket
 ): SideConversationDetail {
+  const publicContext: QuotedContextPart[] = [];
   const messages = [...(ticket.comments ?? [])]
     .sort(
       (left, right) => left.createdAt - right.createdAt || left.id - right.id
     )
-    .map(normalizeComment);
+    .map((comment) => {
+      const message = normalizeComment(comment, publicContext);
+      if (comment.publicVisible) {
+        publicContext.push({
+          authoredBodyHtml: message.authoredBodyHtml ?? message.body,
+          publicVisible: true,
+        });
+      }
+      return message;
+    });
   const externalPublic = messages.filter(
     (message) => message.direction === "incoming" && !message.internal
   );
