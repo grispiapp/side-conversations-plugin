@@ -228,14 +228,8 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
     const server = [canonical(1, "<p>Sunucu</p>", 11_000)];
     store.reconcileCanonical(5, "SIDE-5", server);
     expect(
-      store
-        .mergeCanonical(5, "SIDE-5", server)
-        .map(({ id }) => id)
-    ).toEqual([
-      "comment-1",
-      failed.clientMessageId,
-      accepted.clientMessageId,
-    ]);
+      store.mergeCanonical(5, "SIDE-5", server).map(({ id }) => id)
+    ).toEqual([failed.clientMessageId, accepted.clientMessageId, "comment-1"]);
   });
 
   it("binds create only to its active session and ignores stale A callbacks after B activates", () => {

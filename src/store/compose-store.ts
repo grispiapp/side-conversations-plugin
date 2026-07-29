@@ -2,6 +2,7 @@ import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
 import { formatRequesterField } from "@/lib/side-conversation";
+import { MutationEnvelope } from "@/store/active-conversation-store";
 import { CreateTicketRequest } from "@/types/grispi.type";
 
 export interface CustomerVM {
@@ -138,16 +139,26 @@ export class ComposeStore {
    * pending bubble is created, not after the POST settles (UI-SPEC "Chat
    * screen anatomy").
    */
-  async submit(agentEmail: string | null, parentKey: string): Promise<void> {
-    if (this.submitting) return; // D-17 — before any await
+  async submit(
+    tenantId: string | null,
+    agentEmail: string | null,
+    parentKey: string,
+    sessionKey: number
+  ): Promise<MutationEnvelope | null> {
+    if (this.submitting) return null; // D-17 — before any await
     this.submitting = true;
 
     // D-10: recipient + message are required; subject may be empty (the
     // live API rejects an EMPTY VALUE, not an empty subject that was never
     // typed — `ts.subject`'s key is still always sent below, Pitfall #1).
-    if (!this.recipientEmail || !this.message.trim()) {
+    if (
+      !tenantId ||
+      !agentEmail ||
+      !this.recipientEmail ||
+      !this.message.trim()
+    ) {
       this.submitting = false;
-      return;
+      return null;
     }
 
     this.submitGeneration += 1;
@@ -170,18 +181,20 @@ export class ComposeStore {
       ],
     };
 
-    this.rootStore.activeConversation.startNew({
+    const envelope = this.rootStore.activeConversation.startNew({
+      tenantId,
       recipientLabel: this.recipientLabel,
       subject: this.subject,
       body: this.message,
       request,
       parentKey: effectiveParentKey,
+      sessionKey,
     });
 
     await Promise.resolve();
 
-    this.rootStore.panelNavigation.openChat();
     this.reset();
+    return envelope;
   }
 
   /**

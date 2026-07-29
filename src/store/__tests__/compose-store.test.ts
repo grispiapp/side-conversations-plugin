@@ -42,8 +42,9 @@ describe("ComposeStore mutation-envelope seam", () => {
         ]),
       },
     });
-    expect(root.activeConversation.getRetryEnvelope(envelope!.clientMessageId))
-      .toBe(envelope);
+    expect(
+      root.activeConversation.getRetryEnvelope(envelope!.clientMessageId)
+    ).toBe(envelope);
     expect(root.compose.isDirty).toBe(false);
   });
 

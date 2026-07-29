@@ -1,42 +1,30 @@
 import { RootStore } from "./root-store";
-import { makeAutoObservable, runInAction } from "mobx";
+import { makeAutoObservable } from "mobx";
 
-import { grispiAPI } from "@/grispi/client/api";
-import { NetworkError } from "@/grispi/client/http-handler";
+import { buildQuotedReplyHtml, sanitizeHtml } from "@/lib/html-sanitizer";
 import {
-  buildQuotedReplyHtml,
-  sanitizeHtml,
-  splitQuotedHtml,
-} from "@/lib/html-sanitizer";
-import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
-import {
-  Comment,
   CreateTicketRequest,
   ReplyTicketPatchRequest,
   StatusTicketPatchRequest,
-  Ticket,
 } from "@/types/grispi.type";
 
-/**
- * A monotonic, purely-client-side id — the optimistic message never needs to
- * be looked up by anything server-generated (the side ticket itself has its
- * own `key`, tracked separately as `ticketKey`). A counter (not
- * `crypto.randomUUID`) keeps this dependency-free and deterministic enough
- * for tests.
- */
 let messageIdCounter = 0;
+
 function nextMessageId(): string {
   messageIdCounter += 1;
   return `msg-${messageIdCounter}`;
 }
 
-/**
- * Chat message view model (RESEARCH.md "Pattern 4", verbatim seam). Phase 2
- * only ever produces `direction: "own"` — `"incoming"` is reserved for Phase
- * 3's real thread rendering so this shape doesn't need a rewrite later.
- * `errorKind` distinguishes network vs. server failures (T-02-03) without
- * ever carrying the raw `HttpError.body`/`status`.
- */
+function deepFreeze<T>(value: T): T {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+
+  Object.freeze(value);
+  Object.values(value as Record<string, unknown>).forEach(deepFreeze);
+  return value;
+}
+
 export interface MessageVM {
   id: string;
   direction: "own" | "incoming";
@@ -50,491 +38,563 @@ export interface MessageVM {
   quotedHtml?: string;
 }
 
-export type ActiveConversationStatus = "idle" | "loading" | "ready" | "error";
+export type MutationEnvelope =
+  | {
+      kind: "create";
+      clientMessageId: string;
+      tenantId: string;
+      parentKey: string;
+      sideKey?: undefined;
+      request: CreateTicketRequest;
+      sessionKey: number;
+      startedAt: number;
+    }
+  | {
+      kind: "reply";
+      clientMessageId: string;
+      tenantId: string;
+      parentKey: string;
+      sideKey: string;
+      request: ReplyTicketPatchRequest;
+      sessionKey: number;
+      startedAt: number;
+    }
+  | {
+      kind: "solve" | "reopen";
+      clientMessageId: string;
+      tenantId: string;
+      parentKey: string;
+      sideKey: string;
+      request: StatusTicketPatchRequest;
+      sessionKey: number;
+      startedAt: number;
+    };
 
 export interface StartNewParams {
+  tenantId: string;
+  parentKey: string;
+  sessionKey: number;
   recipientLabel: string;
   subject: string;
   body: string;
   request: CreateTicketRequest;
-  parentKey: string;
 }
 
-/** Payload kept per-message so D-15's retry can re-fire the IDENTICAL POST. */
-interface RetryPayload {
-  request: CreateTicketRequest;
+export interface ReplyParams {
+  tenantId: string;
   parentKey: string;
+  sideKey: string;
+  sessionKey: number;
+  agentEmail: string;
+  canonicalMessages: readonly MessageVM[];
+  solved?: boolean;
 }
 
-interface ReplyRetryPayload {
-  request: ReplyTicketPatchRequest;
-  ticketKey: string;
+export interface LifecycleParams {
+  tenantId: string;
   parentKey: string;
-  generation: number;
+  sideKey: string;
+  sessionKey: number;
+  solved: boolean;
 }
-
-type LifecycleAction = "solve" | "reopen";
 
 export interface LifecycleError {
-  action: LifecycleAction;
+  action: "solve" | "reopen";
   errorKind: "network" | "server";
+  clientMessageId: string;
+}
+
+export interface LocalThreadPresentation {
+  sessionKey: number;
+  recipientLabel: string;
+  subject: string;
+}
+
+interface OverlayRecord {
+  envelope: MutationEnvelope;
+  message: MessageVM;
+  sideKey: string | null;
+  accepted: boolean;
+}
+
+interface SessionSignal<T> {
+  sessionKey: number;
+  sideKey: string | null;
+  value: T;
+}
+
+function hasMessage(
+  envelope: MutationEnvelope
+): envelope is Extract<MutationEnvelope, { kind: "create" | "reply" }> {
+  return envelope.kind === "create" || envelope.kind === "reply";
+}
+
+function envelopeBody(envelope: MutationEnvelope): string | null {
+  return hasMessage(envelope)
+    ? sanitizeHtml(envelope.request.comment.body)
+    : null;
+}
+
+function envelopeCreator(envelope: MutationEnvelope): string | null {
+  return hasMessage(envelope)
+    ? (envelope.request.comment.creator[0]?.value ?? null)
+    : null;
 }
 
 /**
- * Owns the single active side-conversation's optimistic message lifecycle
- * (COMP-04/SYNC-02) — the seam Phase 3 will extend with a real two-way
- * thread (`incoming` messages, `open`/`reply`). `startNew`/`retry` are
- * deliberately synchronous (void), NOT awaited to completion by callers: the
- * pending bubble must exist and the panel must be able to navigate to the
- * chat screen immediately (UI-SPEC "Chat screen anatomy" — bubble mounts
- * `pending` before the POST settles), not after the network round-trip
- * finishes. The POST itself runs in the background via the private
- * `sendCreateTicket`.
+ * Local-only active-thread state. Canonical ticket data, comments, recipient,
+ * subject, solved, loading, and errors belong to React Query. This store owns
+ * immutable mutation envelopes, optimistic overlays, draft input, retry
+ * lookup, and one-shot session-scoped UI signals.
  */
 export class ActiveConversationStore {
-  status: ActiveConversationStatus = "idle";
-  loadError: string | null = null;
-  ticketKey: string | null = null;
-  parentKey: string | null = null;
-  recipientLabel = "";
-  subject = "";
-  solved = false;
-  messages: MessageVM[] = [];
   draftHtml = "";
-  scrollTargetMessageId: string | null = null;
-  latestRelevantExternalAt: number | null = null;
-  lifecyclePending: LifecycleAction | null = null;
+  lifecyclePending: "solve" | "reopen" | null = null;
   lifecycleError: LifecycleError | null = null;
 
-  private retryPayloads = new Map<string, RetryPayload>();
-  private replyRetryPayloads = new Map<string, ReplyRetryPayload>();
-  private generation = 0;
-  private composerFocusRequested = false;
+  private activeSessionKey: number | null = null;
+  private activeSideKey: string | null = null;
+  private overlayRecords: OverlayRecord[] = [];
+  private localPresentation: LocalThreadPresentation | null = null;
+  private focusRequest: SessionSignal<true> | null = null;
+  private scrollRequest: SessionSignal<string> | null = null;
+  private envelopes = new Map<string, MutationEnvelope>();
+  private matchedCanonicalIds = new Map<string, Set<string>>();
 
   constructor(_rootStore: RootStore) {
-    makeAutoObservable(this);
+    makeAutoObservable<this, "envelopes" | "matchedCanonicalIds">(
+      this,
+      {
+        envelopes: false,
+        matchedCanonicalIds: false,
+      },
+      { autoBind: true, deep: false }
+    );
   }
 
-  /**
-   * Starts a brand-new conversation: RESETS all state (`messages`,
-   * `ticketKey`, `retryPayloads`) and sets the echoed recipient/subject
-   * (Pitfall #6 — these come from compose, never read back from the
-   * server) before seeding a single `pending` `MessageVM` and firing the
-   * `createTicket` POST in the background.
-   *
-   * M-4 (UAT fix, 02-06): this store owns exactly ONE active conversation at
-   * a time — `startNew` is only ever called for a FRESH conversation
-   * (ComposeStore.submit), never to append a reply to the current one
-   * (Phase 3's concern). The previous implementation appended to
-   * `this.messages`, which bled a prior conversation's bubbles (and its
-   * stale `ticketKey`/`retryPayloads`) into a new one: compose to vendor A,
-   * back to list, compose to vendor B — B's chat showed A's message too.
-   */
-  startNew(params: StartNewParams): void {
-    const { recipientLabel, subject, body, request, parentKey } = params;
-    ++this.generation;
-
-    this.recipientLabel = recipientLabel;
-    this.subject = subject;
-    this.ticketKey = null;
-    this.parentKey = parentKey;
-    this.status = "ready";
-    this.loadError = null;
-    this.solved = false;
-    this.scrollTargetMessageId = null;
-    this.latestRelevantExternalAt = null;
-    this.draftHtml = "";
-    this.lifecyclePending = null;
-    this.lifecycleError = null;
-    this.composerFocusRequested = false;
-
-    const message: MessageVM = {
-      id: nextMessageId(),
-      direction: "own",
-      body,
-      status: "pending",
-      createdAt: Date.now(),
-    };
-
-    // Fresh array (not an append) — a NEW conversation starts with exactly
-    // this one message, discarding whatever the PREVIOUS conversation left
-    // behind. Still a "new array identity" assignment (same lesson as
-    // SideConversationsStore's UAT Defect 2 fix, side-conversations-store.ts
-    // lines 443-450) so observers still re-render correctly.
-    this.messages = [message];
-    this.retryPayloads.clear();
-    this.replyRetryPayloads.clear();
-    this.retryPayloads.set(message.id, { request, parentKey });
-
-    void this.sendCreateTicket(message.id);
-  }
-
-  /**
-   * Loads one canonical side ticket and normalizes its untrusted comments.
-   * The generation is bumped synchronously so a slower prior selection can
-   * never publish state over the current one.
-   */
-  async load(ticketKey: string, parentKey: string): Promise<void> {
-    const gen = ++this.generation;
-    this.status = "loading";
-    this.loadError = null;
-    this.ticketKey = ticketKey;
-    this.parentKey = parentKey;
-    this.messages = [];
-    this.scrollTargetMessageId = null;
-    this.latestRelevantExternalAt = null;
-    this.lifecycleError = null;
-
-    try {
-      const ticket = await grispiAPI.tickets.getTicket(ticketKey);
-      if (gen !== this.generation) return;
-
-      const lastSeenAt = getLastSeenAt(ticketKey);
-      const messages = [...(ticket.comments ?? [])]
-        .sort((a, b) => a.createdAt - b.createdAt || a.id - b.id)
-        .map(normalizeComment);
-      const externalPublic = messages.filter(
-        (message) => message.direction === "incoming" && !message.internal
-      );
-      const firstUnseen = externalPublic.find(
-        (message) => lastSeenAt === null || message.createdAt > lastSeenAt
-      );
-      const latestRelevantExternalAt =
-        externalPublic.length > 0
-          ? Math.max(...externalPublic.map((message) => message.createdAt))
-          : null;
-
-      runInAction(() => {
-        this.messages = messages;
-        this.recipientLabel = resolveRecipientLabel(ticket);
-        this.subject = resolveSubject(ticket);
-        this.solved = resolveStatusId(ticket) === "4";
-        this.scrollTargetMessageId =
-          firstUnseen?.id ?? messages[messages.length - 1]?.id ?? null;
-        this.latestRelevantExternalAt = latestRelevantExternalAt;
-        this.status = "ready";
-      });
-
-      // Read bookkeeping is deliberately after successful current-generation
-      // normalization. It may advance to the latest external timestamp, but
-      // must never overwrite a newer local value.
-      if (
-        latestRelevantExternalAt !== null &&
-        (lastSeenAt === null || latestRelevantExternalAt > lastSeenAt)
-      ) {
-        setLastSeenAt(ticketKey, latestRelevantExternalAt);
-      }
-    } catch {
-      if (gen !== this.generation) return;
-      runInAction(() => {
-        this.status = "error";
-        this.loadError = "Görüşme yüklenemedi. Lütfen tekrar deneyin.";
-      });
-    }
-  }
-
-  /**
-   * D-15 (locked decision): retry re-fires the EXACT SAME POST rather than
-   * rebuilding the request — the API has no idempotency key, so a second
-   * side ticket on retry-after-a-transient-failure is an accepted risk
-   * (T-02-08, see SUMMARY "Deviations"/"Accepted Risks").
-   */
-  retry(messageId: string): void {
-    if (this.replyRetryPayloads.has(messageId)) {
-      this.messages = this.messages.map((message) =>
-        message.id === messageId
-          ? {
-              ...message,
-              status: "pending" as const,
-              errorKind: undefined,
-            }
-          : message
-      );
-      void this.sendReplyPayload(messageId);
+  activateSession(sessionKey: number, sideKey: string | null): void {
+    if (
+      this.activeSessionKey === sessionKey &&
+      this.activeSideKey === sideKey
+    ) {
       return;
     }
 
-    const payload = this.retryPayloads.get(messageId);
-    if (!payload) return;
+    this.activeSessionKey = sessionKey;
+    this.activeSideKey = sideKey;
+    this.draftHtml = "";
+    this.lifecyclePending = null;
+    this.lifecycleError = null;
+    this.focusRequest = null;
+    this.scrollRequest = null;
+  }
 
-    this.messages = this.messages.map((m) =>
-      m.id === messageId
-        ? { ...m, status: "pending" as const, errorKind: undefined }
-        : m
-    );
+  startNew(params: StartNewParams): MutationEnvelope {
+    this.activateSession(params.sessionKey, null);
+    this.localPresentation = {
+      sessionKey: params.sessionKey,
+      recipientLabel: params.recipientLabel,
+      subject: params.subject,
+    };
 
-    void this.sendCreateTicket(messageId);
+    const clientMessageId = nextMessageId();
+    const envelope = deepFreeze<MutationEnvelope>({
+      kind: "create",
+      clientMessageId,
+      tenantId: params.tenantId,
+      parentKey: params.parentKey,
+      request: params.request,
+      sessionKey: params.sessionKey,
+      startedAt: Date.now(),
+    });
+
+    this.envelopes.set(clientMessageId, envelope);
+    this.overlayRecords = [
+      ...this.overlayRecords.filter(
+        ({ envelope: retained }) => retained.sessionKey !== params.sessionKey
+      ),
+      {
+        envelope,
+        message: {
+          id: clientMessageId,
+          direction: "own",
+          body: sanitizeHtml(params.body),
+          status: "pending",
+          createdAt: envelope.startedAt,
+          senderEmail: envelopeCreator(envelope) ?? undefined,
+          internal: false,
+        },
+        sideKey: null,
+        accepted: false,
+      },
+    ];
+    return envelope;
   }
 
   setDraftHtml(html: string): void {
     this.draftHtml = html;
   }
 
-  /**
-   * Builds the narrow PATCH body exactly once. Public server messages are
-   * serialized chronologically into one quote; internal notes and prior
-   * quoted sections are excluded by the shared helper. Retry only looks up
-   * this retained object and never rebuilds it from mutable UI state.
-   */
-  sendReply(agentEmail: string): void {
+  sendReply(params: ReplyParams): MutationEnvelope | null {
     if (
-      this.solved ||
-      !this.ticketKey ||
-      !this.parentKey ||
+      params.solved ||
+      this.activeSessionKey !== params.sessionKey ||
+      this.activeSideKey !== params.sideKey ||
       !this.draftHtml.trim()
     ) {
-      return;
+      return null;
     }
 
     const body = buildQuotedReplyHtml(
       this.draftHtml,
-      this.messages
-        .filter((message) => !message.internal && message.status === "sent")
+      params.canonicalMessages
+        .filter((message) => message.status === "sent" && !message.internal)
         .map((message) => ({
           html: message.body,
           publicVisible: true,
         }))
     );
-    if (!body.trim()) return;
+    if (!body.trim()) return null;
 
-    const messageId = nextMessageId();
     const request: ReplyTicketPatchRequest = {
       comment: {
         body,
         publicVisible: true,
-        creator: [{ key: "us.email", value: agentEmail }],
+        creator: [{ key: "us.email", value: params.agentEmail }],
       },
     };
-    const payload: ReplyRetryPayload = {
+    const clientMessageId = nextMessageId();
+    const envelope = deepFreeze<MutationEnvelope>({
+      kind: "reply",
+      clientMessageId,
+      tenantId: params.tenantId,
+      parentKey: params.parentKey,
+      sideKey: params.sideKey,
       request,
-      ticketKey: this.ticketKey,
-      parentKey: this.parentKey,
-      generation: this.generation,
-    };
+      sessionKey: params.sessionKey,
+      startedAt: Date.now(),
+    });
 
     this.draftHtml = "";
-    this.messages = [
-      ...this.messages,
+    this.envelopes.set(clientMessageId, envelope);
+    this.overlayRecords = [
+      ...this.overlayRecords,
       {
-        id: messageId,
-        direction: "own",
-        body,
-        status: "pending",
-        createdAt: Date.now(),
-        internal: false,
+        envelope,
+        message: {
+          id: clientMessageId,
+          direction: "own",
+          body,
+          status: "pending",
+          createdAt: envelope.startedAt,
+          senderEmail: params.agentEmail,
+          internal: false,
+        },
+        sideKey: params.sideKey,
+        accepted: false,
       },
     ];
-    this.replyRetryPayloads.set(messageId, payload);
-    void this.sendReplyPayload(messageId);
+    return envelope;
   }
 
-  setSolved(): void {
-    if (this.solved) return;
-    this.beginLifecycleMutation("solve");
+  setSolved(params: LifecycleParams): MutationEnvelope | null {
+    return params.solved ? null : this.createLifecycleEnvelope("solve", params);
   }
 
-  reopen(): void {
-    if (!this.solved) return;
-    this.beginLifecycleMutation("reopen");
+  reopen(params: LifecycleParams): MutationEnvelope | null {
+    return params.solved
+      ? this.createLifecycleEnvelope("reopen", params)
+      : null;
   }
 
-  retryLifecycle(): void {
-    const action = this.lifecycleError?.action;
-    if (!action) return;
-    this.beginLifecycleMutation(action);
+  retryLifecycle(): MutationEnvelope | null {
+    if (!this.lifecycleError) return null;
+    return this.getRetryEnvelope(this.lifecycleError.clientMessageId);
   }
 
-  consumeComposerFocus(): boolean {
-    const requested = this.composerFocusRequested;
-    this.composerFocusRequested = false;
-    return requested;
-  }
+  mutationStarted(envelope: MutationEnvelope): void {
+    if (!this.isCurrent(envelope) || !this.isRetained(envelope)) return;
 
-  resolveSent(messageId: string): void {
-    this.messages = this.messages.map((m) =>
-      m.id === messageId ? { ...m, status: "sent" as const } : m
-    );
-  }
-
-  /** Body is preserved verbatim (D-15) — only `status`/`errorKind` change. */
-  markFailed(messageId: string, errorKind: "network" | "server"): void {
-    this.messages = this.messages.map((m) =>
-      m.id === messageId ? { ...m, status: "failed" as const, errorKind } : m
-    );
-  }
-
-  /**
-   * The actual `createTicket` POST (COMP-04). On success: resolves the
-   * bubble, records the new side ticket's `.key` (CONFIRMED live —
-   * `02-01-SUMMARY.md` "Probe Findings" A1, top-level `key` field), and
-   * leaves canonical list refresh to the Query mutation seam. The list is
-   * never updated with an optimistic fake row (D-16). On failure: only
-   * `errorKind` is kept (`error.body`/`status` are NEVER rendered or logged
-   * — T-02-03/V7).
-   */
-  private async sendCreateTicket(messageId: string): Promise<void> {
-    const payload = this.retryPayloads.get(messageId);
-    if (!payload) return;
-
-    try {
-      const response = await grispiAPI.tickets.createTicket(payload.request);
-
-      runInAction(() => {
-        this.resolveSent(messageId);
-        this.ticketKey = response.key;
-      });
-    } catch (err) {
-      runInAction(() => {
-        this.markFailed(
-          messageId,
-          err instanceof NetworkError ? "network" : "server"
-        );
-      });
+    if (hasMessage(envelope)) {
+      this.overlayRecords = this.overlayRecords.map((record) =>
+        record.envelope === envelope
+          ? {
+              ...record,
+              accepted: false,
+              message: {
+                ...record.message,
+                status: "pending",
+                errorKind: undefined,
+              },
+            }
+          : record
+      );
+      return;
     }
+
+    this.lifecyclePending = envelope.kind;
+    this.lifecycleError = null;
   }
 
-  private async sendReplyPayload(messageId: string): Promise<void> {
-    const payload = this.replyRetryPayloads.get(messageId);
-    if (!payload) return;
+  mutationFailed(envelope: MutationEnvelope, kind: "network" | "server"): void {
+    if (!this.isCurrent(envelope) || !this.isRetained(envelope)) return;
 
-    try {
-      await grispiAPI.tickets.patchTicket(payload.ticketKey, payload.request);
-      if (
-        payload.generation !== this.generation ||
-        payload.ticketKey !== this.ticketKey
-      ) {
-        return;
-      }
-      await this.load(payload.ticketKey, payload.parentKey);
-    } catch (err) {
-      if (
-        payload.generation !== this.generation ||
-        payload.ticketKey !== this.ticketKey
-      ) {
-        return;
-      }
-      runInAction(() => {
-        this.markFailed(
-          messageId,
-          err instanceof NetworkError ? "network" : "server"
-        );
-      });
+    if (hasMessage(envelope)) {
+      this.overlayRecords = this.overlayRecords.map((record) =>
+        record.envelope === envelope
+          ? {
+              ...record,
+              accepted: false,
+              message: {
+                ...record.message,
+                status: "failed",
+                errorKind: kind,
+              },
+            }
+          : record
+      );
+      return;
     }
+
+    this.lifecyclePending = null;
+    this.lifecycleError = {
+      action: envelope.kind,
+      errorKind: kind,
+      clientMessageId: envelope.clientMessageId,
+    };
   }
 
-  private beginLifecycleMutation(action: LifecycleAction): void {
+  bindCreatedTicket(envelope: MutationEnvelope, sideKey: string): void {
     if (
-      this.lifecyclePending ||
-      !this.ticketKey ||
-      !this.parentKey ||
-      (action === "solve" ? this.solved : !this.solved)
+      envelope.kind !== "create" ||
+      !sideKey ||
+      !this.isCurrent(envelope) ||
+      !this.isRetained(envelope)
     ) {
       return;
     }
 
-    const ticketKey = this.ticketKey;
-    const parentKey = this.parentKey;
-    const gen = this.generation;
+    this.activeSideKey = sideKey;
+    this.overlayRecords = this.overlayRecords.map((record) =>
+      record.envelope === envelope ? { ...record, sideKey } : record
+    );
+  }
+
+  mutationAccepted(envelope: MutationEnvelope): void {
+    if (!this.isCurrent(envelope) || !this.isRetained(envelope)) return;
+
+    if (hasMessage(envelope)) {
+      this.overlayRecords = this.overlayRecords.map((record) =>
+        record.envelope === envelope
+          ? {
+              ...record,
+              accepted: true,
+              message: {
+                ...record.message,
+                status: "sent",
+                errorKind: undefined,
+              },
+            }
+          : record
+      );
+      return;
+    }
+
+    this.lifecyclePending = null;
+    this.lifecycleError = null;
+  }
+
+  reconcileCanonical(
+    sessionKey: number,
+    sideKey: string,
+    messages: MessageVM[]
+  ): void {
+    if (
+      this.activeSessionKey !== sessionKey ||
+      this.activeSideKey !== sideKey
+    ) {
+      return;
+    }
+
+    const scope = `${sessionKey}:${sideKey}`;
+    const usedIds = this.matchedCanonicalIds.get(scope) ?? new Set<string>();
+    const canonical = [...messages]
+      .filter(
+        (message) =>
+          message.id.startsWith("comment-") &&
+          message.direction === "own" &&
+          !message.internal &&
+          !usedIds.has(message.id)
+      )
+      .sort(
+        (left, right) =>
+          left.createdAt - right.createdAt || left.id.localeCompare(right.id)
+      );
+    const matchedOverlays = new Set<string>();
+
+    this.overlayRecords
+      .filter(
+        (record) =>
+          record.accepted &&
+          record.envelope.sessionKey === sessionKey &&
+          record.sideKey === sideKey &&
+          hasMessage(record.envelope)
+      )
+      .sort(
+        (left, right) =>
+          left.envelope.startedAt - right.envelope.startedAt ||
+          left.envelope.clientMessageId.localeCompare(
+            right.envelope.clientMessageId
+          )
+      )
+      .forEach((record) => {
+        const expectedBody = envelopeBody(record.envelope);
+        const expectedCreator = envelopeCreator(record.envelope);
+        const match = canonical.find(
+          (message) =>
+            !usedIds.has(message.id) &&
+            message.createdAt >= record.envelope.startedAt &&
+            sanitizeHtml(message.body) === expectedBody &&
+            message.senderEmail === expectedCreator
+        );
+        if (!match) return;
+
+        usedIds.add(match.id);
+        matchedOverlays.add(record.envelope.clientMessageId);
+      });
+
+    if (matchedOverlays.size === 0) return;
+    this.matchedCanonicalIds.set(scope, usedIds);
+    this.overlayRecords = this.overlayRecords.filter(
+      (record) => !matchedOverlays.has(record.envelope.clientMessageId)
+    );
+  }
+
+  getRetryEnvelope(clientMessageId: string): MutationEnvelope | null {
+    return this.envelopes.get(clientMessageId) ?? null;
+  }
+
+  getOverlayMessages(sessionKey: number, sideKey: string | null): MessageVM[] {
+    return this.overlayRecords
+      .filter(
+        (record) =>
+          record.envelope.sessionKey === sessionKey &&
+          record.sideKey === sideKey
+      )
+      .map((record) => record.message);
+  }
+
+  mergeCanonical(
+    sessionKey: number,
+    sideKey: string,
+    canonicalMessages: readonly MessageVM[]
+  ): MessageVM[] {
+    const byId = new Map<string, MessageVM>();
+    [...canonicalMessages, ...this.getOverlayMessages(sessionKey, sideKey)]
+      .sort(
+        (left, right) =>
+          left.createdAt - right.createdAt || left.id.localeCompare(right.id)
+      )
+      .forEach((message) => byId.set(message.id, message));
+    return Array.from(byId.values());
+  }
+
+  getLocalPresentation(sessionKey: number): LocalThreadPresentation | null {
+    return this.localPresentation?.sessionKey === sessionKey
+      ? this.localPresentation
+      : null;
+  }
+
+  requestComposerFocus(sessionKey: number, sideKey: string | null): void {
+    if (!this.matchesActive(sessionKey, sideKey)) return;
+    this.focusRequest = { sessionKey, sideKey, value: true };
+  }
+
+  consumeComposerFocus(sessionKey: number, sideKey: string | null): boolean {
+    if (
+      !this.focusRequest ||
+      this.focusRequest.sessionKey !== sessionKey ||
+      this.focusRequest.sideKey !== sideKey
+    ) {
+      return false;
+    }
+    this.focusRequest = null;
+    return true;
+  }
+
+  requestScroll(
+    sessionKey: number,
+    sideKey: string | null,
+    messageId: string
+  ): void {
+    if (!this.matchesActive(sessionKey, sideKey)) return;
+    this.scrollRequest = { sessionKey, sideKey, value: messageId };
+  }
+
+  consumeScrollRequest(
+    sessionKey: number,
+    sideKey: string | null
+  ): string | null {
+    if (
+      !this.scrollRequest ||
+      this.scrollRequest.sessionKey !== sessionKey ||
+      this.scrollRequest.sideKey !== sideKey
+    ) {
+      return null;
+    }
+    const request = this.scrollRequest.value;
+    this.scrollRequest = null;
+    return request;
+  }
+
+  private createLifecycleEnvelope(
+    kind: "solve" | "reopen",
+    params: LifecycleParams
+  ): MutationEnvelope | null {
+    if (
+      this.lifecyclePending ||
+      !this.matchesActive(params.sessionKey, params.sideKey)
+    ) {
+      return null;
+    }
+
     const request: StatusTicketPatchRequest = {
       fields: [
         {
           key: "ts.status",
-          value: action === "solve" ? "4" : "2",
+          value: kind === "solve" ? "4" : "2",
         },
       ],
     };
-
-    this.lifecyclePending = action;
-    this.lifecycleError = null;
-    void this.sendLifecycleMutation(action, ticketKey, parentKey, gen, request);
+    const envelope = deepFreeze<MutationEnvelope>({
+      kind,
+      clientMessageId: nextMessageId(),
+      tenantId: params.tenantId,
+      parentKey: params.parentKey,
+      sideKey: params.sideKey,
+      request,
+      sessionKey: params.sessionKey,
+      startedAt: Date.now(),
+    });
+    this.envelopes.set(envelope.clientMessageId, envelope);
+    this.mutationStarted(envelope);
+    return envelope;
   }
 
-  private async sendLifecycleMutation(
-    action: LifecycleAction,
-    ticketKey: string,
-    parentKey: string,
-    gen: number,
-    request: StatusTicketPatchRequest
-  ): Promise<void> {
-    try {
-      await grispiAPI.tickets.patchTicket(ticketKey, request);
-      if (gen !== this.generation || ticketKey !== this.ticketKey) return;
-
-      runInAction(() => {
-        this.lifecyclePending = null;
-      });
-      await this.load(ticketKey, parentKey);
-      if (
-        action === "reopen" &&
-        ticketKey === this.ticketKey &&
-        this.status === "ready" &&
-        !this.solved
-      ) {
-        runInAction(() => {
-          this.composerFocusRequested = true;
-        });
-      }
-    } catch (err) {
-      if (gen !== this.generation || ticketKey !== this.ticketKey) return;
-      runInAction(() => {
-        this.lifecyclePending = null;
-        this.lifecycleError = {
-          action,
-          errorKind: err instanceof NetworkError ? "network" : "server",
-        };
-      });
-    }
+  private isCurrent(envelope: MutationEnvelope): boolean {
+    if (this.activeSessionKey !== envelope.sessionKey) return false;
+    return (
+      envelope.kind === "create" || this.activeSideKey === envelope.sideKey
+    );
   }
-}
 
-function isExternal(comment: Comment): boolean {
-  return comment.creator?.role?.authority === "ROLE_END_USER";
-}
-
-function normalizeComment(comment: Comment): MessageVM {
-  const sanitized = sanitizeHtml(comment.body ?? "");
-  const quoted = splitQuotedHtml(sanitized);
-
-  return {
-    id: `comment-${comment.id}`,
-    direction: isExternal(comment) ? "incoming" : "own",
-    body: sanitized,
-    status: "sent",
-    createdAt: comment.createdAt,
-    senderName: comment.creator?.fullName || undefined,
-    senderEmail: comment.creator?.email || undefined,
-    internal: !comment.publicVisible,
-    quotedHtml: quoted.quotedHtml,
-  };
-}
-
-function resolveRecipientLabel(ticket: Ticket): string {
-  const requesterId = Number(ticket.fieldMap?.["ts.requester"]?.value);
-  const creator = (ticket.comments ?? []).find(
-    (comment) =>
-      comment.creator?.id === requesterId &&
-      comment.creator?.role?.authority === "ROLE_END_USER"
-  )?.creator;
-  if (!creator) return "—";
-
-  const name = creator.fullName?.trim();
-  const email = creator.email?.trim();
-  if (name && email) return `${name} <${email}>`;
-  return name || email || "—";
-}
-
-function resolveSubject(ticket: Ticket): string {
-  const value = ticket.fieldMap?.["ts.subject"]?.value;
-  return typeof value === "string" ? value : "";
-}
-
-function resolveStatusId(ticket: Ticket): string | null {
-  const value = ticket.fieldMap?.["ts.status"]?.value;
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
+  private matchesActive(sessionKey: number, sideKey: string | null): boolean {
+    return (
+      this.activeSessionKey === sessionKey && this.activeSideKey === sideKey
+    );
   }
-  if (value && typeof value === "object" && "id" in value) {
-    return String((value as { id: unknown }).id);
+
+  private isRetained(envelope: MutationEnvelope): boolean {
+    return this.envelopes.get(envelope.clientMessageId) === envelope;
   }
-  return null;
 }
