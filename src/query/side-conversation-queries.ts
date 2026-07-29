@@ -32,7 +32,7 @@ import {
 import {
   ConversationRowVM,
   RECIPIENT_UNKNOWN_PLACEHOLDER,
-  dedupeConversationRows,
+  dedupeAndSortConversationRows,
   projectConversationRow,
 } from "@/store/side-conversations-store";
 import {
@@ -233,7 +233,7 @@ export function useSideConversationsQuery(
   );
   const rows = useMemo(
     () =>
-      dedupeConversationRows(
+      dedupeAndSortConversationRows(
         tenantId ?? "",
         query.data?.pages.flatMap((page) => page.rows) ?? []
       ),

@@ -1,6 +1,6 @@
 import {
   ConversationRowVM,
-  dedupeConversationRows,
+  dedupeAndSortConversationRows,
   projectConversationRow,
   refreshConversationRowUnseen,
 } from "../side-conversations-store";
@@ -140,7 +140,7 @@ describe("side-conversation row projection", () => {
     });
   });
 
-  it("deduplicates by ticket key without disturbing server updatedAt order", () => {
+  it("deduplicates by ticket key and globally sorts new, waiting, then solved", () => {
     const base = {
       recipientEmail: "x@example.test",
       requesterId: 1,
@@ -182,11 +182,11 @@ describe("side-conversation row projection", () => {
     ];
 
     expect(
-      dedupeConversationRows("tenant-1", rows).map((row) => row.key)
+      dedupeAndSortConversationRows("tenant-1", rows).map((row) => row.key)
     ).toEqual([
-      "SOLVED",
-      "WAITING",
       "NEW",
+      "WAITING",
+      "SOLVED",
     ]);
   });
 
