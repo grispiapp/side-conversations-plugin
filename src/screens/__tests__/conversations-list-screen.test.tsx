@@ -129,22 +129,44 @@ it("falls back to the labeled header create action when the activating row disap
 });
 
 it("derives skeleton, empty, retry and pagination controls from Query state", () => {
-  mockListQuery.isPending = true;
+  mockListQuery = { ...mockListQuery, isPending: true };
   render(<ConversationsListScreen />);
   expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0);
   expect(container.textContent).not.toContain("Henüz yan görüşme yok");
 
-  mockListQuery.isPending = false;
-  mockListQuery.rows = [];
+  mockListQuery = { ...mockListQuery, isPending: false, rows: [] };
+  render(<></>);
   render(<ConversationsListScreen />);
   expect(container.textContent).toContain("Henüz yan görüşme yok");
 
-  mockListQuery.rows = [row("SC-A")];
-  mockListQuery.hasNextPage = true;
+  mockListQuery = {
+    ...mockListQuery,
+    rows: [row("SC-A")],
+    hasNextPage: true,
+  };
+  render(<></>);
   render(<ConversationsListScreen />);
   const loadMore = container.querySelector<HTMLButtonElement>(
     '[aria-label="Daha fazla yükle"]'
   );
   act(() => loadMore?.click());
   expect(mockListQuery.fetchNextPage).toHaveBeenCalledTimes(1);
+});
+
+it("delegates surfaced Query errors to the retry action", () => {
+  mockListQuery = {
+    ...mockListQuery,
+    rows: [],
+    isError: true,
+    error: null,
+  };
+
+  render(<ConversationsListScreen />);
+
+  const retry = Array.from(
+    container.querySelectorAll<HTMLButtonElement>("button")
+  ).find((button) => button.textContent?.includes("Yeniden dene"));
+  act(() => retry?.click());
+
+  expect(mockListQuery.refetch).toHaveBeenCalledTimes(1);
 });

@@ -57,7 +57,7 @@ function makeTicket(key: string, requesterId = 7): Ticket {
             impliedAuthorities: [],
             teamUser: false,
           },
-        } as Ticket["comments"][number]["creator"],
+        } as unknown as Ticket["comments"][number]["creator"],
         call: null,
         toId: null,
         toEmail: null,
@@ -117,7 +117,7 @@ describe("side-conversation query contracts", () => {
     const options = sideConversationListOptions("tenant-1", "TICKET-1");
     const client = createTestQueryClient();
 
-    await client.fetchInfiniteQuery(options);
+    const data = await client.fetchInfiniteQuery(options);
 
     expect(options.queryKey).toEqual([
       "side-conversations",
@@ -138,11 +138,11 @@ describe("side-conversation query contracts", () => {
       },
       { size: 10, page: 0 }
     );
-    expect(options.getNextPageParam(firstPage, [firstPage], 0, [0])).toBe(1);
+    expect(options.getNextPageParam(data.pages[0], data.pages, 0, [0])).toBe(1);
     expect(
       options.getNextPageParam(
-        makeListPage(1, 2),
-        [firstPage, makeListPage(1, 2)],
+        { ...data.pages[0], pageNumber: 1 },
+        [data.pages[0], { ...data.pages[0], pageNumber: 1 }],
         1,
         [0, 1]
       )

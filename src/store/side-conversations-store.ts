@@ -1,28 +1,14 @@
-import { RootStore } from "./root-store";
-import { makeAutoObservable, runInAction } from "mobx";
-
-import { grispiAPI } from "@/grispi/client/api";
-import { HttpError, NetworkError } from "@/grispi/client/http-handler";
 import { ConversationBadge, deriveBadge } from "@/lib/conversation-status";
 import { htmlToText } from "@/lib/html-to-text";
 import { getLastSeenAt } from "@/lib/last-seen-store";
-import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
-import {
-  AdvancedSearchResponse,
-  SideTicketSummary,
-  Ticket,
-} from "@/types/grispi.type";
+import { SideTicketSummary, Ticket } from "@/types/grispi.type";
 
-export type ConversationsListStatus = "loading" | "ready" | "empty" | "error";
 export type ConversationLifecycle = "open" | "solved";
 export type ConversationActionBadge = Exclude<ConversationBadge, "kapali">;
 
 export interface ConversationRowVM {
   key: string;
   recipientEmail: string;
-  /** Requester user id (parsed from `fieldMap["ts.requester"].value`), used
-   * to schedule the background `GET /users/{id}` recipient-email lookup.
-   * `null` when unknown (e.g. hydration itself failed). */
   requesterId: number | null;
   subject: string;
   summary: string;
@@ -34,37 +20,8 @@ export interface ConversationRowVM {
 }
 
 const SUMMARY_MAX_LENGTH = 140;
-const PAGE_SIZE = 10;
+export const RECIPIENT_UNKNOWN_PLACEHOLDER = "—";
 
-/**
- * Neutral placeholder shown while (or if) the recipient's email cannot be
- * resolved. MUST NEVER be the raw ticket key (LIST-01) — a side ticket key
- * like "TICKET-569" is an internal identifier, not an "alıcı" (recipient),
- * and rendering it as one was a confirmed gap (6/13 rows on the live test
- * dataset — see 01-02-probe-findings.md "EK BULGULAR" #2 and the Plan 01-03
- * orchestrator note).
- */
-const RECIPIENT_UNKNOWN_PLACEHOLDER = "—";
-
-/**
- * Resolves the side ticket's requester ("alıcı") email.
- *
- * CONFIRMED live (Plan 02 / Task 1 probe): `fieldMap["ts.requester"].value`
- * is a user id STRING, not an email/name. The cheapest correct resolution
- * without a new API call is matching that id against `comments[].creator.id`
- * — the external party will usually have written at least one comment.
- *
- * GAP CLOSURE (Plan 01-03 orchestrator note): when no comment-creator match
- * exists yet (agent-only threads — the COMMON case for a fresh side
- * conversation, confirmed 6/13 rows on the live test dataset), this used to
- * fall back to the raw ticket key, violating LIST-01 ("alıcı must be
- * shown"). It now returns a neutral placeholder + the parsed `requesterId`;
- * the store schedules a background `GET /public/v1/users/{id}` lookup
- * (CONFIRMED live and working, though undocumented — see
- * 01-02-probe-findings.md "EK BULGULAR" #2) to resolve `primaryEmail` and
- * silently upgrade the row in place. If that lookup also fails, the
- * placeholder stays — the raw ticket key is NEVER rendered as "alıcı".
- */
 function resolveRecipientEmail(ticket: Ticket): {
   email: string;
   requesterId: number | null;
@@ -85,19 +42,6 @@ function resolveRecipientEmail(ticket: Ticket): {
   return { email: RECIPIENT_UNKNOWN_PLACEHOLDER, requesterId };
 }
 
-/**
- * Derives independent server lifecycle, reply responsibility, and local
- * unseen state for a hydrated ticket (D-18/D-19/D-20).
- *
- * `statusId` is read from the advanced-search SUMMARY (`summary.status.id`)
- * rather than the hydrated ticket's `fieldMap["ts.status"]` — CONFIRMED live
- * (Task 1 probe) that the summary always carries status inline as a number,
- * so the badge never depends on hydration succeeding for the closed check.
- * `publicComments` are pre-filtered to `publicVisible: true` (D-06) and
- * mapped to `authorIsAgent` via `creator.role.authority !== "ROLE_END_USER"`
- * — CONFIRMED live that `teamUser` alone is unreliable (integration/AI users
- * also report `teamUser: false`).
- */
 function resolveRowState(
   ticket: Ticket,
   summary: SideTicketSummary
@@ -111,9 +55,10 @@ function resolveRowState(
       createdAt: comment.createdAt,
       authorIsAgent: comment.creator?.role?.authority !== "ROLE_END_USER",
     }));
-
-  const statusId = summary.status?.id ?? null;
-  const derived = deriveBadge({ statusId, publicComments });
+  const derived = deriveBadge({
+    statusId: summary.status?.id ?? null,
+    publicComments,
+  });
 
   if (derived.badge === "kapali") {
     return {
@@ -124,11 +69,11 @@ function resolveRowState(
     };
   }
 
-  let hasUnseen = false;
-  if (derived.badge === "yeni-yanit" && derived.lastPublicCommentAt !== null) {
-    const lastSeenAt = getLastSeenAt(summary.key);
-    hasUnseen = lastSeenAt === null || lastSeenAt < derived.lastPublicCommentAt;
-  }
+  const lastSeenAt = getLastSeenAt(summary.key);
+  const hasUnseen =
+    derived.badge === "yeni-yanit" &&
+    derived.lastPublicCommentAt !== null &&
+    (lastSeenAt === null || lastSeenAt < derived.lastPublicCommentAt);
 
   return {
     lifecycle: "open",
@@ -138,40 +83,11 @@ function resolveRowState(
   };
 }
 
-/**
- * Preserves D-08 grouping after the view model stops exposing the legacy
- * conflated badge: Yeni yanıt → Yanıt bekleniyor → Çözüldü, newest first.
- */
-function sortRows(rows: ConversationRowVM[]): ConversationRowVM[] {
-  const groupOrder = (row: ConversationRowVM) => {
-    if (row.lifecycle === "solved") return 2;
-    return row.actionBadge === "yeni-yanit" ? 0 : 1;
-  };
-
-  return [...rows].sort((a, b) => {
-    const groupDiff = groupOrder(a) - groupOrder(b);
-    if (groupDiff !== 0) return groupDiff;
-    return (b.lastPublicCommentAt ?? 0) - (a.lastPublicCommentAt ?? 0);
-  });
-}
-
-/**
- * Maps a hydrated `Ticket` (or a hydration failure) into a row view model.
- *
- * Recipient/subject resolution was corrected against CONFIRMED live shapes
- * captured in the Plan 02 / Task 1 probe (see
- * `.planning/phases/01-.../01-02-probe-findings.md`): `subject` lives on the
- * advanced-search SUMMARY (`summary.subject`), not on any `fieldMap` key —
- * a full-ticket `ts.subject` field does not exist.
- */
-function toRow(
+export function projectConversationRow(
   summary: SideTicketSummary,
-  ticket: Ticket | null,
-  hydrationFailed: boolean
+  ticket: Ticket | null
 ): ConversationRowVM {
   if (!ticket) {
-    // No status/requester data without hydration — safe default (D-07),
-    // stays dim via `hydrationFailed`. Never the raw ticket key (LIST-01).
     return {
       key: summary.key,
       recipientEmail: RECIPIENT_UNKNOWN_PLACEHOLDER,
@@ -189,313 +105,62 @@ function toRow(
   const lastPublicComment = (ticket.comments ?? [])
     .filter((comment) => comment.publicVisible)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
-
   const { email: recipientEmail, requesterId } = resolveRecipientEmail(ticket);
-  const subject = summary.subject || summary.key;
-  const { lifecycle, actionBadge, hasUnseen, lastPublicCommentAt } =
-    resolveRowState(ticket, summary);
-
-  // Comment bodies arrive as HTML (`<p>…</p>`) — extract plain text before
-  // truncation (UAT Defect 1). Still rendered via React text interpolation
-  // only, so HTML-ish content stays literal text (T-01).
-  const rawSummary = htmlToText(lastPublicComment?.body ?? "");
+  const state = resolveRowState(ticket, summary);
+  const plainSummary = htmlToText(lastPublicComment?.body ?? "");
   const truncatedSummary =
-    rawSummary.length > SUMMARY_MAX_LENGTH
-      ? `${rawSummary.slice(0, SUMMARY_MAX_LENGTH)}…`
-      : rawSummary;
+    plainSummary.length > SUMMARY_MAX_LENGTH
+      ? `${plainSummary.slice(0, SUMMARY_MAX_LENGTH)}…`
+      : plainSummary;
 
   return {
     key: summary.key,
     recipientEmail,
     requesterId,
-    subject,
+    subject: summary.subject || summary.key,
     summary: truncatedSummary,
-    lifecycle,
-    actionBadge,
-    hasUnseen,
-    lastPublicCommentAt,
-    hydrationFailed,
+    ...state,
+    hydrationFailed: false,
   };
 }
 
-/**
- * Computes `hasMore` from the advanced-search envelope (D-12). CONFIRMED
- * live (01-02-probe-findings.md): `pageNumber` is 0-indexed and `totalPages`
- * is always present. Falls back to a page-size heuristic only if a future
- * API change ever omits both fields.
- */
-function computeHasMore(
-  response: AdvancedSearchResponse,
-  requestedSize: number
-): boolean {
+export function refreshConversationRowUnseen(
+  row: ConversationRowVM
+): ConversationRowVM {
   if (
-    typeof response.totalPages === "number" &&
-    typeof response.pageNumber === "number"
+    row.lifecycle !== "open" ||
+    row.actionBadge !== "yeni-yanit" ||
+    row.lastPublicCommentAt === null
   ) {
-    return response.pageNumber + 1 < response.totalPages;
+    return row.hasUnseen ? { ...row, hasUnseen: false } : row;
   }
-  return response.content.length === requestedSize;
+
+  const lastSeenAt = getLastSeenAt(row.key);
+  const hasUnseen = lastSeenAt === null || lastSeenAt < row.lastPublicCommentAt;
+  return hasUnseen === row.hasUnseen ? row : { ...row, hasUnseen };
 }
 
-export class SideConversationsStore {
-  rootStore: RootStore;
-  status: ConversationsListStatus = "loading";
-  rows: ConversationRowVM[] = [];
-  page = 0;
-  hasMore = false;
-  loadingMore = false;
-  error: NetworkError | HttpError | null = null;
+function sortConversationRows(rows: ConversationRowVM[]): ConversationRowVM[] {
+  const groupOrder = (row: ConversationRowVM) => {
+    if (row.lifecycle === "solved") return 2;
+    return row.actionBadge === "yeni-yanit" ? 0 : 1;
+  };
 
-  private generation = 0;
-  private currentParentKey: string | null = null;
-  private userEmailCache = new Map<number, Promise<string | null>>();
+  return [...rows].sort((a, b) => {
+    const groupDiff = groupOrder(a) - groupOrder(b);
+    if (groupDiff !== 0) return groupDiff;
+    return (b.lastPublicCommentAt ?? 0) - (a.lastPublicCommentAt ?? 0);
+  });
+}
 
-  constructor(rootStore: RootStore) {
-    makeAutoObservable(this);
-
-    this.rootStore = rootStore;
-  }
-
-  /**
-   * Fetches the side conversations attached to `parentKey` via the two-tier
-   * advancedSearch → Promise.allSettled(getTicket) pipeline (D-09). Clears
-   * state synchronously so a ticket switch never shows stale data (D-15),
-   * and guards against overlapping fetch cycles with a generation counter
-   * (Pitfall #6) — a slower, older `load` call can never overwrite a newer
-   * one's result.
-   */
-  async load(parentKey: string) {
-    this.status = "loading";
-    this.rows = [];
-    this.page = 0;
-    this.hasMore = false;
-    this.loadingMore = false;
-    this.error = null;
-    this.currentParentKey = parentKey;
-
-    const gen = ++this.generation;
-
-    try {
-      const response = await grispiAPI.tickets.advancedSearch(
-        {
-          allConditions: [
-            {
-              fieldKey: SIDE_CONVERSATION_PARENT_FIELD_KEY,
-              operator: "EQUAL",
-              value: parentKey,
-            },
-          ],
-          anyConditions: [],
-        },
-        { size: PAGE_SIZE, page: 0 }
-      );
-
-      if (gen !== this.generation) return;
-
-      const hydrated = await Promise.allSettled(
-        response.content.map((row) => grispiAPI.tickets.getTicket(row.key))
-      );
-
-      if (gen !== this.generation) return;
-
-      const summariesByKey = new Map(
-        response.content.map((s) => [s.key, s] as const)
-      );
-
-      const rows = hydrated.map((outcome, index) => {
-        const summary = response.content[index];
-        return outcome.status === "fulfilled"
-          ? toRow(summary, outcome.value, false)
-          : toRow(summary, null, true);
-      });
-
-      // Group/sort only after hydration has fully settled (D-08) — never
-      // render/reorder mid-fetch (Anti-Pattern: reorder flash).
-      const sortedRows = sortRows(rows);
-
-      runInAction(() => {
-        this.rows = sortedRows;
-        this.status = sortedRows.length ? "ready" : "empty";
-        this.hasMore = computeHasMore(response, PAGE_SIZE);
-      });
-
-      // Silent self-heal (D-11): never flips `status`, never surfaces an
-      // error — only replaces rows in place on success.
-      await this.retryFailedHydrations(gen, summariesByKey);
-      await this.enrichUnresolvedRecipients(gen);
-    } catch (err) {
-      if (gen !== this.generation) return;
-
-      runInAction(() => {
-        this.error =
-          err instanceof NetworkError || err instanceof HttpError ? err : null;
-        this.status = "error";
-      });
+export function dedupeAndSortConversationRows(
+  rows: ConversationRowVM[]
+): ConversationRowVM[] {
+  const byKey = new Map<string, ConversationRowVM>();
+  for (const row of rows) {
+    if (!byKey.has(row.key)) {
+      byKey.set(row.key, refreshConversationRowUnseen(row));
     }
   }
-
-  /**
-   * Fetches and appends the next page (D-12). No-ops while already loading a
-   * page, when there is no further page, or when the list isn't in "ready"
-   * (rapid repeated clicks self-throttle — T-03-03). Discards its result if
-   * a ticket switch bumped the generation while the fetch was in flight
-   * (Pitfall #6) — `load()` already reset everything for the new ticket.
-   */
-  async loadMore() {
-    if (this.loadingMore || !this.hasMore || this.status !== "ready") return;
-    if (!this.currentParentKey) return;
-
-    const gen = this.generation;
-    const parentKey = this.currentParentKey;
-    const nextPage = this.page + 1;
-
-    this.loadingMore = true;
-
-    try {
-      const response = await grispiAPI.tickets.advancedSearch(
-        {
-          allConditions: [
-            {
-              fieldKey: SIDE_CONVERSATION_PARENT_FIELD_KEY,
-              operator: "EQUAL",
-              value: parentKey,
-            },
-          ],
-          anyConditions: [],
-        },
-        { size: PAGE_SIZE, page: nextPage }
-      );
-
-      if (gen !== this.generation) return;
-
-      const hydrated = await Promise.allSettled(
-        response.content.map((row) => grispiAPI.tickets.getTicket(row.key))
-      );
-
-      if (gen !== this.generation) return;
-
-      const summariesByKey = new Map(
-        response.content.map((s) => [s.key, s] as const)
-      );
-
-      const newRows = hydrated.map((outcome, index) => {
-        const summary = response.content[index];
-        return outcome.status === "fulfilled"
-          ? toRow(summary, outcome.value, false)
-          : toRow(summary, null, true);
-      });
-
-      runInAction(() => {
-        // Re-sort across the FULL list (existing + appended) so groups stay
-        // correct across page boundaries (D-08).
-        this.rows = sortRows([...this.rows, ...newRows]);
-        this.page = nextPage;
-        this.hasMore = computeHasMore(response, PAGE_SIZE);
-      });
-
-      await this.retryFailedHydrations(gen, summariesByKey);
-      await this.enrichUnresolvedRecipients(gen);
-    } finally {
-      if (gen === this.generation) {
-        runInAction(() => {
-          this.loadingMore = false;
-        });
-      }
-    }
-  }
-
-  /**
-   * D-11 silent self-heal: re-fetches only the rows whose `getTicket` call
-   * rejected on the initial settle (naturally ≤ PAGE_SIZE, one page's worth).
-   * No backoff, exactly one attempt. Never flips `status` — a repeat
-   * failure just leaves the row dimmed.
-   */
-  private async retryFailedHydrations(
-    gen: number,
-    summariesByKey: Map<string, SideTicketSummary>
-  ) {
-    const failedKeys = this.rows
-      .filter((row) => row.hydrationFailed)
-      .map((row) => row.key)
-      .slice(0, PAGE_SIZE);
-
-    if (failedKeys.length === 0) return;
-
-    const results = await Promise.allSettled(
-      failedKeys.map((key) => grispiAPI.tickets.getTicket(key))
-    );
-
-    if (gen !== this.generation) return;
-
-    runInAction(() => {
-      const upgradedByKey = new Map<string, ConversationRowVM>();
-      results.forEach((outcome, index) => {
-        const key = failedKeys[index];
-        const summary = summariesByKey.get(key);
-        if (!summary || outcome.status !== "fulfilled") return;
-        upgradedByKey.set(key, toRow(summary, outcome.value, false));
-      });
-
-      // Immutable replacement (same rationale as enrichUnresolvedRecipients)
-      // + re-sort, since an upgraded row may change group/activity (D-08).
-      this.rows = sortRows(
-        this.rows.map((row) => upgradedByKey.get(row.key) ?? row)
-      );
-    });
-  }
-
-  /**
-   * GAP CLOSURE (Plan 01-03 orchestrator note): background `GET
-   * /public/v1/users/{id}` resolution for any row still showing
-   * `RECIPIENT_UNKNOWN_PLACEHOLDER` with a known `requesterId`. Silent —
-   * never flips `status`; on failure the placeholder simply stays (never
-   * the raw ticket key). Deduplicated per user id via `userEmailCache`.
-   */
-  private async enrichUnresolvedRecipients(gen: number) {
-    const pendingUserIds = new Set<number>();
-    for (const row of this.rows) {
-      if (
-        row.requesterId !== null &&
-        row.recipientEmail === RECIPIENT_UNKNOWN_PLACEHOLDER
-      ) {
-        pendingUserIds.add(row.requesterId);
-      }
-    }
-
-    if (pendingUserIds.size === 0) return;
-
-    await Promise.all(
-      Array.from(pendingUserIds).map(async (userId) => {
-        const email = await this.fetchUserEmail(userId);
-        if (!email || gen !== this.generation) return;
-
-        // UAT Defect 2 fix: replace the row objects AND the rows array
-        // immutably instead of mutating `row.recipientEmail` in place.
-        // `ConversationRow` renders from a plain prop — an in-place deep
-        // mutation was invisible to the observer screen (it only
-        // dereferences the array), so the resolved email never appeared.
-        // A new array identity guarantees the re-render.
-        runInAction(() => {
-          this.rows = this.rows.map((row) =>
-            row.requesterId === userId &&
-            row.recipientEmail === RECIPIENT_UNKNOWN_PLACEHOLDER
-              ? { ...row, recipientEmail: email }
-              : row
-          );
-        });
-      })
-    );
-  }
-
-  private fetchUserEmail(userId: number): Promise<string | null> {
-    let cached = this.userEmailCache.get(userId);
-    if (!cached) {
-      cached = grispiAPI.users
-        .getUser(userId)
-        .then((user) => user?.primaryEmail ?? null)
-        .catch(() => null);
-      this.userEmailCache.set(userId, cached);
-    }
-    return cached;
-  }
+  return sortConversationRows(Array.from(byKey.values()));
 }

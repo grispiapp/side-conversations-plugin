@@ -1,13 +1,13 @@
 import { bootstrapPluginInit } from "@/contexts/plugin-bootstrap";
 import { grispiAPI } from "@/grispi/client/api";
 import { HttpError } from "@/grispi/client/http-handler";
-import { RootStore } from "@/store/root-store";
+import { createTestQueryClient } from "@/query/query-client";
+import { sideConversationKeys } from "@/query/query-keys";
+import { sideConversationListOptions } from "@/query/side-conversation-queries";
 import { GrispiBundle } from "@/types/grispi.type";
 
-// Same jest.mock convention as
-// src/store/__tests__/side-conversations-store.test.ts — the STORE-ERROR
-// integration test below drives a real SideConversationsStore through this
-// mocked API surface.
+// The bootstrap integration below drives the same Query-owned list contract
+// the production list screen consumes after tenant publication.
 jest.mock("@/grispi/client/api", () => ({
   grispiAPI: {
     tickets: {
@@ -22,7 +22,9 @@ jest.mock("@/grispi/client/api", () => ({
 
 const mockedAdvancedSearch = grispiAPI.tickets.advancedSearch as jest.Mock;
 
-function makeBundle(overrides: Partial<GrispiBundle["context"]> = {}): GrispiBundle {
+function makeBundle(
+  overrides: Partial<GrispiBundle["context"]> = {}
+): GrispiBundle {
   return {
     settings: { foo: "bar" },
     context: {
@@ -95,7 +97,9 @@ describe("bootstrapPluginInit", () => {
   });
 
   it("resolve branch: calls setAgentEmail with null when the bundle carries no agent", async () => {
-    const bundle = makeBundle({ agent: undefined as unknown as GrispiBundle["context"]["agent"] });
+    const bundle = makeBundle({
+      agent: undefined as unknown as GrispiBundle["context"]["agent"],
+    });
     const plugin = { _init: jest.fn().mockResolvedValue(bundle) };
     const authentication = { setTenantId: jest.fn(), setToken: jest.fn() };
     const setSettings = jest.fn();
@@ -149,7 +153,7 @@ describe("bootstrapPluginInit", () => {
     expect(setTenantId).toHaveBeenCalledWith(null);
   });
 
-  it("store-error integration: a rejecting advanced-search during bootstrap lands the store in status='error' with a typed error, never a permanent 'loading' skeleton — the exact production path the standalone UAT could not exercise", async () => {
+  it("query-error integration: a rejecting advanced-search after bootstrap lands the exact list key in error", async () => {
     const bundle = makeBundle();
     const plugin = { _init: jest.fn().mockResolvedValue(bundle) };
     const authentication = { setTenantId: jest.fn(), setToken: jest.fn() };
@@ -158,14 +162,15 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
 
-    const root = new RootStore();
-    const store = root.sideConversations;
+    const client = createTestQueryClient();
 
     mockedAdvancedSearch.mockRejectedValue(new HttpError(500, null));
 
-    let pending: Promise<void> | undefined;
+    let pending: ReturnType<typeof client.fetchInfiniteQuery> | undefined;
     const switchTicket = (key: string) => {
-      pending = store.load(key);
+      pending = client.fetchInfiniteQuery(
+        sideConversationListOptions(bundle.context.tenantId, key)
+      );
     };
 
     await bootstrapPluginInit({
@@ -177,9 +182,15 @@ describe("bootstrapPluginInit", () => {
       setTenantId,
       switchTicket,
     });
-    await pending;
+    await expect(pending).rejects.toBeInstanceOf(HttpError);
 
-    expect(store.status).toBe("error");
-    expect(store.error).toBeInstanceOf(HttpError);
+    expect(
+      client.getQueryState(
+        sideConversationKeys.list(
+          bundle.context.tenantId,
+          bundle.context.ticketKey
+        )
+      )?.status
+    ).toBe("error");
   });
 });

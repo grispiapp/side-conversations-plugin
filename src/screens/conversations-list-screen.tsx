@@ -16,29 +16,24 @@ import {
 } from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
+import { HttpError, NetworkError } from "@/grispi/client/http-handler";
+import { useSideConversationsQuery } from "@/query/side-conversation-queries";
 
 export const ConversationsListScreen = observer(() => {
-  const { ticket, loading } = useGrispi();
-  const store = useStore().sideConversations;
+  const { ticket, tenantId, loading } = useGrispi();
   const panelNavigation = useStore().panelNavigation;
+  const list = useSideConversationsQuery(tenantId, ticket?.key ?? null);
   const createActionRef = useRef<HTMLButtonElement>(null);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
 
   useEffect(() => {
-    if (ticket?.key) {
-      store.load(ticket.key);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticket?.key]);
-
-  useEffect(() => {
-    if (store.status === "loading") return;
+    if (list.isPending) return;
 
     const rowKey = panelNavigation.consumeListFocusRequest();
     if (!rowKey) return;
 
     (rowRefs.current.get(rowKey) ?? createActionRef.current)?.focus();
-  }, [panelNavigation, store.rows, store.status]);
+  }, [list.isPending, list.rows, panelNavigation]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -66,7 +61,7 @@ export const ConversationsListScreen = observer(() => {
       </ScreenHeader>
       <ScreenContent>
         <div className="flex h-full flex-col gap-2 p-4">
-          {store.status === "loading" && (
+          {list.isPending && (
             <>
               <SkeletonRow />
               <SkeletonRow />
@@ -74,9 +69,9 @@ export const ConversationsListScreen = observer(() => {
             </>
           )}
 
-          {store.status === "ready" && (
+          {!list.isPending && !list.isError && list.rows.length > 0 && (
             <>
-              {store.rows.map((row) => (
+              {list.rows.map((row) => (
                 <ConversationRow
                   key={row.key}
                   ref={(element) => {
@@ -99,19 +94,21 @@ export const ConversationsListScreen = observer(() => {
                 />
               ))}
               <ListFooter
-                hasMore={store.hasMore}
-                loading={store.loadingMore}
-                onLoadMore={() => store.loadMore()}
+                hasMore={list.hasNextPage}
+                loading={list.isFetchingNextPage}
+                onLoadMore={() => void list.fetchNextPage()}
               />
             </>
           )}
 
-          {store.status === "empty" && <EmptyState />}
+          {!list.isPending && !list.isError && list.rows.length === 0 && (
+            <EmptyState />
+          )}
 
-          {store.status === "error" && (
+          {list.isError && (
             <ErrorCard
-              error={store.error}
-              onRetry={() => ticket?.key && store.load(ticket.key)}
+              error={list.error as NetworkError | HttpError | null}
+              onRetry={() => void list.refetch()}
             />
           )}
         </div>

@@ -1,3 +1,4 @@
+import { RootStore } from "./root-store";
 import { makeAutoObservable, runInAction } from "mobx";
 
 import { grispiAPI } from "@/grispi/client/api";
@@ -15,8 +16,6 @@ import {
   StatusTicketPatchRequest,
   Ticket,
 } from "@/types/grispi.type";
-
-import { RootStore } from "./root-store";
 
 /**
  * A monotonic, purely-client-side id — the optimistic message never needs to
@@ -93,7 +92,6 @@ export interface LifecycleError {
  * `sendCreateTicket`.
  */
 export class ActiveConversationStore {
-  rootStore: RootStore;
   status: ActiveConversationStatus = "idle";
   loadError: string | null = null;
   ticketKey: string | null = null;
@@ -113,9 +111,8 @@ export class ActiveConversationStore {
   private generation = 0;
   private composerFocusRequested = false;
 
-  constructor(rootStore: RootStore) {
+  constructor(_rootStore: RootStore) {
     makeAutoObservable(this);
-    this.rootStore = rootStore;
   }
 
   /**
@@ -226,14 +223,6 @@ export class ActiveConversationStore {
         (lastSeenAt === null || latestRelevantExternalAt > lastSeenAt)
       ) {
         setLastSeenAt(ticketKey, latestRelevantExternalAt);
-      }
-
-      // The list owns independent unseen/action derivation. Storage or list
-      // refresh failure must not turn a canonical thread load into an error.
-      try {
-        await this.rootStore.sideConversations.load(parentKey);
-      } catch {
-        // SideConversationsStore normally contains its own safe error state.
       }
     } catch {
       if (gen !== this.generation) return;
@@ -378,10 +367,10 @@ export class ActiveConversationStore {
    * The actual `createTicket` POST (COMP-04). On success: resolves the
    * bubble, records the new side ticket's `.key` (CONFIRMED live —
    * `02-01-SUMMARY.md` "Probe Findings" A1, top-level `key` field), and
-   * triggers SYNC-02's real refetch (`sideConversations.load(parentKey)`) so
-   * the list is never updated with an optimistic fake row (D-16). On
-   * failure: only `errorKind` is kept (`error.body`/`status` are NEVER
-   * rendered or logged — T-02-03/V7); the list is NOT refetched.
+   * leaves canonical list refresh to the Query mutation seam. The list is
+   * never updated with an optimistic fake row (D-16). On failure: only
+   * `errorKind` is kept (`error.body`/`status` are NEVER rendered or logged
+   * — T-02-03/V7).
    */
   private async sendCreateTicket(messageId: string): Promise<void> {
     const payload = this.retryPayloads.get(messageId);
@@ -394,11 +383,12 @@ export class ActiveConversationStore {
         this.resolveSent(messageId);
         this.ticketKey = response.key;
       });
-
-      await this.rootStore.sideConversations.load(payload.parentKey);
     } catch (err) {
       runInAction(() => {
-        this.markFailed(messageId, err instanceof NetworkError ? "network" : "server");
+        this.markFailed(
+          messageId,
+          err instanceof NetworkError ? "network" : "server"
+        );
       });
     }
   }

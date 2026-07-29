@@ -119,10 +119,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-/** Flushes the microtask queue enough times for `sendCreateTicket`'s two
- * chained `await`s (createTicket POST, then `sideConversations.load`) to
- * settle before assertions run — same idiom as compose-store.test.ts's
- * `advanceDebounceAndFlush`, minus the fake timer. */
+/** Flushes background create/reply/lifecycle promise chains before assertions. */
 async function flushPromises(): Promise<void> {
   for (let index = 0; index < 10; index += 1) {
     await Promise.resolve();
@@ -130,7 +127,6 @@ async function flushPromises(): Promise<void> {
 }
 
 describe("ActiveConversationStore", () => {
-  let loadMock: jest.Mock;
   let rootStore: RootStore;
   let store: ActiveConversationStore;
 
@@ -138,10 +134,7 @@ describe("ActiveConversationStore", () => {
     mockedCreateTicket.mockReset();
     mockedGetTicket.mockReset();
     mockedPatchTicket.mockReset();
-    loadMock = jest.fn().mockResolvedValue(undefined);
-    rootStore = {
-      sideConversations: { load: loadMock },
-    } as unknown as RootStore;
+    rootStore = {} as RootStore;
     store = new ActiveConversationStore(rootStore);
   });
 
@@ -171,7 +164,7 @@ describe("ActiveConversationStore", () => {
     await flushPromises();
   });
 
-  it("resolves the message to sent, sets ticketKey from the response .key, and refetches the list (SYNC-02)", async () => {
+  it("resolves the message to sent and sets ticketKey without a MobX list refresh", async () => {
     mockedCreateTicket.mockResolvedValueOnce(makeTicketResponse("TICKET-580"));
 
     store.startNew({
@@ -186,7 +179,6 @@ describe("ActiveConversationStore", () => {
 
     expect(store.messages[0].status).toBe("sent");
     expect(store.ticketKey).toBe("TICKET-580");
-    expect(loadMock).toHaveBeenCalledWith("DESTEK-1");
   });
 
   it("does not require a MobX list owner after a successful create", async () => {
@@ -224,7 +216,6 @@ describe("ActiveConversationStore", () => {
     expect(store.messages[0].status).toBe("failed");
     expect(store.messages[0].errorKind).toBe("network");
     expect(store.messages[0].body).toBe("Merhaba");
-    expect(loadMock).not.toHaveBeenCalled();
   });
 
   it("marks the message failed with the server errorKind on an HttpError (T-02-03 — body/status never captured)", async () => {
@@ -246,7 +237,7 @@ describe("ActiveConversationStore", () => {
     expect(store.messages[0].errorKind).toBe("server");
   });
 
-  it("retry(messageId) re-sends the identical POST and resolves to sent + refetches (D-15)", async () => {
+  it("retry(messageId) re-sends the identical POST and resolves to sent (D-15)", async () => {
     mockedCreateTicket.mockRejectedValueOnce(
       new NetworkError(new Error("offline"))
     );
@@ -274,7 +265,6 @@ describe("ActiveConversationStore", () => {
     expect(mockedCreateTicket).toHaveBeenNthCalledWith(2, makeRequest());
     expect(store.messages[0].status).toBe("sent");
     expect(store.ticketKey).toBe("TICKET-581");
-    expect(loadMock).toHaveBeenCalledWith("DESTEK-1");
   });
 
   it("startNew RESETS state instead of appending — no message bleed across consecutive conversations (M-4)", async () => {
@@ -451,7 +441,6 @@ describe("ActiveConversationStore", () => {
       expect(store.scrollTargetMessageId).toBe("comment-2");
       expect(store.latestRelevantExternalAt).toBe(4000);
       expect(window.localStorage.getItem("sc:lastSeenAt:SIDE-1")).toBe("4000");
-      expect(loadMock).toHaveBeenCalledWith("PARENT-1");
     });
 
     it("targets the final message when there is no unseen external message and never regresses last-seen", async () => {
@@ -484,7 +473,6 @@ describe("ActiveConversationStore", () => {
       );
       expect(store.ticketKey).toBe("SIDE-1");
       expect(setItem).not.toHaveBeenCalled();
-      expect(loadMock).not.toHaveBeenCalled();
     });
 
     it("keeps a successful load ready when last-seen storage throws", async () => {
@@ -538,7 +526,6 @@ describe("ActiveConversationStore", () => {
         ])
       );
       await store.load("SIDE-1", "PARENT-1");
-      loadMock.mockClear();
     }
 
     it("clears the draft immediately, sends one sanitized quoted context, and retries the exact body without quote duplication", async () => {
@@ -601,7 +588,7 @@ describe("ActiveConversationStore", () => {
       ).toHaveLength(1);
     });
 
-    it("refetches canonical active ticket and parent list after reply success", async () => {
+    it("refetches only the canonical active ticket after reply success", async () => {
       await loadOpenThread();
       mockedPatchTicket.mockResolvedValueOnce({ key: "SIDE-1" });
       mockedGetTicket.mockResolvedValueOnce(
@@ -620,7 +607,6 @@ describe("ActiveConversationStore", () => {
         "comment-1",
         "comment-4",
       ]);
-      expect(loadMock).toHaveBeenCalledWith("PARENT-1");
     });
 
     it("does not send replies while solved", async () => {
@@ -686,7 +672,6 @@ describe("ActiveConversationStore", () => {
 
       expect(store.solved).toBe(true);
       expect(store.status).toBe("ready");
-      expect(loadMock).toHaveBeenCalledWith("PARENT-1");
     });
 
     it("uses status-only OPEN body, refetches server truth, and exposes one-shot composer focus after reopen", async () => {
@@ -698,7 +683,6 @@ describe("ActiveConversationStore", () => {
         )
       );
       await store.load("SIDE-1", "PARENT-1");
-      loadMock.mockClear();
 
       mockedPatchTicket.mockResolvedValueOnce({ key: "SIDE-1" });
       mockedGetTicket.mockResolvedValueOnce(
@@ -718,7 +702,6 @@ describe("ActiveConversationStore", () => {
       await flushPromises();
 
       expect(store.solved).toBe(false);
-      expect(loadMock).toHaveBeenCalledWith("PARENT-1");
       expect(store.consumeComposerFocus()).toBe(true);
       expect(store.consumeComposerFocus()).toBe(false);
     });

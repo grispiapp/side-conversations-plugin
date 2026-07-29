@@ -45,7 +45,7 @@ function makeComment(
         impliedAuthorities: [],
         teamUser: authority !== "ROLE_END_USER",
       },
-    } as Ticket["comments"][number]["creator"],
+    } as unknown as Ticket["comments"][number]["creator"],
     call: null,
     toId: null,
     toEmail: null,
