@@ -61,4 +61,42 @@ describe("ComposeStore mutation-envelope seam", () => {
     expect(root.activeConversation.getOverlayMessages(1, null)).toEqual([]);
     expect(root.compose.submitting).toBe(false);
   });
+
+  it("sanitizes the final stored draft once before freezing both create request and overlay", async () => {
+    root.compose.initSubject("[PARENT-1] Konu", "PARENT-1");
+    root.compose.selectFreeEmail("vendor@example.test");
+    root.compose.setMessage(
+      '<p onclick="steal()">Merhaba <a href="javascript:steal()">link</a></p><svg><script>steal()</script></svg>'
+    );
+
+    const envelope = await root.compose.submit(
+      "tenant-1",
+      "agent@example.test",
+      "PARENT-1",
+      4
+    );
+
+    expect(envelope?.request.comment.body).toBe("<p>Merhaba <a>link</a></p>");
+    expect(root.activeConversation.getOverlayMessages(4, null)[0].body).toBe(
+      envelope?.request.comment.body
+    );
+    expect(envelope?.request.comment.body).not.toMatch(
+      /onclick|javascript:|script|svg/i
+    );
+  });
+
+  it("detects recipient searches and cleared prefills but ignores visually empty rich HTML", () => {
+    root.compose.initSubject("[PARENT-1] Konu", "PARENT-1");
+    expect(root.compose.isDirty).toBe(false);
+
+    root.compose.setMessage("<p><br></p>");
+    expect(root.compose.isDirty).toBe(false);
+
+    root.compose.setQuery("Davut");
+    expect(root.compose.isDirty).toBe(true);
+
+    root.compose.setQuery("");
+    root.compose.setSubject("");
+    expect(root.compose.isDirty).toBe(true);
+  });
 });

@@ -1,6 +1,8 @@
 import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
+import { sanitizeHtml } from "@/lib/html-sanitizer";
+import { htmlToText } from "@/lib/html-to-text";
 import { formatRequesterField } from "@/lib/side-conversation";
 import { MutationEnvelope } from "@/store/active-conversation-store";
 import { CreateTicketRequest } from "@/types/grispi.type";
@@ -105,12 +107,10 @@ export class ComposeStore {
    * whatever `initSubject` first set (D-02's dirty-guard reads this).
    */
   get isDirty(): boolean {
+    if (this.query.trim() !== "") return true;
     if (this.recipientEmail.trim() !== "") return true;
-    if (this.message.trim() !== "") return true;
-    if (this.subject.trim() !== "" && this.subject !== this.initialSubject) {
-      return true;
-    }
-    return false;
+    if (this.subject !== this.initialSubject) return true;
+    return htmlToText(sanitizeHtml(this.message)) !== "";
   }
 
   getEffectiveParentKey(parentKey: string): string {
@@ -152,6 +152,7 @@ export class ComposeStore {
     if (this.submitting) return null; // D-17 — before any await
     this.submitting = true;
 
+    const safeBody = sanitizeHtml(this.message);
     // D-10: recipient + message are required; subject may be empty (the
     // live API rejects an EMPTY VALUE, not an empty subject that was never
     // typed — `ts.subject`'s key is still always sent below, Pitfall #1).
@@ -159,7 +160,7 @@ export class ComposeStore {
       !tenantId ||
       !agentEmail ||
       !this.recipientEmail ||
-      !this.message.trim()
+      htmlToText(safeBody) === ""
     ) {
       this.submitting = false;
       return null;
@@ -171,7 +172,7 @@ export class ComposeStore {
 
     const request: CreateTicketRequest = {
       comment: {
-        body: this.message,
+        body: safeBody,
         publicVisible: true,
         creator: [{ key: "us.email", value: agentEmail ?? "" }],
       },
@@ -189,7 +190,7 @@ export class ComposeStore {
       tenantId,
       recipientLabel: this.recipientLabel,
       subject: this.subject,
-      body: this.message,
+      body: safeBody,
       request,
       parentKey: effectiveParentKey,
       sessionKey,

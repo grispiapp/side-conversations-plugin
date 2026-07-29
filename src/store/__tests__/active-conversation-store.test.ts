@@ -107,7 +107,9 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
 
   it("retains the exact reply envelope and request identity across failure and retry", () => {
     store.activateSession(3, "SIDE-1");
-    store.setDraftHtml('<p onclick="bad()">Yeni</p><script>x()</script>');
+    store.setDraftHtml(
+      '<p onclick="bad()">Yeni <a href="javascript:bad()">link</a></p><script>x()</script>'
+    );
     const envelope = store.sendReply({
       tenantId: "tenant-1",
       parentKey: "PARENT-1",
@@ -126,8 +128,9 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
     expect(envelope?.kind).toBe("reply");
     const request = envelope?.request as ReplyTicketPatchRequest;
     expect(request.comment.body).toBe(
-      "<p>Yeni</p><blockquote><p>Önceki</p></blockquote>"
+      "<p>Yeni <a>link</a></p><blockquote><p>Önceki</p></blockquote>"
     );
+    expect(request.comment.body).not.toMatch(/onclick|javascript:|script/i);
     expect(Object.isFrozen(request)).toBe(true);
     expect(store.draftHtml).toBe("");
 

@@ -2,6 +2,7 @@ import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
 import { buildQuotedReplyHtml, sanitizeHtml } from "@/lib/html-sanitizer";
+import { htmlToText } from "@/lib/html-to-text";
 import {
   CreateTicketRequest,
   ReplyTicketPatchRequest,
@@ -244,21 +245,23 @@ export class ActiveConversationStore {
       params.solved ||
       this.activeSessionKey !== params.sessionKey ||
       this.activeSideKey !== params.sideKey ||
-      !this.draftHtml.trim()
+      htmlToText(sanitizeHtml(this.draftHtml)) === ""
     ) {
       return null;
     }
 
-    const body = buildQuotedReplyHtml(
-      this.draftHtml,
-      params.canonicalMessages
-        .filter((message) => message.status === "sent" && !message.internal)
-        .map((message) => ({
-          html: message.body,
-          publicVisible: true,
-        }))
+    const body = sanitizeHtml(
+      buildQuotedReplyHtml(
+        sanitizeHtml(this.draftHtml),
+        params.canonicalMessages
+          .filter((message) => message.status === "sent" && !message.internal)
+          .map((message) => ({
+            html: message.body,
+            publicVisible: true,
+          }))
+      )
     );
-    if (!body.trim()) return null;
+    if (htmlToText(body) === "") return null;
 
     const request: ReplyTicketPatchRequest = {
       comment: {
