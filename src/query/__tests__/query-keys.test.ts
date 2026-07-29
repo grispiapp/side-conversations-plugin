@@ -1,9 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 
-import {
-  createTestQueryClient,
-  queryClient,
-} from "@/query/query-client";
+import { createTestQueryClient, queryClient } from "@/query/query-client";
 import { sideConversationKeys } from "@/query/query-keys";
 
 describe("sideConversationKeys", () => {
@@ -18,11 +15,9 @@ describe("sideConversationKeys", () => {
       "tenant-1",
       "SIDE-1",
     ]);
-    expect(sideConversationKeys.customers("tenant-1", "  Alice@EXAMPLE.COM ")).toEqual([
-      "customers",
-      "tenant-1",
-      "alice@example.com",
-    ]);
+    expect(
+      sideConversationKeys.customers("tenant-1", "  Alice@EXAMPLE.COM ")
+    ).toEqual(["customers", "tenant-1", "alice@example.com"]);
   });
 
   it("separates identical resource values for different tenants", () => {
