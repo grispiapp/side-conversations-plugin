@@ -1,6 +1,5 @@
-import { makeAutoObservable } from "mobx";
-
 import { RootStore } from "./root-store";
+import { makeAutoObservable } from "mobx";
 
 /**
  * The single panel screen currently rendered by `app.tsx` (screen-swap, no
@@ -8,6 +7,12 @@ import { RootStore } from "./root-store";
  * bootstrap). Introduced this phase; Phase 1 never needed more than "list".
  */
 export type PanelScreen = "list" | "compose" | "chat";
+
+export interface SelectedConversation {
+  ticketKey: string;
+  parentKey: string;
+  sessionKey: number;
+}
 
 /**
  * Owns list/compose/chat navigation plus the D-02/D-03 dirty-guard return
@@ -20,6 +25,11 @@ export type PanelScreen = "list" | "compose" | "chat";
 export class PanelNavigationStore {
   rootStore: RootStore;
   screen: PanelScreen = "list";
+  selectedConversation: SelectedConversation | null = null;
+
+  private selectedConversationSession = 0;
+  private activatingRowKey: string | null = null;
+  private listFocusRequest: string | null = null;
 
   constructor(rootStore: RootStore) {
     makeAutoObservable(this);
@@ -51,8 +61,14 @@ export class PanelNavigationStore {
    * render so a later host-ticket change cannot redirect thread mutations to
    * a different parent while the canonical load is in flight.
    */
-  openConversation(ticketKey: string, parentKey: string): void {
-    void this.rootStore.activeConversation.load(ticketKey, parentKey);
+  openConversation(ticketKey: string, parentKey: string, rowKey: string): void {
+    this.selectedConversationSession += 1;
+    this.selectedConversation = {
+      ticketKey,
+      parentKey,
+      sessionKey: this.selectedConversationSession,
+    };
+    this.activatingRowKey = rowKey;
     this.screen = "chat";
   }
 
@@ -67,6 +83,7 @@ export class PanelNavigationStore {
       .replace(/&nbsp;|&#160;/gi, " ")
       .trim();
     if (text) return true;
+    this.listFocusRequest = this.activatingRowKey;
     this.screen = "list";
     return false;
   }
@@ -74,7 +91,14 @@ export class PanelNavigationStore {
   /** D-12 confirm path: explicitly discard only the active reply draft. */
   confirmDiscardReplyAndReturnToList(): void {
     this.rootStore.activeConversation.setDraftHtml("");
+    this.listFocusRequest = this.activatingRowKey;
     this.screen = "list";
+  }
+
+  consumeListFocusRequest(): string | null {
+    const request = this.listFocusRequest;
+    this.listFocusRequest = null;
+    return request;
   }
 
   /**

@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { FC } from "react";
+import { FC, forwardRef } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,13 +26,17 @@ const BADGE_LABEL: Record<ConversationActionBadge, string> = {
 // `observer` so silent store-side row upgrades (hydration retry, recipient
 // enrichment — Plan 01-03 UAT Defect 2) always re-render this card even if a
 // future change mutates a row field in place instead of replacing the array.
-export const ConversationRow: FC<{
-  row: ConversationRowVM;
-  onSelect: () => void;
-}> = observer(
-  ({ row, onSelect }) => {
+export const ConversationRow = observer(
+  forwardRef<
+    HTMLButtonElement,
+    {
+      row: ConversationRowVM;
+      onSelect: () => void;
+    }
+  >(({ row, onSelect }, ref) => {
     return (
       <button
+        ref={ref}
         type="button"
         onClick={onSelect}
         className={cn(
@@ -69,8 +73,9 @@ export const ConversationRow: FC<{
         )}
       </button>
     );
-  }
+  })
 );
+ConversationRow.displayName = "ConversationRow";
 
 export const SkeletonRow: FC = () => {
   return (

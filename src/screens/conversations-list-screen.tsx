@@ -1,6 +1,11 @@
+import { ConversationRow, SkeletonRow } from "./components/conversation-row";
+import { EmptyState } from "./components/empty-state";
+import { ErrorCard } from "./components/error-card";
+import { ListFooter } from "./components/list-footer";
+import { LoadingScreen } from "./loading-screen";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,16 +17,12 @@ import {
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 
-import { ConversationRow, SkeletonRow } from "./components/conversation-row";
-import { EmptyState } from "./components/empty-state";
-import { ErrorCard } from "./components/error-card";
-import { ListFooter } from "./components/list-footer";
-import { LoadingScreen } from "./loading-screen";
-
 export const ConversationsListScreen = observer(() => {
   const { ticket, loading } = useGrispi();
   const store = useStore().sideConversations;
   const panelNavigation = useStore().panelNavigation;
+  const createActionRef = useRef<HTMLButtonElement>(null);
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
 
   useEffect(() => {
     if (ticket?.key) {
@@ -29,6 +30,15 @@ export const ConversationsListScreen = observer(() => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket?.key]);
+
+  useEffect(() => {
+    if (store.status === "loading") return;
+
+    const rowKey = panelNavigation.consumeListFocusRequest();
+    if (!rowKey) return;
+
+    (rowRefs.current.get(rowKey) ?? createActionRef.current)?.focus();
+  }, [panelNavigation, store.rows, store.status]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -44,6 +54,7 @@ export const ConversationsListScreen = observer(() => {
         <div className="flex w-full items-center justify-between">
           <ScreenTitle>Yan Görüşmeler</ScreenTitle>
           <Button
+            ref={createActionRef}
             size="icon"
             variant="ghost"
             aria-label="Yeni görüşme başlat"
@@ -68,10 +79,21 @@ export const ConversationsListScreen = observer(() => {
               {store.rows.map((row) => (
                 <ConversationRow
                   key={row.key}
+                  ref={(element) => {
+                    if (element) {
+                      rowRefs.current.set(row.key, element);
+                    } else {
+                      rowRefs.current.delete(row.key);
+                    }
+                  }}
                   row={row}
                   onSelect={() => {
                     if (ticket?.key) {
-                      panelNavigation.openConversation(row.key, ticket.key);
+                      panelNavigation.openConversation(
+                        row.key,
+                        ticket.key,
+                        row.key
+                      );
                     }
                   }}
                 />

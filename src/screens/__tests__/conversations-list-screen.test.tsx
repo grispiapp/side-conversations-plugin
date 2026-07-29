@@ -41,7 +41,10 @@ function render(ui: ReactElement): void {
   });
 }
 
-function makeStore(rows = [row("SC-A"), row("SC-B")], focusKey: string | null = null) {
+function makeStore(
+  rows = [row("SC-A"), row("SC-B")],
+  focusKey: string | null = null
+) {
   return {
     sideConversations: {
       status: "ready",
