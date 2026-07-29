@@ -1,7 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { FC, forwardRef } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
@@ -10,22 +9,11 @@ import {
   ConversationRowVM,
 } from "@/store/side-conversations-store";
 
-const BADGE_VARIANT: Record<
-  ConversationActionBadge,
-  "new-reply" | "awaiting-reply"
-> = {
-  "yeni-yanit": "new-reply",
-  "yanit-bekleniyor": "awaiting-reply",
-};
-
 const BADGE_LABEL: Record<ConversationActionBadge, string> = {
   "yeni-yanit": "Yeni yanıt",
   "yanit-bekleniyor": "Yanıt bekleniyor",
 };
 
-// `observer` so silent store-side row upgrades (hydration retry, recipient
-// enrichment — Plan 01-03 UAT Defect 2) always re-render this card even if a
-// future change mutates a row field in place instead of replacing the array.
 export const ConversationRow = observer(
   forwardRef<
     HTMLButtonElement,
@@ -35,43 +23,60 @@ export const ConversationRow = observer(
     }
   >(({ row, onSelect }, ref) => {
     return (
-      <button
-        ref={ref}
-        type="button"
-        onClick={onSelect}
-        className={cn(
-          "flex w-full flex-col gap-2 rounded-md bg-card px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          // LIST-03's only highlight mechanism: 3px primary left rail.
-          row.hasUnseen && "border-l-[3px] border-l-primary",
-          row.hydrationFailed && "opacity-60"
-        )}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1 text-xs">
-            <span className="truncate font-mono">{row.recipientEmail}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="shrink-0 text-muted-foreground">
+      <div role="listitem" className="border-b border-border last:border-b-0">
+        <button
+          ref={ref}
+          type="button"
+          onClick={onSelect}
+          className={cn(
+            "relative flex min-h-[72px] w-full min-w-0 flex-col justify-center bg-card px-[var(--panel-inset)] py-2 text-left focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            row.hydrationFailed && "opacity-60"
+          )}
+        >
+          {row.hasUnseen && (
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 w-[3px] bg-primary"
+            />
+          )}
+          <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
+            <span className="min-w-0 truncate font-mono">
+              {row.recipientEmail}
+            </span>
+            <span className="shrink-0 text-muted-foreground">·</span>
+            <time className="shrink-0 text-muted-foreground">
               {row.lastPublicCommentAt !== null
                 ? formatRelativeTime(row.lastPublicCommentAt)
                 : ""}
+            </time>
+          </div>
+          <p className="min-w-0 truncate text-sm font-semibold leading-5">
+            {row.subject}
+          </p>
+          <div className="flex min-w-0 items-center gap-2 text-xs leading-4">
+            <p className="min-w-0 flex-1 truncate text-muted-foreground">
+              {row.hydrationFailed ? "" : row.summary}
+            </p>
+            <span
+              className={cn(
+                "shrink-0 font-semibold",
+                row.lifecycle === "solved"
+                  ? "text-slate-600"
+                  : row.actionBadge === "yeni-yanit"
+                    ? "text-amber-800"
+                    : "text-emerald-800"
+              )}
+            >
+              {row.hasUnseen && "Görülmemiş · "}
+              {row.lifecycle === "solved"
+                ? "Çözüldü"
+                : row.actionBadge !== null
+                  ? BADGE_LABEL[row.actionBadge]
+                  : "Açık"}
             </span>
           </div>
-          {row.lifecycle === "solved" && (
-            <Badge variant="closed">Çözüldü</Badge>
-          )}
-          {row.actionBadge !== null && (
-            <Badge variant={BADGE_VARIANT[row.actionBadge]}>
-              {BADGE_LABEL[row.actionBadge]}
-            </Badge>
-          )}
-        </div>
-        <p className="truncate text-sm font-normal">{row.subject}</p>
-        {!row.hydrationFailed && (
-          <p className="truncate text-sm text-muted-foreground">
-            {row.summary}
-          </p>
-        )}
-      </button>
+        </button>
+      </div>
     );
   })
 );
@@ -79,10 +84,13 @@ ConversationRow.displayName = "ConversationRow";
 
 export const SkeletonRow: FC = () => {
   return (
-    <div className="flex flex-col gap-2 rounded-md bg-card px-4 py-3">
+    <div
+      aria-hidden="true"
+      className="flex min-h-[72px] flex-col justify-center gap-1 bg-card px-[var(--panel-inset)] py-2"
+    >
       <Skeleton className="h-3 w-2/3" />
       <Skeleton className="h-4 w-4/5" />
-      <Skeleton className="h-4 w-1/2" />
+      <Skeleton className="h-3 w-1/2" />
     </div>
   );
 };

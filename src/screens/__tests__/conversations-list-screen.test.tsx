@@ -90,6 +90,7 @@ it("passes the activating row key through the native row button boundary", () =>
     container.querySelectorAll<HTMLButtonElement>("button")
   ).find((button) => button.textContent?.includes("Subject SC-B"));
   expect(rowButton?.tagName).toBe("BUTTON");
+  expect(rowButton?.className).toContain("min-h-[72px]");
 
   act(() => rowButton?.click());
 
@@ -98,6 +99,45 @@ it("passes the activating row key through the native row button boundary", () =>
     "PARENT-1",
     "SC-B"
   );
+});
+
+it("renders a labelled header action and flush textual queue states", () => {
+  mockListQuery.rows = [
+    {
+      ...row("SC-NEW"),
+      hasUnseen: true,
+      actionBadge: "yeni-yanit",
+      recipientEmail: "a".repeat(80) + "@example.test",
+      subject: "S".repeat(120),
+      summary: "M".repeat(160),
+    },
+    {
+      ...row("SC-SOLVED"),
+      lifecycle: "solved",
+      actionBadge: null,
+    },
+  ];
+
+  render(<ConversationsListScreen />);
+
+  const create = container.querySelector<HTMLButtonElement>(
+    '[aria-label="Yeni görüşme başlat"]'
+  );
+  expect(create?.textContent).toContain("Yeni görüşme");
+  expect(container.querySelector('[role="list"]')?.className).toContain(
+    "border-y"
+  );
+  expect(container.querySelectorAll('[role="listitem"]')).toHaveLength(2);
+  expect(container.textContent).toContain("Görülmemiş · Yeni yanıt");
+  expect(container.textContent).toContain("Çözüldü");
+
+  const firstRow = container.querySelector<HTMLButtonElement>(
+    '[role="listitem"] button'
+  );
+  expect(firstRow?.className).not.toContain("rounded-md");
+  expect(
+    Array.from(firstRow?.querySelectorAll(".truncate") ?? []).length
+  ).toBeGreaterThanOrEqual(3);
 });
 
 it("restores focus to the exact activating row once after rows render", () => {
@@ -131,7 +171,9 @@ it("falls back to the labeled header create action when the activating row disap
 it("derives skeleton, empty, retry and pagination controls from Query state", () => {
   mockListQuery = { ...mockListQuery, isPending: true };
   render(<ConversationsListScreen />);
-  expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0);
+  expect(
+    container.querySelector('[role="status"][aria-label*="yükleniyor"]')
+  ).not.toBeNull();
   expect(container.textContent).not.toContain("Henüz yan görüşme yok");
 
   mockListQuery = { ...mockListQuery, isPending: false, rows: [] };
@@ -162,6 +204,7 @@ it("delegates surfaced Query errors to the retry action", () => {
   };
 
   render(<ConversationsListScreen />);
+  expect(container.querySelector('[role="alert"]')).not.toBeNull();
 
   const retry = Array.from(
     container.querySelectorAll<HTMLButtonElement>("button")

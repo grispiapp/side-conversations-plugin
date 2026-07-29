@@ -41,36 +41,45 @@ export const ConversationsListScreen = observer(() => {
 
   return (
     <Screen>
-      <ScreenHeader>
-        {/* w-full: the header's title container is `line-clamp-2`
-            (-webkit-box), which sizes single flex children to their
-            content by default — w-full keeps the "+" pinned to the
-            right edge instead of hugging the title (COMP-01, D-01). */}
-        <div className="flex w-full items-center justify-between">
-          <ScreenTitle>Yan Görüşmeler</ScreenTitle>
+      <ScreenHeader
+        title={<ScreenTitle>Yan Görüşmeler</ScreenTitle>}
+        trailing={
           <Button
             ref={createActionRef}
-            size="icon"
+            size="sm"
             variant="ghost"
             aria-label="Yeni görüşme başlat"
+            className="gap-1.5 px-2 text-primary"
             onClick={() => panelNavigation.openCompose()}
           >
-            <PlusIcon className="size-5" />
+            <PlusIcon className="size-4" aria-hidden="true" />
+            Yeni görüşme
           </Button>
-        </div>
-      </ScreenHeader>
+        }
+      />
       <ScreenContent>
-        <div className="flex h-full flex-col gap-2 p-4">
-          {list.isPending && (
-            <>
+        {list.isPending && (
+          <div
+            role="status"
+            aria-label="Yan görüşmeler yükleniyor"
+            className="border-y border-border bg-card"
+          >
+            <span className="sr-only">Yan görüşmeler yükleniyor</span>
+            <div className="divide-y divide-border">
               <SkeletonRow />
               <SkeletonRow />
               <SkeletonRow />
-            </>
-          )}
+            </div>
+          </div>
+        )}
 
-          {!list.isPending && !list.isError && list.rows.length > 0 && (
-            <>
+        {!list.isPending && !list.isError && list.rows.length > 0 && (
+          <div className="flex min-h-full flex-col">
+            <div
+              role="list"
+              aria-label="Yan görüşmeler"
+              className="border-y border-border bg-card"
+            >
               {list.rows.map((row) => (
                 <ConversationRow
                   key={row.key}
@@ -93,25 +102,31 @@ export const ConversationsListScreen = observer(() => {
                   }}
                 />
               ))}
+            </div>
+            <div className="px-[var(--panel-inset)] py-3">
               <ListFooter
                 hasMore={list.hasNextPage}
                 loading={list.isFetchingNextPage}
                 onLoadMore={() => void list.fetchNextPage()}
               />
-            </>
-          )}
+            </div>
+          </div>
+        )}
 
-          {!list.isPending && !list.isError && list.rows.length === 0 && (
+        {!list.isPending && !list.isError && list.rows.length === 0 && (
+          <div className="h-full px-[var(--panel-inset)]">
             <EmptyState />
-          )}
+          </div>
+        )}
 
-          {list.isError && (
+        {list.isError && (
+          <div className="px-[var(--panel-inset)] py-4">
             <ErrorCard
               error={list.error as NetworkError | HttpError | null}
               onRetry={() => void list.refetch()}
             />
-          )}
-        </div>
+          </div>
+        )}
       </ScreenContent>
     </Screen>
   );

@@ -24,12 +24,16 @@ export const ErrorCard: FC<{
       : "Yan görüşmeler şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.";
 
   return (
-    <div className="flex flex-col items-center gap-3 rounded-md bg-card px-6 py-6 text-center">
+    <section
+      role="alert"
+      aria-label="Yan görüşmeler yüklenemedi"
+      className="flex min-w-0 flex-col items-center gap-3 rounded-md border border-destructive/20 bg-card px-5 py-6 text-center"
+    >
       <ExclamationTriangleIcon className="size-6 text-destructive" />
       <p className="text-sm text-muted-foreground">{message}</p>
       <Button variant="destructive" size="sm" onClick={onRetry}>
         Yeniden dene
       </Button>
-    </div>
+    </section>
   );
 };

@@ -16,7 +16,11 @@ export const EmptyState: FC = () => {
   const panelNavigation = useStore().panelNavigation;
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+    <section
+      role="status"
+      aria-label="Boş yan görüşme listesi"
+      className="flex h-full min-w-0 flex-col items-center justify-center gap-3 py-8 text-center"
+    >
       <h2 className="text-lg font-semibold">Henüz yan görüşme yok</h2>
       <p className="text-sm text-muted-foreground">
         Tedarikçi ya da başka bir ekiple, talep sahibinin görmediği ayrı bir
@@ -33,6 +37,6 @@ export const EmptyState: FC = () => {
         <PlusIcon className="mr-1 size-4" />
         Yeni görüşme başlat
       </Button>
-    </div>
+    </section>
   );
 };
