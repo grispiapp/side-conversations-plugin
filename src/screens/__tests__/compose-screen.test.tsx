@@ -66,11 +66,13 @@ describe("ComposeScreen create mutation wiring", () => {
       panelNavigation: {
         requestBack: jest.fn(() => false),
         confirmDiscardAndReturnToList: jest.fn(),
-        openPendingConversation: jest.fn(() => ({
+        reservePendingConversation: jest.fn(() => ({
           ticketKey: null,
           parentKey: "PARENT-PINNED",
           sessionKey: 13,
         })),
+        showPendingConversation: jest.fn(() => true),
+        cancelPendingConversationReservation: jest.fn(),
         selectedConversation: null,
         bindCreatedTicket: jest.fn(),
       },
@@ -104,7 +106,7 @@ describe("ComposeScreen create mutation wiring", () => {
         "PARENT-LIVE"
       );
       expect(
-        mockStore.panelNavigation.openPendingConversation
+        mockStore.panelNavigation.reservePendingConversation
       ).toHaveBeenCalledWith("PARENT-PINNED");
       expect(mockStore.compose.submit).toHaveBeenCalledWith(
         "tenant-1",
@@ -114,7 +116,37 @@ describe("ComposeScreen create mutation wiring", () => {
       );
       const returnedEnvelope =
         await mockStore.compose.submit.mock.results[0].value;
+      expect(
+        mockStore.panelNavigation.showPendingConversation
+      ).toHaveBeenCalledWith(13);
       expect(mockCreateMutate).toHaveBeenCalledWith(returnedEnvelope);
     }
   );
+
+  it("guards same-tick double submit before reserving a second pending session", async () => {
+    let resolveSubmit!: (value: unknown) => void;
+    mockStore.compose.submit.mockImplementation(() => {
+      mockStore.compose.submitting = true;
+      return new Promise((resolve) => {
+        resolveSubmit = resolve;
+      });
+    });
+
+    act(() => root.render(<ComposeScreen />));
+    const send = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button")
+    ).find((button) => button.textContent?.trim() === "Gönder");
+    await act(async () => {
+      send?.click();
+      send?.click();
+      resolveSubmit({ kind: "create", clientMessageId: "msg-create" });
+      await Promise.resolve();
+    });
+
+    expect(
+      mockStore.panelNavigation.reservePendingConversation
+    ).toHaveBeenCalledTimes(1);
+    expect(mockStore.compose.submit).toHaveBeenCalledTimes(1);
+    expect(mockCreateMutate).toHaveBeenCalledTimes(1);
+  });
 });

@@ -51,9 +51,17 @@ export const ComposeScreen = observer(() => {
     compose.submitting;
 
   const submit = async () => {
-    if (!tenantId || !agentEmail || !ticket?.key || sendDisabled) return;
+    if (
+      compose.submitting ||
+      !tenantId ||
+      !agentEmail ||
+      !ticket?.key ||
+      sendDisabled
+    ) {
+      return;
+    }
 
-    const selected = panelNav.openPendingConversation(
+    const selected = panelNav.reservePendingConversation(
       compose.getEffectiveParentKey(ticket.key)
     );
     const envelope = await compose.submit(
@@ -62,7 +70,12 @@ export const ComposeScreen = observer(() => {
       ticket.key,
       selected.sessionKey
     );
-    if (envelope) createMutation.mutate(envelope);
+    if (!envelope) {
+      panelNav.cancelPendingConversationReservation(selected.sessionKey);
+      return;
+    }
+    if (!panelNav.showPendingConversation(selected.sessionKey)) return;
+    createMutation.mutate(envelope);
   };
 
   // D-08/D-09: prefill the subject exactly once per mounted ticket, using

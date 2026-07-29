@@ -61,7 +61,7 @@ export class PanelNavigationStore {
     this.screen = "chat";
   }
 
-  openPendingConversation(parentKey: string): SelectedConversation {
+  reservePendingConversation(parentKey: string): SelectedConversation {
     this.selectedConversationSession += 1;
     this.selectedConversation = {
       ticketKey: null,
@@ -73,8 +73,35 @@ export class PanelNavigationStore {
       null
     );
     this.navigationFocusOrigin = { kind: "create-action" };
-    this.screen = "chat";
     return this.selectedConversation;
+  }
+
+  showPendingConversation(sessionKey: number): boolean {
+    if (
+      !this.selectedConversation ||
+      this.selectedConversation.sessionKey !== sessionKey ||
+      this.selectedConversation.ticketKey !== null
+    ) {
+      return false;
+    }
+    this.screen = "chat";
+    return true;
+  }
+
+  openPendingConversation(parentKey: string): SelectedConversation {
+    const selected = this.reservePendingConversation(parentKey);
+    this.showPendingConversation(selected.sessionKey);
+    return selected;
+  }
+
+  cancelPendingConversationReservation(sessionKey: number): void {
+    if (
+      this.screen === "compose" &&
+      this.selectedConversation?.sessionKey === sessionKey &&
+      this.selectedConversation.ticketKey === null
+    ) {
+      this.selectedConversation = null;
+    }
   }
 
   bindCreatedTicket(sessionKey: number, sideKey: string): void {

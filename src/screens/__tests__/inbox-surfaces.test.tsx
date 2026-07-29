@@ -63,11 +63,13 @@ beforeEach(() => {
       selectedConversation: null,
       bindCreatedTicket: jest.fn(),
       requestBack: jest.fn(() => false),
-      openPendingConversation: jest.fn(() => ({
+      reservePendingConversation: jest.fn(() => ({
         ticketKey: null,
         parentKey: "PARENT-1",
         sessionKey: 1,
       })),
+      showPendingConversation: jest.fn(() => true),
+      cancelPendingConversationReservation: jest.fn(),
       confirmDiscardAndReturnToList: jest.fn(),
     },
   };

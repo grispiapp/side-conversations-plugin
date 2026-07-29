@@ -109,6 +109,16 @@ describe("PanelNavigationStore", () => {
     });
   });
 
+  it("reserves a pending session without navigating until the envelope exists", () => {
+    const { store } = makeStore();
+    store.openCompose();
+
+    const selected = store.reservePendingConversation("PARENT-1");
+    expect(store.screen).toBe("compose");
+    expect(store.showPendingConversation(selected.sessionKey)).toBe(true);
+    expect(store.screen).toBe("chat");
+  });
+
   it("requestChatBack() returns to the list immediately for an empty reply draft", () => {
     const { store } = makeStore();
     store.openConversation("SC-42", "PARENT-7", "row-SC-42");
