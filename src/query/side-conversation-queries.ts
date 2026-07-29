@@ -1,14 +1,25 @@
 import { sideConversationKeys } from "./query-keys";
 import {
+  QueryClient,
   infiniteQueryOptions,
   queryOptions,
   useInfiniteQuery,
+  useMutation,
   useQuery,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { grispiAPI } from "@/grispi/client/api";
+import { NetworkError } from "@/grispi/client/http-handler";
+import { sanitizeHtml, splitQuotedHtml } from "@/lib/html-sanitizer";
+import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
+import {
+  ActiveConversationStore,
+  MessageVM,
+  MutationEnvelope,
+} from "@/store/active-conversation-store";
 import {
   ConversationRowVM,
   RECIPIENT_UNKNOWN_PLACEHOLDER,
@@ -17,8 +28,10 @@ import {
 } from "@/store/side-conversations-store";
 import {
   AdvancedSearchResponse,
+  Comment,
   Customer,
   SideTicketSummary,
+  Ticket,
 } from "@/types/grispi.type";
 
 const PAGE_SIZE = 10;
@@ -46,6 +59,28 @@ export interface CustomerQueryVM {
   id: number;
   name: string | null;
   email: string;
+}
+
+export interface SideConversationDetail {
+  sideKey: string;
+  recipientLabel: string;
+  subject: string;
+  solved: boolean;
+  messages: MessageVM[];
+  scrollTargetMessageId: string | null;
+  latestRelevantExternalAt: number | null;
+}
+
+export interface SelectedMutationSession {
+  ticketKey: string | null;
+  parentKey: string;
+  sessionKey: number;
+}
+
+export interface MutationBoundary {
+  activeConversation: ActiveConversationStore;
+  getSelectedConversation: () => SelectedMutationSession | null;
+  bindCreatedTicket: (sessionKey: number, sideKey: string) => void;
 }
 
 function requireIdentity(value: string | null, identityName: string): string {
@@ -199,12 +234,66 @@ export function sideConversationDetailOptions(
     queryKey: sideConversationKeys.detail(tenantId, sideKey),
     queryFn: () => {
       requireIdentity(tenantId, "tenantId");
-      return grispiAPI.tickets.getTicket(requireIdentity(sideKey, "sideKey"));
+      return grispiAPI.tickets
+        .getTicket(requireIdentity(sideKey, "sideKey"))
+        .then(normalizeSideConversationDetail);
     },
     enabled: Boolean(tenantId && sideKey),
     staleTime: DETAIL_STALE_TIME,
     ...finiteReadPolicy,
   });
+}
+
+export function useSideConversationDetailQuery(
+  tenantId: string | null,
+  sideKey: string | null,
+  parentKey: string | null,
+  sessionKey: number | null,
+  activeConversation: ActiveConversationStore
+) {
+  const queryClient = useQueryClient();
+  const query = useQuery(sideConversationDetailOptions(tenantId, sideKey));
+
+  useEffect(() => {
+    if (
+      !query.data ||
+      !tenantId ||
+      !sideKey ||
+      !parentKey ||
+      sessionKey === null
+    ) {
+      return;
+    }
+
+    activeConversation.reconcileCanonical(
+      sessionKey,
+      sideKey,
+      query.data.messages
+    );
+    if (query.data.scrollTargetMessageId) {
+      activeConversation.requestScroll(
+        sessionKey,
+        sideKey,
+        query.data.scrollTargetMessageId
+      );
+    }
+    void queryClient.invalidateQueries({
+      queryKey: sideConversationKeys.list(tenantId, parentKey),
+      exact: true,
+      refetchType: "all",
+    });
+  }, [
+    activeConversation,
+    parentKey,
+    query.data,
+    query.dataUpdatedAt,
+    queryClient,
+    sessionKey,
+    sideKey,
+    tenantId,
+  ]);
+
+  return query;
 }
 
 export function customerSearchOptions(tenantId: string | null, term: string) {
@@ -265,4 +354,259 @@ export function useCustomersQuery(tenantId: string | null, term: string) {
     isDebouncing,
     normalizedTerm,
   };
+}
+
+function normalizeComment(comment: Comment): MessageVM {
+  const sanitized = sanitizeHtml(comment.body ?? "");
+  const quoted = splitQuotedHtml(sanitized);
+
+  return {
+    id: `comment-${comment.id}`,
+    direction:
+      comment.creator?.role?.authority === "ROLE_END_USER" ? "incoming" : "own",
+    body: sanitized,
+    status: "sent",
+    createdAt: comment.createdAt,
+    senderName: comment.creator?.fullName || undefined,
+    senderEmail: comment.creator?.email || undefined,
+    internal: !comment.publicVisible,
+    quotedHtml: quoted.quotedHtml,
+  };
+}
+
+function resolveRecipientLabel(ticket: Ticket): string {
+  const requesterId = Number(ticket.fieldMap?.["ts.requester"]?.value);
+  const creator = (ticket.comments ?? []).find(
+    (comment) =>
+      comment.creator?.id === requesterId &&
+      comment.creator?.role?.authority === "ROLE_END_USER"
+  )?.creator;
+  if (!creator) return "—";
+
+  const name = creator.fullName?.trim();
+  const email = creator.email?.trim();
+  if (name && email) return `${name} <${email}>`;
+  return name || email || "—";
+}
+
+function resolveStatusId(ticket: Ticket): string | null {
+  const value = ticket.fieldMap?.["ts.status"]?.value;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (value && typeof value === "object" && "id" in value) {
+    return String((value as { id: unknown }).id);
+  }
+  return null;
+}
+
+export function normalizeSideConversationDetail(
+  ticket: Ticket
+): SideConversationDetail {
+  const messages = [...(ticket.comments ?? [])]
+    .sort(
+      (left, right) => left.createdAt - right.createdAt || left.id - right.id
+    )
+    .map(normalizeComment);
+  const externalPublic = messages.filter(
+    (message) => message.direction === "incoming" && !message.internal
+  );
+  const lastSeenAt = getLastSeenAt(ticket.key);
+  const firstUnseen = externalPublic.find(
+    (message) => lastSeenAt === null || message.createdAt > lastSeenAt
+  );
+  const latestRelevantExternalAt =
+    externalPublic.length > 0
+      ? Math.max(...externalPublic.map((message) => message.createdAt))
+      : null;
+
+  if (
+    latestRelevantExternalAt !== null &&
+    (lastSeenAt === null || latestRelevantExternalAt > lastSeenAt)
+  ) {
+    setLastSeenAt(ticket.key, latestRelevantExternalAt);
+  }
+
+  const subject = ticket.fieldMap?.["ts.subject"]?.value;
+  return {
+    sideKey: ticket.key,
+    recipientLabel: resolveRecipientLabel(ticket),
+    subject: typeof subject === "string" ? subject : "",
+    solved: resolveStatusId(ticket) === "4",
+    messages,
+    scrollTargetMessageId:
+      firstUnseen?.id ?? messages[messages.length - 1]?.id ?? null,
+    latestRelevantExternalAt,
+  };
+}
+
+function isCurrent(
+  boundary: MutationBoundary,
+  envelope: MutationEnvelope,
+  sideKey?: string
+): boolean {
+  const selected = boundary.getSelectedConversation();
+  if (
+    !selected ||
+    selected.sessionKey !== envelope.sessionKey ||
+    selected.parentKey !== envelope.parentKey
+  ) {
+    return false;
+  }
+
+  const expectedSideKey =
+    sideKey ?? (envelope.kind === "create" ? null : envelope.sideKey);
+  return selected.ticketKey === expectedSideKey;
+}
+
+function errorKind(error: unknown): "network" | "server" {
+  return error instanceof NetworkError ? "network" : "server";
+}
+
+async function refreshCanonicalAfterMutation(
+  queryClient: QueryClient,
+  boundary: MutationBoundary,
+  envelope: MutationEnvelope,
+  sideKey: string
+): Promise<void> {
+  await queryClient.invalidateQueries({
+    queryKey: sideConversationKeys.list(envelope.tenantId, envelope.parentKey),
+    exact: true,
+    refetchType: "all",
+  });
+  if (!isCurrent(boundary, envelope, sideKey)) return;
+
+  const detailKey = sideConversationKeys.detail(envelope.tenantId, sideKey);
+  await queryClient.refetchQueries(
+    {
+      queryKey: detailKey,
+      exact: true,
+      type: "all",
+    },
+    { throwOnError: true }
+  );
+  if (!isCurrent(boundary, envelope, sideKey)) return;
+
+  let detail = queryClient.getQueryData<SideConversationDetail>(detailKey);
+  if (!detail) {
+    detail = await queryClient.fetchQuery({
+      ...sideConversationDetailOptions(envelope.tenantId, sideKey),
+      staleTime: 0,
+    });
+  }
+  if (!isCurrent(boundary, envelope, sideKey)) return;
+
+  boundary.activeConversation.mutationAccepted(envelope);
+  boundary.activeConversation.reconcileCanonical(
+    envelope.sessionKey,
+    sideKey,
+    detail.messages
+  );
+  if (envelope.kind === "reopen" && !detail.solved) {
+    boundary.activeConversation.requestComposerFocus(
+      envelope.sessionKey,
+      sideKey
+    );
+  }
+}
+
+export async function executeCreateMutation(
+  queryClient: QueryClient,
+  boundary: MutationBoundary,
+  envelope: Extract<MutationEnvelope, { kind: "create" }>
+): Promise<void> {
+  if (!isCurrent(boundary, envelope)) return;
+  boundary.activeConversation.mutationStarted(envelope);
+
+  try {
+    const response = await grispiAPI.tickets.createTicket(envelope.request);
+    if (!isCurrent(boundary, envelope)) return;
+
+    boundary.activeConversation.bindCreatedTicket(envelope, response.key);
+    boundary.bindCreatedTicket(envelope.sessionKey, response.key);
+    if (!isCurrent(boundary, envelope, response.key)) return;
+    await refreshCanonicalAfterMutation(
+      queryClient,
+      boundary,
+      envelope,
+      response.key
+    );
+  } catch (error) {
+    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
+    throw error;
+  }
+}
+
+export async function executeReplyMutation(
+  queryClient: QueryClient,
+  boundary: MutationBoundary,
+  envelope: Extract<MutationEnvelope, { kind: "reply" }>
+): Promise<void> {
+  if (!isCurrent(boundary, envelope)) return;
+  boundary.activeConversation.mutationStarted(envelope);
+
+  try {
+    await grispiAPI.tickets.patchTicket(envelope.sideKey, envelope.request);
+    if (!isCurrent(boundary, envelope)) return;
+    await refreshCanonicalAfterMutation(
+      queryClient,
+      boundary,
+      envelope,
+      envelope.sideKey
+    );
+  } catch (error) {
+    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
+    throw error;
+  }
+}
+
+export async function executeStatusMutation(
+  queryClient: QueryClient,
+  boundary: MutationBoundary,
+  envelope: Extract<MutationEnvelope, { kind: "solve" | "reopen" }>
+): Promise<void> {
+  if (!isCurrent(boundary, envelope)) return;
+  boundary.activeConversation.mutationStarted(envelope);
+
+  try {
+    await grispiAPI.tickets.patchTicket(envelope.sideKey, envelope.request);
+    if (!isCurrent(boundary, envelope)) return;
+    await refreshCanonicalAfterMutation(
+      queryClient,
+      boundary,
+      envelope,
+      envelope.sideKey
+    );
+  } catch (error) {
+    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
+    throw error;
+  }
+}
+
+export function useCreateSideConversationMutation(boundary: MutationBoundary) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["side-conversation", "create"],
+    mutationFn: (envelope: Extract<MutationEnvelope, { kind: "create" }>) =>
+      executeCreateMutation(queryClient, boundary, envelope),
+  });
+}
+
+export function useReplySideConversationMutation(boundary: MutationBoundary) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["side-conversation", "reply"],
+    mutationFn: (envelope: Extract<MutationEnvelope, { kind: "reply" }>) =>
+      executeReplyMutation(queryClient, boundary, envelope),
+  });
+}
+
+export function useStatusSideConversationMutation(boundary: MutationBoundary) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["side-conversation", "status"],
+    mutationFn: (
+      envelope: Extract<MutationEnvelope, { kind: "solve" | "reopen" }>
+    ) => executeStatusMutation(queryClient, boundary, envelope),
+  });
 }

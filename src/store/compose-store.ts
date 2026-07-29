@@ -144,7 +144,21 @@ export class ComposeStore {
     agentEmail: string | null,
     parentKey: string,
     sessionKey: number
+  ): Promise<MutationEnvelope | null>;
+  /** @deprecated Task-3 migration compatibility. */
+  async submit(
+    agentEmail: string | null,
+    parentKey: string
+  ): Promise<MutationEnvelope | null>;
+  async submit(
+    tenantIdOrAgentEmail: string | null,
+    agentEmailOrParentKey: string | null,
+    parentKey?: string,
+    sessionKey?: number
   ): Promise<MutationEnvelope | null> {
+    if (parentKey === undefined || sessionKey === undefined) return null;
+    const tenantId = tenantIdOrAgentEmail;
+    const agentEmail = agentEmailOrParentKey;
     if (this.submitting) return null; // D-17 — before any await
     this.submitting = true;
 

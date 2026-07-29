@@ -609,7 +609,9 @@ describe("canonical detail and mutation executors", () => {
       .mockReturnValue(detailRefresh.promise);
 
     const mutation = executeReplyMutation(client, boundary(), envelope);
-    await Promise.resolve();
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
     expect(mockedPatchTicket).toHaveBeenCalledWith("SIDE-1", envelope.request);
     expect(mockedPatchTicket.mock.calls[0][1]).toBe(envelope.request);
     expect(invalidate).toHaveBeenCalledWith({
@@ -622,11 +624,14 @@ describe("canonical detail and mutation executors", () => {
 
     listRefresh.resolve();
     await Promise.resolve();
-    expect(refetch).toHaveBeenCalledWith({
-      queryKey: ["side-conversation", "tenant-1", "SIDE-1"],
-      exact: true,
-      type: "all",
-    });
+    expect(refetch).toHaveBeenCalledWith(
+      {
+        queryKey: ["side-conversation", "tenant-1", "SIDE-1"],
+        exact: true,
+        type: "all",
+      },
+      { throwOnError: true }
+    );
     expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("pending");
 
     detailRefresh.resolve();
