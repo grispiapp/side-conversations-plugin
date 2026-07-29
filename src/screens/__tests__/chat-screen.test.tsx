@@ -405,6 +405,20 @@ describe("ChatScreen Query-owned session wiring", () => {
     });
     expect(container.querySelector('[role="menu"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
+
+    click("Görüşme seçenekleri");
+    const tabItem =
+      container.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    act(() => {
+      tabItem?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Tab",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(container.querySelector('[role="menu"]')).toBeNull();
   });
 
   it("keeps lifecycle canonical and executes solve/reopen/retry envelopes through Query", () => {
@@ -459,6 +473,52 @@ describe("ChatScreen Query-owned session wiring", () => {
         .querySelector('[role="textbox"][aria-label="Yanıt"]')
         ?.getAttribute("contenteditable")
     ).toBe("false");
+  });
+
+  it("traps confirmation focus, makes the background inert, and restores focus", () => {
+    render(<ChatScreen />);
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Görüşme seçenekleri"]'
+    );
+    click("Görüşme seçenekleri");
+    click("Çözüldü olarak işaretle");
+
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
+    const controls = dialog?.querySelectorAll<HTMLButtonElement>("button");
+    const cancel = controls?.[0];
+    const confirm = controls?.[1];
+    expect(document.activeElement).toBe(cancel);
+    expect(container.querySelector("header")?.hasAttribute("inert")).toBe(true);
+
+    act(() => {
+      cancel?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Tab",
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(document.activeElement).toBe(confirm);
+
+    act(() => {
+      confirm?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Tab",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(document.activeElement).toBe(cancel);
+
+    click("Vazgeç");
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.querySelector("header")?.hasAttribute("inert")).toBe(
+      false
+    );
+    expect(document.activeElement).toBe(trigger);
   });
 
   it("uses only matching-session one-shot scroll/focus and preserves dirty back", () => {

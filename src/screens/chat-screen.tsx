@@ -124,9 +124,12 @@ export const ChatScreen = observer(() => {
       closeMenu();
     };
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      closeMenu();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu();
+      } else if (event.key === "Tab") {
+        closeMenu(false);
+      }
     };
 
     document.addEventListener("mousedown", handlePointerDown);
@@ -254,6 +257,11 @@ export const ChatScreen = observer(() => {
                 role="menu"
                 aria-label="Görüşme işlemleri"
                 className="absolute right-0 top-full z-20 mt-1 min-w-56 rounded-md border border-border bg-card p-1 shadow-lg"
+                onBlur={(event) => {
+                  const nextFocus = event.relatedTarget as Node | null;
+                  if (nextFocus && menuRef.current?.contains(nextFocus)) return;
+                  closeMenu(false);
+                }}
               >
                 <button
                   ref={menuItemRef}

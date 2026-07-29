@@ -25,29 +25,78 @@ export const ConfirmDialog: FC<{
 }> = ({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel }) => {
   const titleId = useId();
   const bodyId = useId();
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
+    const overlay = overlayRef.current;
+    const backgroundSiblings = Array.from(
+      overlay?.parentElement?.children ?? []
+    ).filter((element) => element !== overlay);
+    const backgroundState = backgroundSiblings.map((element) => ({
+      element,
+      inert: element.hasAttribute("inert"),
+      ariaHidden: element.getAttribute("aria-hidden"),
+    }));
+    backgroundSiblings.forEach((element) => {
+      element.setAttribute("inert", "");
+      element.setAttribute("aria-hidden", "true");
+    });
     cancelRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onCancelRef.current();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCancelRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!dialogRef.current?.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      backgroundState.forEach(({ element, inert, ariaHidden }) => {
+        if (!inert) element.removeAttribute("inert");
+        if (ariaHidden === null) element.removeAttribute("aria-hidden");
+        else element.setAttribute("aria-hidden", ariaHidden);
+      });
       previousFocus?.focus();
     };
   }, []);
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40"
+    >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
