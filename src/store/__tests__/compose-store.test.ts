@@ -1,134 +1,63 @@
-import { ComposeStore, CustomerVM } from "../compose-store";
 import { RootStore } from "../root-store";
 
-import { grispiAPI } from "@/grispi/client/api";
+describe("ComposeStore mutation-envelope seam", () => {
+  let root: RootStore;
 
-jest.mock("@/grispi/client/api", () => ({
-  grispiAPI: {
-    customers: {
-      search: jest.fn(),
-    },
-  },
-}));
-
-const mockedSearch = grispiAPI.customers.search as jest.Mock;
-
-function makeStore(): {
-  store: ComposeStore;
-  startNew: jest.Mock;
-  openChat: jest.Mock;
-} {
-  const startNew = jest.fn();
-  const openChat = jest.fn();
-  const rootStore = {
-    activeConversation: { startNew },
-    panelNavigation: { openChat },
-  } as unknown as RootStore;
-  return { store: new ComposeStore(rootStore), startNew, openChat };
-}
-
-describe("ComposeStore draft ownership", () => {
-  beforeEach(() => mockedSearch.mockReset());
-
-  it("stores typed recipient input without timers, results or customer transport", () => {
-    jest.useFakeTimers();
-    const { store } = makeStore();
-
-    store.setQuery("  Acme ");
-    jest.advanceTimersByTime(1000);
-
-    expect(store.query).toBe("  Acme ");
-    expect(mockedSearch).not.toHaveBeenCalled();
-    expect(store).not.toHaveProperty("results");
-    expect(store).not.toHaveProperty("searchStatus");
-    jest.useRealTimers();
+  beforeEach(() => {
+    root = new RootStore();
   });
 
-  it("owns selected matched and free-form recipients", () => {
-    const { store } = makeStore();
-    const named: CustomerVM = {
-      id: 1,
-      name: "Ada Lovelace",
-      email: "ada@example.test",
-    };
+  it("keeps the pinned parent and returns one create envelope after the microtask-safe submit seam", async () => {
+    root.compose.initSubject("[PARENT-OLD] Konu", "PARENT-OLD");
+    root.compose.selectFreeEmail("vendor@example.test");
+    root.compose.setMessage("<p>Merhaba</p>");
 
-    store.selectRecipient(named);
-    expect(store.recipientEmail).toBe("ada@example.test");
-    expect(store.recipientLabel).toBe("Ada Lovelace");
+    const first = root.compose.submit(
+      "tenant-1",
+      "agent@example.test",
+      "PARENT-NEW",
+      12
+    );
+    const second = root.compose.submit(
+      "tenant-1",
+      "agent@example.test",
+      "PARENT-NEW",
+      12
+    );
 
-    store.selectFreeEmail("free@example.test");
-    expect(store.recipientEmail).toBe("free@example.test");
-    expect(store.recipientLabel).toBe("free@example.test");
-  });
-
-  it("keeps untouched prefill clean and detects recipient, message and subject edits", () => {
-    const { store } = makeStore();
-    store.initSubject("[PARENT-1] Konu", "PARENT-1");
-    expect(store.isDirty).toBe(false);
-
-    store.setMessage("Merhaba");
-    expect(store.isDirty).toBe(true);
-
-    store.reset();
-    store.initSubject("[PARENT-1] Konu", "PARENT-1");
-    store.setSubject("Düzenlenen konu");
-    expect(store.isDirty).toBe(true);
-  });
-
-  it("submits the selected recipient and message to the pinned parent", async () => {
-    const { store, startNew, openChat } = makeStore();
-    store.initSubject("[PARENT-1] Konu", "PARENT-1");
-    store.selectFreeEmail("vendor@example.test");
-    store.setMessage("Merhaba");
-
-    await store.submit("agent@example.test", "PARENT-CHANGED");
-
-    expect(startNew).toHaveBeenCalledWith({
-      recipientLabel: "vendor@example.test",
-      subject: "[PARENT-1] Konu",
-      body: "Merhaba",
-      parentKey: "PARENT-1",
+    expect(root.compose.submitting).toBe(true);
+    await expect(second).resolves.toBeNull();
+    const envelope = await first;
+    expect(envelope).toMatchObject({
+      kind: "create",
+      tenantId: "tenant-1",
+      parentKey: "PARENT-OLD",
+      sessionKey: 12,
       request: {
-        comment: {
-          body: "Merhaba",
-          publicVisible: true,
-          creator: [{ key: "us.email", value: "agent@example.test" }],
-        },
-        fields: [
-          { key: "ts.subject", value: "[PARENT-1] Konu" },
-          { key: "ts.requester", value: ":vendor@example.test" },
-          { key: "tu.side_conversation_parent", value: "PARENT-1" },
-        ],
+        fields: expect.arrayContaining([
+          {
+            key: "tu.side_conversation_parent",
+            value: "PARENT-OLD",
+          },
+        ]),
       },
     });
-    expect(openChat).toHaveBeenCalledTimes(1);
-    expect(store.isDirty).toBe(false);
+    expect(root.activeConversation.getRetryEnvelope(envelope!.clientMessageId))
+      .toBe(envelope);
+    expect(root.compose.isDirty).toBe(false);
   });
 
-  it("keeps the synchronous submit reentrancy guard and required fields", async () => {
-    const { store, startNew } = makeStore();
-    store.selectFreeEmail("vendor@example.test");
-    store.setMessage("Merhaba");
+  it("returns null without creating local state when required trusted or form inputs are absent", async () => {
+    root.compose.selectFreeEmail("vendor@example.test");
+    root.compose.setMessage("<p>Merhaba</p>");
 
-    const first = store.submit("agent@example.test", "PARENT-1");
-    const second = store.submit("agent@example.test", "PARENT-1");
-    await Promise.all([first, second]);
-    expect(startNew).toHaveBeenCalledTimes(1);
-
-    store.reset();
-    await store.submit("agent@example.test", "PARENT-1");
-    expect(startNew).toHaveBeenCalledTimes(1);
-  });
-
-  it("reset clears the pinned parent so the next draft uses its live parent", async () => {
-    const { store, startNew } = makeStore();
-    store.initSubject("[PARENT-1]", "PARENT-1");
-    store.reset();
-    store.selectFreeEmail("vendor@example.test");
-    store.setMessage("Merhaba");
-
-    await store.submit("agent@example.test", "PARENT-2");
-
-    expect(startNew.mock.calls[0][0].parentKey).toBe("PARENT-2");
+    await expect(
+      root.compose.submit(null, "agent@example.test", "PARENT-1", 1)
+    ).resolves.toBeNull();
+    await expect(
+      root.compose.submit("tenant-1", null, "PARENT-1", 1)
+    ).resolves.toBeNull();
+    expect(root.activeConversation.getOverlayMessages(1, null)).toEqual([]);
+    expect(root.compose.submitting).toBe(false);
   });
 });
