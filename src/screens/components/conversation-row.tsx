@@ -68,7 +68,9 @@ export const ConversationRow = observer(
               )}
             >
               {row.hasUnseen && "Görülmemiş · "}
-              {row.lifecycle === "solved"
+              {row.hydrationFailed
+                ? "Durum alınamadı"
+                : row.lifecycle === "solved"
                 ? "Çözüldü"
                 : row.actionBadge !== null
                   ? BADGE_LABEL[row.actionBadge]

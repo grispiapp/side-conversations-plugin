@@ -12,6 +12,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { grispiAPI } from "@/grispi/client/api";
 import { NetworkError } from "@/grispi/client/http-handler";
+import {
+  ConversationLifecycleStatus,
+  parseConversationLifecycleStatus,
+} from "@/lib/conversation-status";
 import { sanitizeHtml, splitQuotedHtml } from "@/lib/html-sanitizer";
 import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
@@ -65,7 +69,9 @@ export interface SideConversationDetail {
   sideKey: string;
   recipientLabel: string;
   subject: string;
+  lifecycle: ConversationLifecycleStatus;
   solved: boolean;
+  reopenable: boolean;
   messages: MessageVM[];
   scrollTargetMessageId: string | null;
   latestRelevantExternalAt: number | null;
@@ -424,17 +430,6 @@ function resolveRecipientLabel(ticket: Ticket): string {
   return name || email || "—";
 }
 
-function resolveStatusId(ticket: Ticket): string | null {
-  const value = ticket.fieldMap?.["ts.status"]?.value;
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
-  }
-  if (value && typeof value === "object" && "id" in value) {
-    return String((value as { id: unknown }).id);
-  }
-  return null;
-}
-
 export function normalizeSideConversationDetail(
   ticket: Ticket,
   tenantId: string
@@ -457,11 +452,16 @@ export function normalizeSideConversationDetail(
       : null;
 
   const subject = ticket.fieldMap?.["ts.subject"]?.value;
+  const lifecycle = parseConversationLifecycleStatus(
+    ticket.fieldMap?.["ts.status"]?.value
+  );
   return {
     sideKey: ticket.key,
     recipientLabel: resolveRecipientLabel(ticket),
     subject: typeof subject === "string" ? subject : "",
-    solved: resolveStatusId(ticket) === "4",
+    lifecycle,
+    solved: lifecycle !== "open",
+    reopenable: lifecycle === "solved",
     messages,
     scrollTargetMessageId:
       firstUnseen?.id ?? messages[messages.length - 1]?.id ?? null,

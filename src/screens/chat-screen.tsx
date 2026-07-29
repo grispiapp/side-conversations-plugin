@@ -98,7 +98,10 @@ export const ChatScreen = observer(() => {
   const recipientLabel =
     detail.data?.recipientLabel ?? localPresentation?.recipientLabel ?? "";
   const subject = detail.data?.subject ?? localPresentation?.subject ?? "";
-  const solved = detail.data?.solved ?? false;
+  const lifecycle =
+    detail.data?.lifecycle ?? (detail.data?.solved ? "solved" : "open");
+  const solved = lifecycle !== "open";
+  const closed = lifecycle === "closed";
 
   const closeMenu = useCallback((returnFocus = true) => {
     setMenuOpen(false);
@@ -205,7 +208,9 @@ export const ChatScreen = observer(() => {
           solved,
         }
       : null;
-  const lifecycleActionLabel = solved ? "Tekrar aç" : "Çözüldü olarak işaretle";
+  const lifecycleActionLabel = solved
+    ? "Tekrar aç"
+    : "Çözüldü olarak işaretle";
 
   return (
     <Screen>
@@ -232,7 +237,9 @@ export const ChatScreen = observer(() => {
               aria-label="Görüşme seçenekleri"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              disabled={!sideKey || detail.isPending || detail.isError}
+              disabled={
+                !sideKey || detail.isPending || detail.isError || closed
+              }
               onClick={() => {
                 if (menuOpen) closeMenu();
                 else setMenuOpen(true);
@@ -295,7 +302,7 @@ export const ChatScreen = observer(() => {
             role="status"
             className="border-b border-border bg-muted px-4 py-2 text-center text-sm font-medium text-muted-foreground"
           >
-            Çözüldü
+            {closed ? "Kapalı" : "Çözüldü"}
           </div>
         )}
 

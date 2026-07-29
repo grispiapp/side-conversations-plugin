@@ -295,6 +295,7 @@ describe("side-conversation query contracts", () => {
     expect(data.pages[0].rows[0]).toMatchObject({
       key: "SIDE-1",
       recipientEmail: "—",
+      actionBadge: null,
       hydrationFailed: true,
     });
   });
@@ -554,7 +555,9 @@ describe("canonical detail and mutation executors", () => {
       sideKey: "SIDE-1",
       recipientLabel: "side-1@example.test",
       subject: "Konu",
+      lifecycle: "solved",
       solved: true,
+      reopenable: true,
       scrollTargetMessageId: "comment-1",
       latestRelevantExternalAt: 1_000,
     });
@@ -579,6 +582,26 @@ describe("canonical detail and mutation executors", () => {
     expect(
       window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-1")
     ).toBeNull();
+  });
+
+  it("uses the same terminal lifecycle parser for status-5 detail as the list projection", async () => {
+    const closedTicket = {
+      ...makeTicket("SIDE-1"),
+      fieldMap: {
+        "ts.status": { key: "ts.status", value: "5" },
+      },
+    };
+    mockedGetTicket.mockResolvedValue(closedTicket);
+
+    const detail = await client.fetchQuery(
+      sideConversationDetailOptions("tenant-1", "SIDE-1")
+    );
+
+    expect(detail).toMatchObject({
+      lifecycle: "closed",
+      solved: true,
+      reopenable: false,
+    });
   });
 
   it("does not mark a deferred stale A detail query read after the selected session moves to B", async () => {

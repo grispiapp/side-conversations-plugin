@@ -1,9 +1,16 @@
-import { ConversationBadge, deriveBadge } from "@/lib/conversation-status";
+import {
+  ConversationBadge,
+  ConversationLifecycleStatus,
+  deriveBadge,
+} from "@/lib/conversation-status";
 import { htmlToText } from "@/lib/html-to-text";
 import { getLastSeenAt } from "@/lib/last-seen-store";
 import { SideTicketSummary, Ticket } from "@/types/grispi.type";
 
-export type ConversationLifecycle = "open" | "solved";
+export type ConversationLifecycle = Exclude<
+  ConversationLifecycleStatus,
+  "closed"
+>;
 export type ConversationActionBadge = Exclude<ConversationBadge, "kapali">;
 
 export interface ConversationRowVM {
@@ -97,7 +104,7 @@ export function projectConversationRow(
       subject: summary.subject || summary.key,
       summary: "",
       lifecycle: "open",
-      actionBadge: "yeni-yanit",
+      actionBadge: null,
       hasUnseen: false,
       lastPublicCommentAt: null,
       hydrationFailed: true,

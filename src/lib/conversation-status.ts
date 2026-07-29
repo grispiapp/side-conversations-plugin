@@ -8,10 +8,27 @@
  */
 
 export type ConversationBadge = "yeni-yanit" | "yanit-bekleniyor" | "kapali";
+export type ConversationLifecycleStatus = "open" | "solved" | "closed";
 
 // CONFIRMED live (Plan 02 / Task 1 probe, 2026-07-23, gsocial-test tenant):
 // SOLVED={id:4,name:"Solved"}, CLOSED={id:5,name:"Closed"}.
-const CLOSED_STATUS_IDS = new Set([4, 5]);
+const SOLVED_STATUS_ID = 4;
+const CLOSED_STATUS_ID = 5;
+
+export function parseConversationLifecycleStatus(
+  value: unknown
+): ConversationLifecycleStatus {
+  const raw =
+    value && typeof value === "object" && "id" in value
+      ? (value as { id: unknown }).id
+      : value;
+  const statusId =
+    typeof raw === "string" || typeof raw === "number" ? Number(raw) : NaN;
+
+  if (statusId === CLOSED_STATUS_ID) return "closed";
+  if (statusId === SOLVED_STATUS_ID) return "solved";
+  return "open";
+}
 
 export interface DeriveBadgePublicComment {
   createdAt: number;
@@ -35,7 +52,7 @@ export function deriveBadge(input: DeriveBadgeInput): DeriveBadgeResult {
   );
   const last = sorted[0] ?? null;
 
-  if (input.statusId !== null && CLOSED_STATUS_IDS.has(input.statusId)) {
+  if (parseConversationLifecycleStatus(input.statusId) !== "open") {
     return { badge: "kapali", lastPublicCommentAt: last?.createdAt ?? null };
   }
 

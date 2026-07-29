@@ -140,6 +140,21 @@ it("renders a labelled header action and flush textual queue states", () => {
   ).toBeGreaterThanOrEqual(3);
 });
 
+it("labels failed hydration neutrally without claiming a new reply", () => {
+  mockListQuery.rows = [
+    {
+      ...row("SC-UNKNOWN"),
+      hydrationFailed: true,
+      actionBadge: null,
+    },
+  ];
+
+  render(<ConversationsListScreen />);
+
+  expect(container.textContent).toContain("Durum alınamadı");
+  expect(container.textContent).not.toContain("Yeni yanıt");
+});
+
 it("restores focus to the exact activating row once after rows render", () => {
   mockStore = makeStore("SC-B");
 

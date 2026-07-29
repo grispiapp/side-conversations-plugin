@@ -113,7 +113,7 @@ describe("side-conversation row projection", () => {
       subject: "Subject SIDE-SECRET",
       summary: "",
       lifecycle: "open",
-      actionBadge: "yeni-yanit",
+      actionBadge: null,
       hasUnseen: false,
       lastPublicCommentAt: null,
       hydrationFailed: true,

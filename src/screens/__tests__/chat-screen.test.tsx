@@ -117,7 +117,9 @@ function makeDetail(overrides: Record<string, unknown> = {}) {
       sideKey: "SC-42",
       recipientLabel: "Ada <ada@example.test>",
       subject: "Teslimat",
+      lifecycle: "open",
       solved: false,
+      reopenable: false,
       messages: canonicalMessages(),
       scrollTargetMessageId: "comment-1",
       latestRelevantExternalAt: 1_000,
@@ -419,7 +421,12 @@ describe("ChatScreen Query-owned session wiring", () => {
 
     const reopen = envelope("reopen");
     mockDetail = makeDetail({
-      data: { ...makeDetail().data, solved: true },
+      data: {
+        ...makeDetail().data,
+        lifecycle: "solved",
+        solved: true,
+        reopenable: true,
+      },
     });
     mockStore.activeConversation.reopen.mockReturnValue(reopen);
     render(<></>);
@@ -427,6 +434,31 @@ describe("ChatScreen Query-owned session wiring", () => {
     click("Görüşme seçenekleri");
     click("Tekrar aç");
     expect(mockStatusMutation.mutate).toHaveBeenCalledWith(reopen);
+  });
+
+  it("keeps status-5 closed detail terminal and non-editable", () => {
+    mockDetail = makeDetail({
+      data: {
+        ...makeDetail().data,
+        lifecycle: "closed",
+        solved: true,
+        reopenable: false,
+      },
+    });
+
+    render(<ChatScreen />);
+
+    expect(container.textContent).toContain("Kapalı");
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        '[aria-label="Görüşme seçenekleri"]'
+      )?.disabled
+    ).toBe(true);
+    expect(
+      container
+        .querySelector('[role="textbox"][aria-label="Yanıt"]')
+        ?.getAttribute("contenteditable")
+    ).toBe("false");
   });
 
   it("uses only matching-session one-shot scroll/focus and preserves dirty back", () => {
