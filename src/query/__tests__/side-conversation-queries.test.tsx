@@ -150,7 +150,7 @@ describe("side-conversation query contracts", () => {
     window.localStorage.clear();
   });
 
-  it("defines a page-size-10 infinite list with exact tenant key and page progression", async () => {
+  it("defines a page-size-5 infinite list with exact tenant key and page progression", async () => {
     const firstPage = makeListPage(0, 2);
     mockedAdvancedSearch.mockResolvedValue(firstPage);
     const options = sideConversationListOptions("tenant-1", "TICKET-1");
@@ -175,7 +175,7 @@ describe("side-conversation query contracts", () => {
         ],
         anyConditions: [],
       },
-      { size: 10, page: 0 }
+      { size: 5, page: 0 }
     );
     expect(options.getNextPageParam(data.pages[0], data.pages, 0, [0])).toBe(1);
     expect(

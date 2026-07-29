@@ -43,7 +43,8 @@ import {
   Ticket,
 } from "@/types/grispi.type";
 
-const PAGE_SIZE = 10;
+const SIDE_CONVERSATION_PAGE_SIZE = 5;
+const CUSTOMER_PAGE_SIZE = 10;
 const LIST_STALE_TIME = 30_000;
 const DETAIL_STALE_TIME = 15_000;
 const CUSTOMER_STALE_TIME = 30_000;
@@ -185,7 +186,7 @@ async function fetchSideConversationPage(
         ],
         anyConditions: [],
       },
-      { size: PAGE_SIZE, page }
+      { size: SIDE_CONVERSATION_PAGE_SIZE, page }
     );
   const rows = await hydrateSummaries(tenantId, response.content);
 
@@ -350,7 +351,7 @@ export function customerSearchOptions(tenantId: string | null, term: string) {
       requireIdentity(tenantId, "tenantId");
       return grispiAPI.customers.search({
         searchTerm: normalizedTerm,
-        size: PAGE_SIZE,
+        size: CUSTOMER_PAGE_SIZE,
         page: 0,
       });
     },
