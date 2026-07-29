@@ -77,7 +77,7 @@ TDD gates and implementation outcomes were committed separately:
 3. **Task 2 RED: Integrated thread screen contracts** - `14fc501` (test)
 4. **Task 2 GREEN: Email thread, composer, solve/reopen UI** - `0d1688c` (feat)
 
-**Task 3:** Blocking ten-item live tenant UAT remains pending and is not claimed as performed or approved.
+**Task 3:** Live tenant UAT was intentionally **NOT TESTED** in this execution pass. The user deferred all ten items to the final test pass; none is claimed as performed, passed, or approved.
 
 ## Files Created/Modified
 
@@ -118,10 +118,25 @@ None in the production files created or modified by this plan.
 
 None - no external service configuration was added.
 
+## Deferred Live UAT (Not Tested)
+
+Implementation is complete, but these live checks remain deliberately outstanding until the final test pass:
+
+1. First-unseen scroll, latest-external localStorage write, purple accent, and `Yeni yanıt` persistence.
+2. Chronological own/external/internal email blocks, identity treatment, safe HTML, and collapsed quotes.
+3. Hostile/complex HTML paste sanitization in rendered DOM and PATCH payload.
+4. Shift+Enter delivery, pending/clear/refetch behavior, and preserved quoted thread context in the email.
+5. Failed-send retry uses the identical payload without quote duplication.
+6. Solve confirmation plus no-comment/no-email lifecycle behavior, solved band, and disabled composer.
+7. Lifecycle failure has no optimistic flip and retry succeeds.
+8. Reopen focuses the composer.
+9. External reply after solve auto-reactivates the thread and restores unseen/`Yeni yanıt` signals.
+10. Dirty-back cancel/confirm and toolbar keyboard/focus behavior.
+
 ## Next Phase Readiness
 
 - All automated gates are green and the Phase 3 implementation is ready for narrow-panel live tenant verification.
-- Blocking checkpoint: Task 3’s ten numbered live UAT checks must be performed and approved before phase completion is claimed.
+- The ten live UAT checks are **deferred / NOT TESTED** by user choice and must be performed in the final test pass before release approval.
 
 ## Self-Check: PASSED
 
