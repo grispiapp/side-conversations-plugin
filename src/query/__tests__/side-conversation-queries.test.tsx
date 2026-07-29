@@ -21,12 +21,62 @@ jest.mock("@/grispi/client/api", () => ({
     customers: {
       search: jest.fn(),
     },
+    users: {
+      getUser: jest.fn(),
+    },
   },
 }));
 
 const mockedAdvancedSearch = grispiAPI.tickets.advancedSearch as jest.Mock;
 const mockedGetTicket = grispiAPI.tickets.getTicket as jest.Mock;
 const mockedCustomerSearch = grispiAPI.customers.search as jest.Mock;
+const mockedGetUser = grispiAPI.users.getUser as jest.Mock;
+
+function makeTicket(key: string, requesterId = 7): Ticket {
+  return {
+    key,
+    callMergeStatus: null,
+    channel: "EMAIL",
+    form: {} as Ticket["form"],
+    createdAt: 0,
+    updatedAt: 0,
+    solvedAt: null,
+    comments: [
+      {
+        attachments: [],
+        id: 1,
+        body: `<p>Message ${key}</p>`,
+        publicVisible: true,
+        ticketKey: key,
+        createdAt: 1000,
+        creator: {
+          id: requesterId,
+          email: `${key.toLowerCase()}@example.test`,
+          role: {
+            authority: "ROLE_END_USER",
+            impliedAuthorities: [],
+            teamUser: false,
+          },
+        } as Ticket["comments"][number]["creator"],
+        call: null,
+        toId: null,
+        toEmail: null,
+        commentCCs: [],
+        mentionedUsers: [],
+        channel: "EMAIL",
+        externalId: "",
+      },
+    ],
+    fieldMap: {
+      "ts.requester": {
+        key: "ts.requester",
+        value: String(requesterId),
+      },
+    },
+    relation: [],
+    resolution: null,
+  };
+}
 
 function makeListPage(
   pageNumber: number,
@@ -54,6 +104,11 @@ function makeCustomerPage(): CustomerSearchResponse {
 describe("side-conversation query contracts", () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    mockedGetTicket.mockImplementation((key: string) =>
+      Promise.resolve(makeTicket(key))
+    );
+    mockedGetUser.mockResolvedValue(null);
+    window.localStorage.clear();
   });
 
   it("defines a page-size-10 infinite list with exact tenant key and page progression", async () => {
@@ -168,5 +223,61 @@ describe("side-conversation query contracts", () => {
 
     expect(tenantOne.queryKey).not.toEqual(tenantTwo.queryKey);
     expect(tenantTwoClient.getQueryData(tenantTwo.queryKey)).toBeUndefined();
+  });
+
+  it("hydrates each summary into projected rows inside the Query-owned page", async () => {
+    mockedAdvancedSearch.mockResolvedValue(makeListPage(0, 1));
+    const client = createTestQueryClient();
+
+    const data = await client.fetchInfiniteQuery(
+      sideConversationListOptions("tenant-1", "TICKET-1")
+    );
+
+    expect(data.pages[0].rows).toEqual([
+      expect.objectContaining({
+        key: "SIDE-1",
+        recipientEmail: "side-1@example.test",
+        summary: "Message SIDE-1",
+        hydrationFailed: false,
+      }),
+    ]);
+  });
+
+  it("settles hydration failures, retries exactly once and keeps a neutral ready row when repair fails", async () => {
+    mockedAdvancedSearch.mockResolvedValue(makeListPage(0, 1));
+    mockedGetTicket.mockRejectedValue(new Error("private failure"));
+    const client = createTestQueryClient();
+
+    const data = await client.fetchInfiniteQuery(
+      sideConversationListOptions("tenant-1", "TICKET-1")
+    );
+
+    expect(mockedGetTicket).toHaveBeenCalledTimes(2);
+    expect(data.pages[0].rows[0]).toMatchObject({
+      key: "SIDE-1",
+      recipientEmail: "—",
+      hydrationFailed: true,
+    });
+  });
+
+  it("uses the users endpoint as the neutral recipient fallback without exposing a raw ticket key", async () => {
+    mockedAdvancedSearch.mockResolvedValue(makeListPage(0, 1));
+    mockedGetTicket.mockResolvedValue({
+      ...makeTicket("SIDE-1", 92),
+      comments: [],
+    });
+    mockedGetUser.mockResolvedValue({
+      id: 92,
+      primaryEmail: "requester@example.test",
+    });
+    const client = createTestQueryClient();
+
+    const data = await client.fetchInfiniteQuery(
+      sideConversationListOptions("tenant-1", "TICKET-1")
+    );
+
+    expect(mockedGetUser).toHaveBeenCalledWith(92);
+    expect(data.pages[0].rows[0].recipientEmail).toBe("requester@example.test");
+    expect(data.pages[0].rows[0].recipientEmail).not.toBe("SIDE-1");
   });
 });

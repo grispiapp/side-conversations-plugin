@@ -4,6 +4,7 @@ import { Root, createRoot } from "react-dom/client";
 
 let mockStore: any;
 let mockGrispi: any;
+let mockListQuery: any;
 
 jest.mock("@/contexts/store-context", () => ({
   useStore: () => mockStore,
@@ -11,6 +12,10 @@ jest.mock("@/contexts/store-context", () => ({
 
 jest.mock("@/contexts/grispi-context", () => ({
   useGrispi: () => mockGrispi,
+}));
+
+jest.mock("@/query/side-conversation-queries", () => ({
+  useSideConversationsQuery: () => mockListQuery,
 }));
 
 const row = (key: string) => ({
@@ -41,20 +46,8 @@ function render(ui: ReactElement): void {
   });
 }
 
-function makeStore(
-  rows = [row("SC-A"), row("SC-B")],
-  focusKey: string | null = null
-) {
+function makeStore(focusKey: string | null = null) {
   return {
-    sideConversations: {
-      status: "ready",
-      rows,
-      hasMore: false,
-      loadingMore: false,
-      error: null,
-      load: jest.fn(),
-      loadMore: jest.fn(),
-    },
     panelNavigation: {
       openCompose: jest.fn(),
       openConversation: jest.fn(),
@@ -68,6 +61,16 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   mockStore = makeStore();
+  mockListQuery = {
+    rows: [row("SC-A"), row("SC-B")],
+    isPending: false,
+    isError: false,
+    error: null,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    refetch: jest.fn(),
+    fetchNextPage: jest.fn(),
+  };
   mockGrispi = {
     ticket: { key: "PARENT-1" },
     tenantId: "tenant-1",
@@ -98,7 +101,7 @@ it("passes the activating row key through the native row button boundary", () =>
 });
 
 it("restores focus to the exact activating row once after rows render", () => {
-  mockStore = makeStore([row("SC-A"), row("SC-B")], "SC-B");
+  mockStore = makeStore("SC-B");
 
   render(<ConversationsListScreen />);
 
@@ -112,7 +115,8 @@ it("restores focus to the exact activating row once after rows render", () => {
 });
 
 it("falls back to the labeled header create action when the activating row disappeared", () => {
-  mockStore = makeStore([row("SC-A")], "SC-REMOVED");
+  mockStore = makeStore("SC-REMOVED");
+  mockListQuery.rows = [row("SC-A")];
 
   render(<ConversationsListScreen />);
 
@@ -122,4 +126,25 @@ it("falls back to the labeled header create action when the activating row disap
   expect(
     mockStore.panelNavigation.consumeListFocusRequest
   ).toHaveBeenCalledTimes(1);
+});
+
+it("derives skeleton, empty, retry and pagination controls from Query state", () => {
+  mockListQuery.isPending = true;
+  render(<ConversationsListScreen />);
+  expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0);
+  expect(container.textContent).not.toContain("Henüz yan görüşme yok");
+
+  mockListQuery.isPending = false;
+  mockListQuery.rows = [];
+  render(<ConversationsListScreen />);
+  expect(container.textContent).toContain("Henüz yan görüşme yok");
+
+  mockListQuery.rows = [row("SC-A")];
+  mockListQuery.hasNextPage = true;
+  render(<ConversationsListScreen />);
+  const loadMore = container.querySelector<HTMLButtonElement>(
+    '[aria-label="Daha fazla yükle"]'
+  );
+  act(() => loadMore?.click());
+  expect(mockListQuery.fetchNextPage).toHaveBeenCalledTimes(1);
 });

@@ -1,9 +1,9 @@
+import { ActiveConversationStore } from "../active-conversation-store";
+import { RootStore } from "../root-store";
+
 import { grispiAPI } from "@/grispi/client/api";
 import { HttpError, NetworkError } from "@/grispi/client/http-handler";
 import { CreateTicketRequest, Ticket } from "@/types/grispi.type";
-
-import { ActiveConversationStore } from "../active-conversation-store";
-import { RootStore } from "../root-store";
 
 jest.mock("@/grispi/client/api", () => ({
   grispiAPI: {
@@ -189,8 +189,27 @@ describe("ActiveConversationStore", () => {
     expect(loadMock).toHaveBeenCalledWith("DESTEK-1");
   });
 
+  it("does not require a MobX list owner after a successful create", async () => {
+    mockedCreateTicket.mockResolvedValueOnce(makeTicketResponse("TICKET-582"));
+    const isolated = new ActiveConversationStore({} as RootStore);
+
+    isolated.startNew({
+      recipientLabel: "Vendor Co",
+      subject: "[DESTEK-1] Kargo sorunu",
+      body: "Merhaba",
+      request: makeRequest(),
+      parentKey: "DESTEK-1",
+    });
+    await flushPromises();
+
+    expect(isolated.messages[0].status).toBe("sent");
+    expect(isolated.ticketKey).toBe("TICKET-582");
+  });
+
   it("marks the message failed with body preserved on a network error, and never refetches the list", async () => {
-    mockedCreateTicket.mockRejectedValueOnce(new NetworkError(new Error("offline")));
+    mockedCreateTicket.mockRejectedValueOnce(
+      new NetworkError(new Error("offline"))
+    );
 
     store.startNew({
       recipientLabel: "Vendor Co",
@@ -209,7 +228,9 @@ describe("ActiveConversationStore", () => {
   });
 
   it("marks the message failed with the server errorKind on an HttpError (T-02-03 — body/status never captured)", async () => {
-    mockedCreateTicket.mockRejectedValueOnce(new HttpError(422, { message: "boom" }));
+    mockedCreateTicket.mockRejectedValueOnce(
+      new HttpError(422, { message: "boom" })
+    );
 
     store.startNew({
       recipientLabel: "Vendor Co",
@@ -226,7 +247,9 @@ describe("ActiveConversationStore", () => {
   });
 
   it("retry(messageId) re-sends the identical POST and resolves to sent + refetches (D-15)", async () => {
-    mockedCreateTicket.mockRejectedValueOnce(new NetworkError(new Error("offline")));
+    mockedCreateTicket.mockRejectedValueOnce(
+      new NetworkError(new Error("offline"))
+    );
 
     store.startNew({
       recipientLabel: "Vendor Co",
@@ -325,12 +348,7 @@ describe("ActiveConversationStore", () => {
       "vendor@example.com",
       "Vendor Person"
     );
-    const agent = makeCreator(
-      9,
-      "ROLE_ADMIN",
-      "agent@grispi.com",
-      "Agent"
-    );
+    const agent = makeCreator(9, "ROLE_ADMIN", "agent@grispi.com", "Agent");
 
     beforeEach(() => {
       window.localStorage.clear();
@@ -384,9 +402,7 @@ describe("ActiveConversationStore", () => {
           internal: true,
         }),
       ]);
-      expect(store.recipientLabel).toBe(
-        "Vendor Person <vendor@example.com>"
-      );
+      expect(store.recipientLabel).toBe("Vendor Person <vendor@example.com>");
       expect(store.subject).toBe("Tedarikçi takibi");
       expect(store.solved).toBe(false);
     });
@@ -495,12 +511,7 @@ describe("ActiveConversationStore", () => {
       "vendor@example.com",
       "Vendor Person"
     );
-    const agent = makeCreator(
-      9,
-      "ROLE_ADMIN",
-      "agent@grispi.com",
-      "Agent"
-    );
+    const agent = makeCreator(9, "ROLE_ADMIN", "agent@grispi.com", "Agent");
 
     async function loadOpenThread(): Promise<void> {
       mockedGetTicket.mockResolvedValueOnce(
@@ -545,14 +556,12 @@ describe("ActiveConversationStore", () => {
       expect(optimistic).toMatchObject({
         direction: "own",
         status: "pending",
-        body:
-          "<p>New <strong>reply</strong></p><blockquote><p>Public 1</p><p>Public 2</p></blockquote>",
+        body: "<p>New <strong>reply</strong></p><blockquote><p>Public 1</p><p>Public 2</p></blockquote>",
       });
 
       const expectedRequest = {
         comment: {
-          body:
-            "<p>New <strong>reply</strong></p><blockquote><p>Public 1</p><p>Public 2</p></blockquote>",
+          body: "<p>New <strong>reply</strong></p><blockquote><p>Public 1</p><p>Public 2</p></blockquote>",
           publicVisible: true,
           creator: [{ key: "us.email", value: "agent@grispi.com" }],
         },
