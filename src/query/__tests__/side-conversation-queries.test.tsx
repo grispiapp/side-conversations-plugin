@@ -577,7 +577,7 @@ describe("canonical detail and mutation executors", () => {
     ]);
   });
 
-  it("passes the exact reply request, awaits exact all-list then detail refresh, and only then accepts", async () => {
+  it("passes the exact reply request, accepts the transport once, then awaits exact list/detail convergence", async () => {
     const envelope = replyEnvelope();
     const listRefresh = deferred<void>();
     const detailRefresh = deferred<void>();
@@ -620,7 +620,7 @@ describe("canonical detail and mutation executors", () => {
       refetchType: "all",
     });
     expect(refetch).not.toHaveBeenCalled();
-    expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("pending");
+    expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("sent");
 
     listRefresh.resolve();
     await Promise.resolve();
@@ -632,7 +632,7 @@ describe("canonical detail and mutation executors", () => {
       },
       { throwOnError: true }
     );
-    expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("pending");
+    expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("sent");
 
     detailRefresh.resolve();
     await mutation;
@@ -655,6 +655,25 @@ describe("canonical detail and mutation executors", () => {
     expect(store.getOverlayMessages(1, "SIDE-1")[0]).toMatchObject({
       status: "failed",
       errorKind: "network",
+    });
+  });
+
+  it("never converts an accepted reply into a resendable failure when canonical refresh fails", async () => {
+    const envelope = replyEnvelope();
+    mockedPatchTicket.mockResolvedValue({ key: "SIDE-1" });
+    jest.spyOn(client, "invalidateQueries").mockResolvedValue();
+    jest
+      .spyOn(client, "refetchQueries")
+      .mockRejectedValue(new Error("detail refresh failed"));
+
+    await expect(
+      executeReplyMutation(client, boundary(), envelope)
+    ).resolves.toBeUndefined();
+
+    expect(mockedPatchTicket).toHaveBeenCalledTimes(1);
+    expect(store.getOverlayMessages(1, "SIDE-1")[0]).toMatchObject({
+      status: "sent",
+      errorKind: undefined,
     });
   });
 

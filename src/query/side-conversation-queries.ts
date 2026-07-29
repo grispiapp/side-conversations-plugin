@@ -496,7 +496,6 @@ async function refreshCanonicalAfterMutation(
   }
   if (!isCurrent(boundary, envelope, sideKey)) return;
 
-  boundary.activeConversation.mutationAccepted(envelope);
   boundary.activeConversation.reconcileCanonical(
     envelope.sessionKey,
     sideKey,
@@ -518,22 +517,31 @@ export async function executeCreateMutation(
   if (!isCurrent(boundary, envelope)) return;
   boundary.activeConversation.mutationStarted(envelope);
 
+  let sideKey: string;
   try {
     const response = await grispiAPI.tickets.createTicket(envelope.request);
-    if (!isCurrent(boundary, envelope)) return;
+    sideKey = response.key;
+  } catch (error) {
+    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
+    throw error;
+  }
 
-    boundary.activeConversation.bindCreatedTicket(envelope, response.key);
-    boundary.bindCreatedTicket(envelope.sessionKey, response.key);
-    if (!isCurrent(boundary, envelope, response.key)) return;
+  if (!isCurrent(boundary, envelope)) return;
+  boundary.activeConversation.bindCreatedTicket(envelope, sideKey);
+  boundary.bindCreatedTicket(envelope.sessionKey, sideKey);
+  if (!isCurrent(boundary, envelope, sideKey)) return;
+  boundary.activeConversation.mutationAccepted(envelope);
+  try {
     await refreshCanonicalAfterMutation(
       queryClient,
       boundary,
       envelope,
-      response.key
+      sideKey
     );
-  } catch (error) {
-    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
-    throw error;
+  } catch {
+    // The transport is already committed. Canonical convergence can be
+    // retried by the exact detail/list Query seams, but this envelope must
+    // never return to a resendable failure state.
   }
 }
 
@@ -547,16 +555,22 @@ export async function executeReplyMutation(
 
   try {
     await grispiAPI.tickets.patchTicket(envelope.sideKey, envelope.request);
-    if (!isCurrent(boundary, envelope)) return;
+  } catch (error) {
+    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
+    throw error;
+  }
+
+  if (!isCurrent(boundary, envelope)) return;
+  boundary.activeConversation.mutationAccepted(envelope);
+  try {
     await refreshCanonicalAfterMutation(
       queryClient,
       boundary,
       envelope,
       envelope.sideKey
     );
-  } catch (error) {
-    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
-    throw error;
+  } catch {
+    // A failed cache refresh is not a failed outbound email.
   }
 }
 
@@ -570,16 +584,23 @@ export async function executeStatusMutation(
 
   try {
     await grispiAPI.tickets.patchTicket(envelope.sideKey, envelope.request);
-    if (!isCurrent(boundary, envelope)) return;
+  } catch (error) {
+    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
+    throw error;
+  }
+
+  if (!isCurrent(boundary, envelope)) return;
+  boundary.activeConversation.mutationAccepted(envelope);
+  try {
     await refreshCanonicalAfterMutation(
       queryClient,
       boundary,
       envelope,
       envelope.sideKey
     );
-  } catch (error) {
-    boundary.activeConversation.mutationFailed(envelope, errorKind(error));
-    throw error;
+  } catch {
+    // Lifecycle transport succeeded; keep canonical state until an exact
+    // detail refresh eventually converges instead of offering a re-PATCH.
   }
 }
 
