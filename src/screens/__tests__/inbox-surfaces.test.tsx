@@ -199,13 +199,18 @@ describe("unified compose surface", () => {
       container
         .querySelector<HTMLInputElement>('[role="combobox"]')
         ?.getAttribute("aria-controls")
-    ).toBe("compose-recipient-options");
+    ).toBe("compose-recipient-popup");
     expect(container.textContent).toContain("Aranıyor…");
+    expect(container.querySelector('[role="listbox"]')).toBeNull();
+    expect(
+      container.querySelector('[role="status"]')?.closest('[role="region"]')
+    ).not.toBeNull();
 
     mockStore.compose.query = "Davut";
     mockCustomersQuery.isFetching = false;
     remountCompose();
     expect(container.textContent).toContain("Sonuç bulunamadı");
+    expect(container.querySelector('[role="listbox"]')).toBeNull();
     expect(container.textContent).not.toContain(
       "Geçerli bir e-posta adresi girin."
     );
@@ -215,6 +220,7 @@ describe("unified compose surface", () => {
     expect(container.textContent).toContain(
       "Geçerli bir e-posta adresi girin."
     );
+    expect(container.querySelector('[role="listbox"]')).toBeNull();
 
     mockStore.compose.query = "vendor@example.test";
     remountCompose();
@@ -222,9 +228,19 @@ describe("unified compose surface", () => {
       container.querySelector<HTMLInputElement>('[role="combobox"]');
     const freeEmail =
       container.querySelector<HTMLButtonElement>('[role="option"]');
+    expect(input?.getAttribute("aria-controls")).toBe(
+      "compose-recipient-options"
+    );
     expect(freeEmail?.textContent).toContain(
       "vendor@example.test adresini kullan"
     );
+    const listbox = container.querySelector('[role="listbox"]');
+    expect(listbox).not.toBeNull();
+    expect(
+      Array.from(listbox?.children ?? []).every(
+        (child) => child.getAttribute("role") === "option"
+      )
+    ).toBe(true);
     act(() => {
       input?.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -266,9 +282,14 @@ describe("unified compose surface", () => {
     expect(container.textContent).toContain("Alıcılar aranamadı.");
     expect(container.textContent).not.toContain("Sonuç bulunamadı");
     expect(container.textContent).not.toContain("adresini kullan");
+    expect(container.querySelector('[role="listbox"]')).toBeNull();
+    expect(
+      container.querySelector('[role="alert"]')?.closest('[role="region"]')
+    ).not.toBeNull();
     const retry = Array.from(
       container.querySelectorAll<HTMLButtonElement>("button")
     ).find((button) => button.textContent?.trim() === "Yeniden dene");
+    expect(retry?.closest('[role="listbox"]')).toBeNull();
     act(() => retry?.click());
     expect(mockCustomersQuery.refetch).toHaveBeenCalledTimes(1);
   });

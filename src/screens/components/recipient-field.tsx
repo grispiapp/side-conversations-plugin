@@ -33,6 +33,7 @@ export const RecipientField = observer(() => {
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [popupOpen, setPopupOpen] = useState(true);
   const fieldRef = useRef<HTMLDivElement>(null);
+  const popupId = "compose-recipient-popup";
   const listboxId = "compose-recipient-options";
   const helpId = "compose-recipient-help";
 
@@ -59,6 +60,7 @@ export const RecipientField = observer(() => {
       (result) => result.email.toLowerCase() === trimmedQuery.toLowerCase()
     );
   const selectableCount = results.length + (showFreeEmailRow ? 1 : 0);
+  const hasSelectableOptions = searchSettled && selectableCount > 0;
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === "Escape" && panelOpen) {
@@ -148,14 +150,21 @@ export const RecipientField = observer(() => {
           placeholder="İsim veya e-posta ile ara…"
           role="combobox"
           aria-expanded={panelOpen}
-          aria-controls={panelOpen ? listboxId : undefined}
+          aria-controls={
+            panelOpen
+              ? hasSelectableOptions
+                ? listboxId
+                : popupId
+              : undefined
+          }
           aria-activedescendant={
-            highlightedIndex >= 0
+            hasSelectableOptions && highlightedIndex >= 0
               ? `compose-recipient-option-${highlightedIndex}`
               : undefined
           }
           aria-describedby={helpId}
           aria-autocomplete="list"
+          aria-haspopup="listbox"
         />
       )}
       <span id={helpId} className="text-xs text-muted-foreground">
@@ -164,13 +173,16 @@ export const RecipientField = observer(() => {
 
       {panelOpen && (
         <div
-          id={listboxId}
-          role="listbox"
-          aria-label="Alıcı seçenekleri"
+          id={popupId}
+          role="region"
+          aria-label="Alıcı arama"
           className="absolute top-full z-10 mt-1 w-full rounded-md border bg-card shadow"
         >
           {searchLoading && (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
+            <div
+              role="status"
+              className="px-3 py-2 text-xs text-muted-foreground"
+            >
               Aranıyor…
             </div>
           )}
@@ -191,56 +203,65 @@ export const RecipientField = observer(() => {
             </div>
           )}
 
-          {searchSettled &&
-            results.map((vm, index: number) => (
-              <button
-                key={vm.id}
-                id={`compose-recipient-option-${index}`}
-                type="button"
-                role="option"
-                aria-selected={index === highlightedIndex}
-                className={cn(
-                  "flex min-h-11 w-full flex-col items-start justify-center gap-1 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                  index === highlightedIndex ? "bg-accent" : "hover:bg-accent"
-                )}
-                onClick={() => compose.selectRecipient(vm)}
-              >
-                {vm.name && (
-                  <span className="text-sm font-normal">{vm.name}</span>
-                )}
-                <span className="font-mono text-xs text-muted-foreground">
-                  {vm.email}
-                </span>
-              </button>
-            ))}
+          {hasSelectableOptions && (
+            <div id={listboxId} role="listbox" aria-label="Alıcı seçenekleri">
+              {results.map((vm, index: number) => (
+                <button
+                  key={vm.id}
+                  id={`compose-recipient-option-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === highlightedIndex}
+                  className={cn(
+                    "flex min-h-11 w-full flex-col items-start justify-center gap-1 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                    index === highlightedIndex ? "bg-accent" : "hover:bg-accent"
+                  )}
+                  onClick={() => compose.selectRecipient(vm)}
+                >
+                  {vm.name && (
+                    <span className="text-sm font-normal">{vm.name}</span>
+                  )}
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {vm.email}
+                  </span>
+                </button>
+              ))}
+
+              {showFreeEmailRow && (
+                <button
+                  id={`compose-recipient-option-${results.length}`}
+                  type="button"
+                  role="option"
+                  aria-selected={highlightedIndex === results.length}
+                  className={cn(
+                    "flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                    results.length > 0 && "border-t",
+                    highlightedIndex === results.length && "bg-accent"
+                  )}
+                  onClick={() => compose.selectFreeEmail(trimmedQuery)}
+                >
+                  <EnvelopeClosedIcon className="size-4 shrink-0" />
+                  <span className="truncate">
+                    {trimmedQuery} adresini kullan
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
 
           {showNoResults && (
-            <div className="px-3 py-2 text-center text-xs text-muted-foreground">
+            <div
+              role="status"
+              className="px-3 py-2 text-center text-xs text-muted-foreground"
+            >
               Sonuç bulunamadı
             </div>
           )}
 
           {showInvalidWarning && (
-            <div className="px-3 py-2 text-xs text-destructive">
+            <div role="alert" className="px-3 py-2 text-xs text-destructive">
               Geçerli bir e-posta adresi girin.
             </div>
-          )}
-
-          {showFreeEmailRow && (
-            <button
-              id={`compose-recipient-option-${results.length}`}
-              type="button"
-              role="option"
-              aria-selected={highlightedIndex === results.length}
-              className={cn(
-                "flex min-h-11 w-full items-center gap-2 border-t px-3 py-2 text-left text-sm text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                highlightedIndex === results.length && "bg-accent"
-              )}
-              onClick={() => compose.selectFreeEmail(trimmedQuery)}
-            >
-              <EnvelopeClosedIcon className="size-4 shrink-0" />
-              <span className="truncate">{trimmedQuery} adresini kullan</span>
-            </button>
           )}
         </div>
       )}
