@@ -1,3 +1,7 @@
+import { ConfirmDialog } from "./components/confirm-dialog";
+import { MessageField } from "./components/message-field";
+import { RecipientField } from "./components/recipient-field";
+import { SubjectField } from "./components/subject-field";
 import { observer } from "mobx-react-lite";
 import { useEffect, useState } from "react";
 
@@ -10,12 +14,7 @@ import {
 } from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
-import { formatPrefillSubject, isValidEmail } from "@/lib/side-conversation";
-
-import { ConfirmDialog } from "./components/confirm-dialog";
-import { MessageField } from "./components/message-field";
-import { RecipientField } from "./components/recipient-field";
-import { SubjectField } from "./components/subject-field";
+import { formatPrefillSubject } from "@/lib/side-conversation";
 
 /**
  * Compose screen (COMP-01/02/03/04). RecipientField/SubjectField/MessageField
@@ -34,26 +33,10 @@ export const ComposeScreen = observer(() => {
 
   const isDirty = compose.isDirty;
 
-  // D-06/D-10: mirrors RecipientField's own local derivation of the
-  // invalid-email warning (compose-store exposes no separate getter for
-  // it) — a query that fails email-format validation with no matched
-  // customers and no free-email row disables "Gönder" the same way an
-  // unselected recipient does. In practice this state always implies
-  // `recipientEmail` is still empty (the chip view replaces the input the
-  // moment a recipient IS selected), so it's a defensive, explicit
-  // restatement of the UI-SPEC's disabled condition rather than a
-  // functionally distinct branch.
-  const showsInvalidEmailWarning =
-    !compose.recipientLabel &&
-    compose.searchStatus === "no-results" &&
-    !compose.showFreeEmailRow &&
-    !isValidEmail(compose.query.trim());
-
   const sendDisabled =
     !compose.recipientEmail ||
     compose.message.trim() === "" ||
-    compose.submitting ||
-    showsInvalidEmailWarning;
+    compose.submitting;
 
   // D-08/D-09: prefill the subject exactly once per mounted ticket, using
   // the SAME `[ticket?.key]` effect-bridging pattern as
@@ -74,7 +57,10 @@ export const ComposeScreen = observer(() => {
         (ticket as unknown as { subject?: string }).subject ?? "";
       // M-3b: `initSubject` also pins this compose session's parent key
       // (T-02-01) — guarded by the same one-shot as the subject prefill.
-      compose.initSubject(formatPrefillSubject(ticket.key, ticketTitle), ticket.key);
+      compose.initSubject(
+        formatPrefillSubject(ticket.key, ticketTitle),
+        ticket.key
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket?.key]);

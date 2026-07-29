@@ -3,23 +3,27 @@ import { observer } from "mobx-react-lite";
 import { KeyboardEvent, useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 import { isValidEmail } from "@/lib/side-conversation";
 import { cn } from "@/lib/utils";
-import { CustomerVM } from "@/store/compose-store";
+import { useCustomersQuery } from "@/query/side-conversation-queries";
 
 /**
  * Alıcı otomatik-tamamlama alanı (COMP-02, D-04/05/06/07). No combobox
  * analog exists in this codebase (02-PATTERNS.md) — built from the plain
  * `Input` primitive + a `cn()`-styled absolute dropdown panel, no Radix
  * Popover (explicitly rejected, RESEARCH.md "Alternatives Considered").
- * Entirely driven off `ComposeStore` (`query`/`searchStatus`/`results`/
- * `showFreeEmailRow`) — the panel's visibility itself derives from
- * `query.trim().length >= 3` locally rather than a store flag, matching the
- * store's own debounce gate (D-04) 1:1.
+ * Typed input and the selected recipient stay in ComposeStore; debounced
+ * remote results/loading/error come from the tenant-scoped Query hook. The
+ * panel remains locally derived from the current input, so a prior key can
+ * never keep stale options visible.
  */
 export const RecipientField = observer(() => {
+  const { tenantId } = useGrispi();
   const compose = useStore().compose;
+  const customerQuery = useCustomersQuery(tenantId, compose.query);
+  const results = customerQuery.customers;
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   // Reset keyboard highlight whenever the result set changes underneath it
@@ -27,39 +31,49 @@ export const RecipientField = observer(() => {
   // is worse than no highlight at all.
   useEffect(() => {
     setHighlightedIndex(-1);
-  }, [compose.results]);
+  }, [results]);
 
   const trimmedQuery = compose.query.trim();
   const panelOpen = !compose.recipientLabel && trimmedQuery.length >= 3;
+  const searchLoading =
+    customerQuery.isDebouncing ||
+    customerQuery.isPending ||
+    customerQuery.isFetching;
+  const searchSettled = panelOpen && !searchLoading;
+  const showFreeEmailRow =
+    searchSettled &&
+    isValidEmail(trimmedQuery) &&
+    !results.some(
+      (result) => result.email.toLowerCase() === trimmedQuery.toLowerCase()
+    );
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
-    if (compose.searchStatus !== "results") return;
+    if (!searchSettled || results.length === 0) return;
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setHighlightedIndex((index) =>
-        Math.min(index + 1, compose.results.length - 1)
-      );
+      setHighlightedIndex((index) => Math.min(index + 1, results.length - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setHighlightedIndex((index) => Math.max(index - 1, 0));
     } else if (event.key === "Enter" && highlightedIndex >= 0) {
       event.preventDefault();
-      compose.selectRecipient(compose.results[highlightedIndex]);
+      compose.selectRecipient(results[highlightedIndex]);
     }
   }
 
-  // D-06/D-04: once results are empty, showFreeEmailRow reduces to
-  // isValidEmail(trimmedQuery) exactly — kept as an explicit branch (rather
-  // than folded into one condition) so the invalid-format warning stays
-  // legible as its own state, matching the plan's stated behavior.
+  // D-06/D-04: once the current Query key settles empty, a valid address
+  // becomes the free-email row; an invalid value gets only generic Turkish
+  // validation copy. Raw remote errors are never rendered.
   const showInvalidWarning =
-    compose.searchStatus === "no-results" &&
-    !compose.showFreeEmailRow &&
+    searchSettled &&
+    results.length === 0 &&
+    !showFreeEmailRow &&
     !isValidEmail(trimmedQuery);
   const showNoResults =
-    compose.searchStatus === "no-results" &&
-    !compose.showFreeEmailRow &&
+    searchSettled &&
+    results.length === 0 &&
+    !showFreeEmailRow &&
     !showInvalidWarning;
 
   return (
@@ -95,14 +109,14 @@ export const RecipientField = observer(() => {
           role="listbox"
           className="absolute top-full z-10 mt-1 w-full rounded-md border bg-card shadow"
         >
-          {compose.searchStatus === "loading" && (
+          {searchLoading && (
             <div className="px-3 py-2 text-xs text-muted-foreground">
               Aranıyor…
             </div>
           )}
 
-          {compose.searchStatus === "results" &&
-            compose.results.map((vm: CustomerVM, index: number) => (
+          {searchSettled &&
+            results.map((vm, index: number) => (
               <button
                 key={vm.id}
                 type="button"
@@ -114,7 +128,9 @@ export const RecipientField = observer(() => {
                 )}
                 onClick={() => compose.selectRecipient(vm)}
               >
-                {vm.name && <span className="text-sm font-normal">{vm.name}</span>}
+                {vm.name && (
+                  <span className="text-sm font-normal">{vm.name}</span>
+                )}
                 <span className="font-mono text-xs text-muted-foreground">
                   {vm.email}
                 </span>
@@ -133,7 +149,7 @@ export const RecipientField = observer(() => {
             </div>
           )}
 
-          {compose.showFreeEmailRow && (
+          {showFreeEmailRow && (
             <button
               type="button"
               className="flex w-full items-center gap-2 border-t px-3 py-2 text-left text-sm text-primary hover:bg-accent"

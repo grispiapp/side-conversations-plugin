@@ -3,8 +3,9 @@ import {
   infiniteQueryOptions,
   queryOptions,
   useInfiniteQuery,
+  useQuery,
 } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { grispiAPI } from "@/grispi/client/api";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
@@ -14,13 +15,18 @@ import {
   dedupeAndSortConversationRows,
   projectConversationRow,
 } from "@/store/side-conversations-store";
-import { AdvancedSearchResponse, SideTicketSummary } from "@/types/grispi.type";
+import {
+  AdvancedSearchResponse,
+  Customer,
+  SideTicketSummary,
+} from "@/types/grispi.type";
 
 const PAGE_SIZE = 10;
 const LIST_STALE_TIME = 30_000;
 const DETAIL_STALE_TIME = 15_000;
 const CUSTOMER_STALE_TIME = 30_000;
 const MIN_CUSTOMER_TERM_LENGTH = 3;
+const CUSTOMER_DEBOUNCE_MS = 300;
 
 const finiteReadPolicy = {
   refetchInterval: false as const,
@@ -34,6 +40,12 @@ export interface SideConversationListPage {
   totalPages: number;
   totalSize: number;
   numberOfElements: number;
+}
+
+export interface CustomerQueryVM {
+  id: number;
+  name: string | null;
+  email: string;
 }
 
 function requireIdentity(value: string | null, identityName: string): string {
@@ -214,4 +226,43 @@ export function customerSearchOptions(tenantId: string | null, term: string) {
     staleTime: CUSTOMER_STALE_TIME,
     ...finiteReadPolicy,
   });
+}
+
+export function useCustomersQuery(tenantId: string | null, term: string) {
+  const normalizedTerm = sideConversationKeys.customers(tenantId, term)[2];
+  const [debouncedTerm, setDebouncedTerm] = useState("");
+
+  useEffect(() => {
+    if (normalizedTerm.length < MIN_CUSTOMER_TERM_LENGTH) {
+      setDebouncedTerm(normalizedTerm);
+      return;
+    }
+
+    const handle = setTimeout(
+      () => setDebouncedTerm(normalizedTerm),
+      CUSTOMER_DEBOUNCE_MS
+    );
+    return () => clearTimeout(handle);
+  }, [normalizedTerm]);
+
+  const isDebouncing = normalizedTerm !== debouncedTerm;
+  const query = useQuery(customerSearchOptions(tenantId, debouncedTerm));
+  const customers = useMemo<CustomerQueryVM[]>(
+    () =>
+      isDebouncing
+        ? []
+        : (query.data?.content ?? []).map((customer: Customer) => ({
+            id: customer.id,
+            name: customer.fullName,
+            email: customer.email,
+          })),
+    [isDebouncing, query.data]
+  );
+
+  return {
+    ...query,
+    customers,
+    isDebouncing,
+    normalizedTerm,
+  };
 }

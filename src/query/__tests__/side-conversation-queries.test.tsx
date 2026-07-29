@@ -337,6 +337,7 @@ describe("useCustomersQuery", () => {
       jest.advanceTimersByTime(ms);
       for (let index = 0; index < 10; index += 1) {
         await Promise.resolve();
+        jest.advanceTimersByTime(0);
       }
     });
   }
@@ -376,6 +377,7 @@ describe("useCustomersQuery", () => {
     expect(mockedCustomerSearch).not.toHaveBeenCalled();
 
     await advanceAndFlush(1);
+    await advanceAndFlush(0);
     expect(mockedCustomerSearch).toHaveBeenCalledWith({
       searchTerm: "ada",
       size: 10,
@@ -401,10 +403,12 @@ describe("useCustomersQuery", () => {
 
     render(<Harness tenantId="tenant-1" term="old" />);
     await advanceAndFlush(300);
+    await advanceAndFlush(0);
 
     render(<Harness tenantId="tenant-1" term="new" />);
     expect(container.textContent).toBe("");
     await advanceAndFlush(300);
+    await advanceAndFlush(0);
     expect(container.textContent).toBe("new@example.test");
 
     resolveOld(makeCustomerPage([makeCustomer(1, "old@example.test", "Old")]));
@@ -413,6 +417,7 @@ describe("useCustomersQuery", () => {
 
     render(<Harness tenantId="tenant-2" term="new" />);
     expect(container.textContent).toBe("");
+    await advanceAndFlush(0);
     await advanceAndFlush(0);
     expect(container.textContent).toBe("tenant2@example.test");
     expect(mockedCustomerSearch).toHaveBeenLastCalledWith({
