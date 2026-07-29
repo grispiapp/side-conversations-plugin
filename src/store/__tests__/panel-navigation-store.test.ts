@@ -57,46 +57,68 @@ describe("PanelNavigationStore", () => {
     expect(store.screen).toBe("chat");
   });
 
-  it("openConversation() pins the selected thread and parent keys while opening chat", () => {
+  it("openConversation() synchronously pins a complete session tuple without loading", () => {
     const { store, loadMock } = makeStore();
 
-    store.openConversation("SC-42", "PARENT-7");
+    store.openConversation("SC-42", "PARENT-7", "row-SC-42");
 
-    expect(loadMock).toHaveBeenCalledTimes(1);
-    expect(loadMock).toHaveBeenCalledWith("SC-42", "PARENT-7");
+    expect(store.selectedConversation).toEqual({
+      ticketKey: "SC-42",
+      parentKey: "PARENT-7",
+      sessionKey: 1,
+    });
+    expect(loadMock).not.toHaveBeenCalled();
     expect(store.screen).toBe("chat");
+  });
+
+  it("keeps the later rapid selection as one unmixed tuple with a new session", () => {
+    const { store, loadMock } = makeStore();
+
+    store.openConversation("SC-A", "PARENT-A", "row-A");
+    store.openConversation("SC-B", "PARENT-B", "row-B");
+
+    expect(store.selectedConversation).toEqual({
+      ticketKey: "SC-B",
+      parentKey: "PARENT-B",
+      sessionKey: 2,
+    });
+    expect(loadMock).not.toHaveBeenCalled();
   });
 
   it("requestChatBack() returns to the list immediately for an empty reply draft", () => {
     const { store } = makeStore();
-    store.openChat();
+    store.openConversation("SC-42", "PARENT-7", "row-SC-42");
 
     const needsConfirm = store.requestChatBack();
 
     expect(needsConfirm).toBe(false);
     expect(store.screen).toBe("list");
+    expect(store.consumeListFocusRequest()).toBe("row-SC-42");
+    expect(store.consumeListFocusRequest()).toBeNull();
   });
 
   it("requestChatBack() keeps the thread open for a non-empty reply draft", () => {
     const { store } = makeStore();
-    store.openChat();
+    store.openConversation("SC-42", "PARENT-7", "row-SC-42");
     store.rootStore.activeConversation.draftHtml = "<p>Yanıt</p>";
 
     const needsConfirm = store.requestChatBack();
 
     expect(needsConfirm).toBe(true);
     expect(store.screen).toBe("chat");
+    expect(store.consumeListFocusRequest()).toBeNull();
   });
 
   it("confirmDiscardReplyAndReturnToList() clears only the reply draft and returns", () => {
     const { store, setDraftHtmlMock, resetMock } = makeStore();
-    store.openChat();
+    store.openConversation("SC-42", "PARENT-7", "row-SC-42");
 
     store.confirmDiscardReplyAndReturnToList();
 
     expect(setDraftHtmlMock).toHaveBeenCalledWith("");
     expect(resetMock).not.toHaveBeenCalled();
     expect(store.screen).toBe("list");
+    expect(store.consumeListFocusRequest()).toBe("row-SC-42");
   });
 
   it("requestBack(false) returns false and goes straight back to list (D-02, empty form)", () => {
