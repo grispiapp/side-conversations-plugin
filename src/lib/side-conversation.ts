@@ -1,6 +1,6 @@
 /**
- * The single custom field key that marks a Grispi ticket as a "side ticket"
- * (a yan görüşme) and links it back to its parent ticket.
+ * The custom field key that marks a Grispi ticket as a side conversation
+ * and links it back to its parent ticket.
  *
  * D-01/D-02 (locked decision, 22 Tem 2026): this key is HARD-CODED and must
  * NEVER be read from plugin settings. The field itself is provisioned

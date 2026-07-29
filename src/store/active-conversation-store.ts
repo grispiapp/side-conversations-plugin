@@ -1,12 +1,7 @@
 import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
-import {
-  buildQuotedReplyParts,
-  sanitizeHtml,
-  sanitizeUntrustedDraftHtml,
-  splitQuotedHtml,
-} from "@/lib/html-sanitizer";
+import { sanitizeHtml, sanitizeUntrustedDraftHtml } from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
 import {
   CreateTicketRequest,
@@ -93,7 +88,6 @@ export interface ReplyParams {
   sideKey: string;
   sessionKey: number;
   agentEmail: string;
-  canonicalMessages: readonly MessageVM[];
   solved?: boolean;
 }
 
@@ -261,17 +255,10 @@ export class ActiveConversationStore {
       return null;
     }
 
-    const reply = buildQuotedReplyParts(
-      this.draftHtml,
-      params.canonicalMessages
-        .filter((message) => message.status === "sent" && !message.internal)
-        .map((message) => ({
-          authoredBodyHtml:
-            message.authoredBodyHtml ?? splitQuotedHtml(message.body).bodyHtml,
-          publicVisible: true,
-        }))
-    );
-    const body = sanitizeHtml(reply.outboundHtml);
+    // Grispi adds the provider-managed conversation history. Sending it from
+    // the plugin as well duplicates the thread, so the outbound comment must
+    // contain only the agent-authored reply.
+    const body = sanitizeHtml(this.draftHtml);
     if (htmlToText(body) === "") return null;
 
     const request: ReplyTicketPatchRequest = {
@@ -303,8 +290,7 @@ export class ActiveConversationStore {
           id: clientMessageId,
           direction: "own",
           body,
-          authoredBodyHtml: reply.authoredBodyHtml,
-          quotedHtml: reply.historyHtml,
+          authoredBodyHtml: body,
           status: "pending",
           createdAt: envelope.startedAt,
           senderEmail: params.agentEmail,

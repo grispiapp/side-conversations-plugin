@@ -19,8 +19,7 @@ import { useCreateSideConversationMutation } from "@/query/side-conversation-que
 
 /**
  * Compose screen (COMP-01/02/03/04). RecipientField/SubjectField/MessageField
- * were wired in Plan 03/04 (see 02-UI-SPEC.md "Compose screen anatomy") —
- * this plan adds the full-width "Gönder" action bar, closing the happy path.
+ * were wired in Plan 03/04 (see 02-UI-SPEC.md "Compose screen anatomy").
  * D-02 (dirty-back guard): `onBack` reads the real `compose.isDirty` and, if
  * `panelNav.requestBack` reports the form is dirty, opens the local
  * `ConfirmDialog` instead of silently swallowing the back-tap.
@@ -91,7 +90,7 @@ export const ComposeScreen = observer(() => {
       // PARENT ticket is not that summary. Read defensively (untyped,
       // optional) in case Grispi ever adds one to the full ticket shape;
       // today it's always absent, so the prefill correctly degrades to
-      // just `[<KEY>]` (D-09's "boş-başlık toleransı").
+      // only `[<KEY>]`, preserving D-09's empty-title tolerance.
       const ticketTitle =
         (ticket as unknown as { subject?: string }).subject ?? "";
       // M-3b: `initSubject` also pins this compose session's parent key

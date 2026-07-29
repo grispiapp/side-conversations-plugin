@@ -8,17 +8,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * D-02 (dirty-back) ve D-03 (parent-değişim) için TEK paylaşılan onay
- * dialog'u — 02-CONTEXT.md'nin açık talimatı ("D-02 VE D-03 için TEK
- * bileşen, farklı copy/props"). En yakın görsel analog `error-card.tsx`'in
- * merkezi card + mesaj + buton(lar) yerleşimi (02-PATTERNS.md) — burada
- * modal olduğu için ayrıca tam-ekran `bg-black/40` overlay eklenir (Faz 1'de
- * hiç modal yoktu, bu fazın ilk overlay'i).
- *
- * `cancelLabel` her zaman güvenli/geri-dönüşsüz aksiyonu temsil eder
- * (`outline` variant), `confirmLabel` her zaman yıkıcı aksiyonu temsil eder
- * (`destructive` variant) — asla bare "Tamam"/"OK" (02-UI-SPEC.md
- * "Destructive confirmation summary").
+ * Shared confirmation dialog for dirty-back and parent-change flows
+ * (D-02/D-03). The caller supplies specific copy and semantic tone while
+ * this component owns focus trapping, background isolation and restoration.
+ * Labels must describe the concrete action rather than use generic OK copy.
  */
 export const ConfirmDialog: FC<{
   title: string;

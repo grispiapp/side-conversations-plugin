@@ -204,7 +204,6 @@ export const ChatScreen = observer(() => {
         sideKey,
         sessionKey,
         agentEmail,
-        canonicalMessages,
         solved,
       })
     );
@@ -493,7 +492,7 @@ export const ChatScreen = observer(() => {
           title="Çözüldü olarak işaretle"
           body={SOLVE_CONFIRMATION}
           cancelLabel="Vazgeç"
-          confirmLabel="Çözmeyi onayla"
+          confirmLabel="Çözüldü olarak işaretle"
           onCancel={() => setSolveDialogOpen(false)}
           onConfirm={() => {
             setSolveDialogOpen(false);

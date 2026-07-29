@@ -331,7 +331,9 @@ describe("useCustomersQuery", () => {
     const query = useCustomersQuery(tenantId, term);
     return (
       <div data-waiting={String(query.isDebouncing || query.isPending)}>
-        {query.customers.map((customer) => customer.email).join(",")}
+        {query.customers
+          .map((customer) => customer.email ?? "missing")
+          .join(",")}
       </div>
     );
   }
@@ -396,6 +398,29 @@ describe("useCustomersQuery", () => {
       page: 0,
     });
     expect(container.textContent).toBe("ada@example.test");
+  });
+
+  it("uses a secondary customer email and preserves records without any email", async () => {
+    mockedCustomerSearch.mockResolvedValue(
+      makeCustomerPage([
+        {
+          ...makeCustomer(1, "invalid", "Fallback"),
+          email: null,
+          emails: ["fallback@example.test"],
+        },
+        {
+          ...makeCustomer(2, "invalid", "Unavailable"),
+          email: null,
+          emails: [],
+        },
+      ])
+    );
+
+    render(<Harness tenantId="tenant-1" term="dav" />);
+    await advanceAndFlush(300);
+    await advanceAndFlush(0);
+
+    expect(container.textContent).toBe("fallback@example.test,missing");
   });
 
   it("never renders an earlier term or tenant result under the current key", async () => {
@@ -480,7 +505,6 @@ describe("canonical detail and mutation executors", () => {
       sideKey: "SIDE-1",
       sessionKey: 1,
       agentEmail: "agent@example.test",
-      canonicalMessages: [],
     });
     if (!envelope) throw new Error("reply envelope missing");
     return envelope;
@@ -662,11 +686,7 @@ describe("canonical detail and mutation executors", () => {
     act(() => {
       root.render(
         <QueryClientProvider client={client}>
-          <DetailHarness
-            sideKey="SIDE-A"
-            parentKey="PARENT-A"
-            sessionKey={1}
-          />
+          <DetailHarness sideKey="SIDE-A" parentKey="PARENT-A" sessionKey={1} />
         </QueryClientProvider>
       );
     });
@@ -680,11 +700,7 @@ describe("canonical detail and mutation executors", () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={client}>
-          <DetailHarness
-            sideKey="SIDE-B"
-            parentKey="PARENT-B"
-            sessionKey={2}
-          />
+          <DetailHarness sideKey="SIDE-B" parentKey="PARENT-B" sessionKey={2} />
         </QueryClientProvider>
       );
       for (let index = 0; index < 5; index += 1) await Promise.resolve();
@@ -698,9 +714,9 @@ describe("canonical detail and mutation executors", () => {
     expect(
       window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-A")
     ).toBeNull();
-    expect(
-      window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-B")
-    ).toBe("1000");
+    expect(window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-B")).toBe(
+      "1000"
+    );
 
     act(() => root.unmount());
     container.remove();
@@ -829,9 +845,9 @@ describe("canonical detail and mutation executors", () => {
       await Promise.resolve();
     });
     expect(store.consumeScrollRequest(1, "SIDE-1")).toBe("comment-1");
-    expect(
-      window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-1")
-    ).toBe("1000");
+    expect(window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-1")).toBe(
+      "1000"
+    );
 
     selected = { ...selected, sessionKey: 2 };
     store.activateSession(2, "SIDE-1");

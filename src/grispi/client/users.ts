@@ -9,7 +9,7 @@ import { GrispiUserProfile } from "@/types/grispi.type";
  * `.planning/phases/01-.../01-02-probe-findings.md` "EK BULGULAR" #2). Used
  * only as a fallback recipient-email resolution path when a side ticket's
  * requester has not yet authored a comment on it (agent-only threads) —
- * LIST-01 requires the recipient ("alıcı") to always be shown, never the
+ * LIST-01 requires the recipient to always be shown, never the
  * raw ticket key.
  */
 export class Users {

@@ -1,5 +1,5 @@
 /**
- * "Sıra kimde" badge derivation + list grouping/sort (D-05, D-06, D-07, D-08).
+ * Reply-ownership badge derivation and list grouping (D-05/06/07/08).
  *
  * Pure functions — no API/localStorage access here. Callers are responsible
  * for pre-filtering comments to `publicVisible: true` (D-06: internal notes
@@ -7,7 +7,7 @@
  * before calling `deriveBadge`.
  */
 
-export type ConversationBadge = "yeni-yanit" | "yanit-bekleniyor" | "kapali";
+export type ConversationBadge = "new-reply" | "awaiting-reply" | "closed";
 export type ConversationLifecycleStatus = "open" | "solved" | "closed";
 
 // CONFIRMED live (Plan 02 / Task 1 probe, 2026-07-23, gsocial-test tenant):
@@ -53,31 +53,30 @@ export function deriveBadge(input: DeriveBadgeInput): DeriveBadgeResult {
   const last = sorted[0] ?? null;
 
   if (parseConversationLifecycleStatus(input.statusId) !== "open") {
-    return { badge: "kapali", lastPublicCommentAt: last?.createdAt ?? null };
+    return { badge: "closed", lastPublicCommentAt: last?.createdAt ?? null };
   }
 
   if (!last || !last.authorIsAgent) {
     // No public reply yet, or the external party spoke last. Phase 1 ships
     // with no thread-detail screen (THRD-01/THRD-04 are Phase 3), so there
     // is no code path yet that ever records a "seen" timestamp — D-07's
-    // "no record ⇒ Yeni yanıt" safe default IS the rule for the whole of
-    // Phase 1, not a rare edge case.
-    return { badge: "yeni-yanit", lastPublicCommentAt: last?.createdAt ?? null };
+    // With no recorded seen timestamp, a new reply is the safe default for
+    // the entire initial phase rather than an exceptional edge case.
+    return { badge: "new-reply", lastPublicCommentAt: last?.createdAt ?? null };
   }
 
-  return { badge: "yanit-bekleniyor", lastPublicCommentAt: last.createdAt };
+  return { badge: "awaiting-reply", lastPublicCommentAt: last.createdAt };
 }
 
 const GROUP_ORDER: Record<ConversationBadge, number> = {
-  "yeni-yanit": 0,
-  "yanit-bekleniyor": 1,
-  kapali: 2,
+  "new-reply": 0,
+  "awaiting-reply": 1,
+  closed: 2,
 };
 
 /**
- * Groups rows Yeni yanıt → Yanıt bekleniyor → Kapalı, and within each group
- * sorts by `lastPublicCommentAt` descending (D-08). Rows with a `null`
- * `lastPublicCommentAt` sort last within their group.
+ * Groups rows by new reply, awaiting reply and closed state. Each group is
+ * sorted by `lastPublicCommentAt` descending; null activity sorts last.
  */
 export function sortConversations<
   T extends { badge: ConversationBadge; lastPublicCommentAt: number | null },

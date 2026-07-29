@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useStore } from "@/contexts/store-context";
 
 /**
- * Empty conversations list (LIST-04). The privacy sentence
- * ("Talep sahibi bu yazışmayı görmez.") is the feature's identity per
- * CONTEXT.md's `<specifics>` and MUST always appear here. The "+" CTA
+ * Empty conversations list (LIST-04). The localized privacy sentence is the
+ * feature's identity per CONTEXT.md and must always appear here. The CTA
  * now opens the compose screen (COMP-01, D-01) — same `Button`
  * element/classes as Phase 1's placeholder version, now enabled, so
  * there's no layout jump.

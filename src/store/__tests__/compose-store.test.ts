@@ -62,6 +62,17 @@ describe("ComposeStore mutation-envelope seam", () => {
     expect(root.compose.submitting).toBe(false);
   });
 
+  it("does not select a customer without a deliverable email address", () => {
+    root.compose.selectRecipient({
+      id: 1,
+      name: "Davut",
+      email: null,
+    });
+
+    expect(root.compose.recipientEmail).toBe("");
+    expect(root.compose.recipientLabel).toBe("");
+  });
+
   it("sanitizes the final stored draft once before freezing both create request and overlay", async () => {
     root.compose.initSubject("[PARENT-1] Konu", "PARENT-1");
     root.compose.selectFreeEmail("vendor@example.test");

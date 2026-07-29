@@ -70,7 +70,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
     <article
       data-testid={`thread-message-${message.id}`}
       className={cn(
-        "w-full min-w-0 overflow-hidden rounded-lg border border-border/90 border-l-[3px] bg-card px-3 py-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        "w-full min-w-0 overflow-hidden rounded-lg border border-l-[3px] border-border/90 bg-card px-3 py-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
         message.direction === "own" &&
           !message.internal &&
           "border-l-primary/70",
@@ -99,7 +99,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
       </header>
 
       <div
-        className="break-words leading-5 text-foreground [overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_li]:ml-5 [&_ol]:list-decimal [&_p+p]:mt-2 [&_ul]:list-disc"
+        className="rich-text-content break-words leading-5 text-foreground [overflow-wrap:anywhere]"
         dangerouslySetInnerHTML={{ __html: bodyHtml }}
       />
 
@@ -116,7 +116,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
           </button>
           {quoteOpen && (
             <blockquote
-              className="mt-2 border-l-2 border-border pl-3 text-muted-foreground [&_a]:underline [&_li]:ml-5 [&_ol]:list-decimal [&_p+p]:mt-2 [&_ul]:list-disc"
+              className="rich-text-content mt-2 border-l-2 border-border pl-3 text-muted-foreground"
               dangerouslySetInnerHTML={{ __html: quotedHtml }}
             />
           )}

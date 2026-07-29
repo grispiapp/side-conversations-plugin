@@ -51,7 +51,7 @@ export class Tickets {
   }
 
   /**
-   * Creates a side ticket (a "yan görüşme"). Response shape is CONFIRMED
+   * Creates a side-conversation ticket. Response shape is confirmed
    * live to be the same full `Ticket` object family as `getTicket` (Phase 02
    * Plan 01 Task 1 checkpoint probe; see `02-01-SUMMARY.md` "Probe
    * Findings" A1) — the caller only needs the returned `.key`. Body

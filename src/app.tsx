@@ -1,13 +1,11 @@
-import { observer } from "mobx-react-lite";
-import { useEffect, useState } from "react";
-
-import { DevTicketSwitcher } from "./components/dev-ticket-switcher";
 import { GrispiProvider, useGrispi } from "./contexts/grispi-context";
 import { StoreProvider, useStore } from "./contexts/store-context";
 import { ChatScreen } from "./screens/chat-screen";
-import { ComposeScreen } from "./screens/compose-screen";
 import { ConfirmDialog } from "./screens/components/confirm-dialog";
+import { ComposeScreen } from "./screens/compose-screen";
 import { ConversationsListScreen } from "./screens/conversations-list-screen";
+import { observer } from "mobx-react-lite";
+import { useEffect, useState } from "react";
 
 /**
  * Screen-swap wiring (COMP-01) — no router, same single-screen-panel
@@ -46,8 +44,6 @@ const AppContent = observer(() => {
       {screen === "list" && <ConversationsListScreen />}
       {screen === "compose" && <ComposeScreen />}
       {screen === "chat" && <ChatScreen />}
-      {/* Renders null outside standalone dev mode. */}
-      <DevTicketSwitcher />
 
       {parentChangeOpen && (
         <ConfirmDialog

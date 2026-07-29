@@ -116,20 +116,11 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
       sideKey: "SIDE-1",
       sessionKey: 3,
       agentEmail: "agent@example.test",
-      canonicalMessages: [
-        canonical(1, "<p>Önceki</p>", 1_000, {
-          direction: "incoming",
-          senderEmail: "vendor@example.test",
-        }),
-        canonical(2, "<p>Gizli</p>", 2_000, { internal: true }),
-      ],
     });
 
     expect(envelope?.kind).toBe("reply");
     const request = envelope?.request as ReplyTicketPatchRequest;
-    expect(request.comment.body).toBe(
-      "<p>Yeni <a>link</a></p><blockquote><p>Önceki</p></blockquote>"
-    );
+    expect(request.comment.body).toBe("<p>Yeni <a>link</a></p>");
     expect(request.comment.body).not.toMatch(/onclick|javascript:|script/i);
     expect(Object.isFrozen(request)).toBe(true);
     expect(store.draftHtml).toBe("");
@@ -167,7 +158,7 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
     ],
     [
       "<p>Önce</p><blockquote><p>Yazılan alıntı</p></blockquote><p>Sonra</p>",
-      "<p>Önce</p><blockquote><p>Yazılan alıntı</p></blockquote><p>Sonra</p><blockquote><p>Önceki</p></blockquote>",
+      "<p>Önce</p><blockquote><p>Yazılan alıntı</p></blockquote><p>Sonra</p>",
     ],
   ])(
     "preserves agent-authored blockquotes at the outbound reply boundary",
@@ -180,15 +171,6 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
         sideKey: "SIDE-6",
         sessionKey: 6,
         agentEmail: "agent@example.test",
-        canonicalMessages:
-          draft.startsWith("<p>")
-            ? [
-                canonical(1, "<p>Önceki</p>", 1_000, {
-                  direction: "incoming",
-                  senderEmail: "vendor@example.test",
-                }),
-              ]
-            : [],
       });
 
       expect(envelope?.request.comment.body).toBe(expectedBody);
@@ -213,22 +195,9 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
       sideKey: "SIDE-7",
       sessionKey: 7,
       agentEmail: "agent@example.test",
-      canonicalMessages: [
-        canonical(1, "<p>Güncel kanonik</p>", 1_000, {
-          direction: "incoming",
-          senderEmail: "vendor@example.test",
-          authoredBodyHtml: "<p>Güncel kanonik</p>",
-        }),
-        canonical(2, "<p>İç not</p>", 2_000, {
-          internal: true,
-          authoredBodyHtml: "<p>İç not</p>",
-        }),
-      ],
     });
 
-    expect(envelope?.request.comment.body).toBe(
-      "<p>Yeni yanıt</p><blockquote><p>Güncel kanonik</p></blockquote>"
-    );
+    expect(envelope?.request.comment.body).toBe("<p>Yeni yanıt</p>");
     expect(envelope?.request.comment.body).not.toMatch(
       /Eski zincir|Sızan devam|İç not|data-sc-authored-quote/
     );
@@ -243,7 +212,6 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
       sideKey: "SIDE-4",
       sessionKey: 4,
       agentEmail: "agent@example.test",
-      canonicalMessages: [],
     });
     store.setDraftHtml("<p>Aynı</p>");
     const second = store.sendReply({
@@ -252,7 +220,6 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
       sideKey: "SIDE-4",
       sessionKey: 4,
       agentEmail: "agent@example.test",
-      canonicalMessages: [],
     });
     if (!first || !second) throw new Error("reply envelopes missing");
 
@@ -287,7 +254,6 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
       sideKey: "SIDE-5",
       sessionKey: 5,
       agentEmail: "agent@example.test",
-      canonicalMessages: [],
     });
     store.setDraftHtml("<p>Kabul</p>");
     const accepted = store.sendReply({
@@ -296,7 +262,6 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
       sideKey: "SIDE-5",
       sessionKey: 5,
       agentEmail: "agent@example.test",
-      canonicalMessages: [],
     });
     if (!failed || !accepted) throw new Error("reply envelopes missing");
     store.mutationFailed(failed, "server");

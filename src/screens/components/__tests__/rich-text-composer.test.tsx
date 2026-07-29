@@ -92,6 +92,7 @@ describe("RichTextComposer Tiptap contract", () => {
     [
       "Kalın",
       "İtalik",
+      "Başlık",
       "Bağlantı",
       "Madde işaretli liste",
       "Numaralı liste",
@@ -103,6 +104,7 @@ describe("RichTextComposer Tiptap contract", () => {
     [
       "Kalın",
       "İtalik",
+      "Başlık",
       "Bağlantı",
       "Madde işaretli liste",
       "Numaralı liste",
@@ -214,6 +216,16 @@ describe("RichTextComposer Tiptap contract", () => {
     );
     expect(document.activeElement).toBe(button("Bağlantı"));
     expect(prompt).not.toHaveBeenCalled();
+
+    selectAllEditorContent();
+    act(() => button("Bağlantı").click());
+    const removeLink = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button")
+    ).find((control) => control.textContent?.trim() === "Bağlantıyı kaldır");
+    expect(removeLink).toBeDefined();
+    act(() => removeLink?.click());
+    expect(onChange).toHaveBeenLastCalledWith("<p>Hello</p>");
+    expect(document.activeElement).toBe(button("Bağlantı"));
   });
 
   it("creates bullet lists, ordered lists and quotes through their own editor commands", () => {
@@ -253,6 +265,34 @@ describe("RichTextComposer Tiptap contract", () => {
     selectAllEditorContent();
     act(() => button("Alıntı").click());
     expect(latestHtml(onChange)).toContain("<blockquote>");
+  });
+
+  it.each([
+    ["Başlık 1", "<h1>Hello</h1>"],
+    ["Başlık 2", "<h2>Hello</h2>"],
+    ["Başlık 3", "<h3>Hello</h3>"],
+  ])("applies %s and can return it to normal text", (heading, expectedHtml) => {
+    const onChange = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Hello</p>"
+        recipientLabel="Ada"
+        onChange={onChange}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    selectAllEditorContent();
+    act(() => button("Başlık").click());
+    expect(
+      container.querySelector('[role="menu"][aria-label="Başlık düzeyi"]')
+    ).not.toBeNull();
+    act(() => button(heading).click());
+    expect(onChange).toHaveBeenLastCalledWith(expectedHtml);
+
+    act(() => button("Başlık").click());
+    act(() => button("Normal metin").click());
+    expect(onChange).toHaveBeenLastCalledWith("<p>Hello</p>");
   });
 
   it("uses Tiptap history for undo and redo", () => {

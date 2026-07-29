@@ -23,7 +23,10 @@ import {
   splitQuotedHtml,
 } from "@/lib/html-sanitizer";
 import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
-import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
+import {
+  SIDE_CONVERSATION_PARENT_FIELD_KEY,
+  isValidEmail,
+} from "@/lib/side-conversation";
 import {
   ActiveConversationStore,
   MessageVM,
@@ -68,7 +71,7 @@ export interface SideConversationListPage {
 export interface CustomerQueryVM {
   id: number;
   name: string | null;
-  email: string;
+  email: string | null;
 }
 
 export interface SideConversationDetail {
@@ -299,14 +302,9 @@ export function useSideConversationDetailQuery(
     );
     if (
       query.data.latestRelevantExternalAt !== null &&
-      (lastSeenAt === null ||
-        query.data.latestRelevantExternalAt > lastSeenAt)
+      (lastSeenAt === null || query.data.latestRelevantExternalAt > lastSeenAt)
     ) {
-      setLastSeenAt(
-        tenantId,
-        sideKey,
-        query.data.latestRelevantExternalAt
-      );
+      setLastSeenAt(tenantId, sideKey, query.data.latestRelevantExternalAt);
     }
 
     activeConversation.reconcileCanonical(
@@ -385,11 +383,20 @@ export function useCustomersQuery(tenantId: string | null, term: string) {
     () =>
       isDebouncing
         ? []
-        : (query.data?.content ?? []).map((customer: Customer) => ({
-            id: customer.id,
-            name: customer.fullName,
-            email: customer.email,
-          })),
+        : (query.data?.content ?? []).map((customer: Customer) => {
+            const email =
+              [customer.email, ...(customer.emails ?? [])]
+                .map((candidate) => candidate?.trim())
+                .find(
+                  (candidate): candidate is string =>
+                    Boolean(candidate) && isValidEmail(candidate!)
+                ) ?? null;
+            return {
+              id: customer.id,
+              name: customer.fullName,
+              email,
+            };
+          }),
     [isDebouncing, query.data]
   );
 

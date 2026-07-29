@@ -28,7 +28,7 @@ const row = (key: string) => ({
   subject: `Subject ${key}`,
   summary: `Summary ${key}`,
   lifecycle: "open" as const,
-  actionBadge: "yanit-bekleniyor" as const,
+  actionBadge: "awaiting-reply" as const,
   hasUnseen: false,
   lastPublicCommentAt: 1,
   hydrationFailed: false,
@@ -65,9 +65,7 @@ function render(ui: ReactElement): void {
 
 function makeStore(
   focusTarget:
-    | { kind: "row"; key: string }
-    | { kind: "create-action" }
-    | null = null
+    { kind: "row"; key: string } | { kind: "create-action" } | null = null
 ) {
   return {
     panelNavigation: {
@@ -128,7 +126,7 @@ it("renders a labelled header action and flush textual queue states", () => {
     {
       ...row("SC-NEW"),
       hasUnseen: true,
-      actionBadge: "yeni-yanit",
+      actionBadge: "new-reply",
       recipientEmail: "a".repeat(80) + "@example.test",
       subject: "S".repeat(120),
       summary: "M".repeat(160),

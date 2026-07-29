@@ -191,7 +191,12 @@ describe("unified compose surface", () => {
     const recipientRow = container.querySelector(
       '[aria-label="Alıcıyı değiştir"]'
     )?.parentElement;
-    const subject = container.querySelector("#compose-subject");
+    const recipientName = recipientRow?.querySelector("span.min-w-0.flex-1");
+    const subject =
+      container.querySelector<HTMLInputElement>("#compose-subject");
+    const subjectPrefix = container.querySelector(
+      '[aria-label^="Konu ön eki"]'
+    );
     const editor = container.querySelector(
       '[role="textbox"][aria-label="Mesaj"]'
     );
@@ -201,7 +206,22 @@ describe("unified compose surface", () => {
     expect(composeSurface?.className).toContain("flex-col");
     expect(recipientRow?.className).toContain("min-h-12");
     expect(recipientRow?.className).not.toContain("border-input");
+    expect(recipientName?.className).toContain("text-left");
+    expect(recipientName?.textContent).toContain("Vendor");
     expect(subject?.className).toContain("border-0");
+    expect(subjectPrefix?.textContent).toBe("[PARENT-1]");
+    expect(subject?.value).toBe("Tedarik");
+    act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      valueSetter?.call(subject, "Yeni konu");
+      subject?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(mockStore.compose.setSubject).toHaveBeenCalledWith(
+      "[PARENT-1] Yeni konu"
+    );
     expect(editor).not.toBeNull();
     expect(toolbar).not.toBeNull();
     expect(
@@ -334,6 +354,60 @@ describe("unified compose surface", () => {
     expect(mockCustomersQuery.refetch).toHaveBeenCalledTimes(1);
   });
 
+  it("explains unavailable recipients and skips them during keyboard selection", () => {
+    mockStore.compose.recipientEmail = "";
+    mockStore.compose.recipientLabel = "";
+    mockStore.compose.query = "Davut";
+    const availableCustomer = {
+      id: 2,
+      name: "Davut Kember",
+      email: "davut@example.test",
+    };
+    mockCustomersQuery.customers = [
+      { id: 1, name: "Davut", email: null },
+      availableCustomer,
+    ];
+
+    act(() => root.render(<ComposeScreen />));
+
+    const input =
+      container.querySelector<HTMLInputElement>('[role="combobox"]');
+    const unavailable = container.querySelector<HTMLElement>(
+      '[role="option"][aria-disabled="true"]'
+    );
+    expect(unavailable?.textContent).toContain("Davut");
+    expect(unavailable?.textContent).toContain("E-posta adresi bulunmuyor");
+    expect(unavailable?.tagName).toBe("DIV");
+
+    act(() => unavailable?.click());
+    expect(mockStore.compose.selectRecipient).not.toHaveBeenCalled();
+
+    act(() => {
+      input?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(input?.getAttribute("aria-activedescendant")).toBe(
+      "compose-recipient-option-0"
+    );
+    act(() => {
+      input?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(mockStore.compose.selectRecipient).toHaveBeenCalledWith(
+      availableCustomer
+    );
+  });
+
   it("dismisses the recipient popup with Escape and when focus leaves the combobox", () => {
     mockStore.compose.recipientEmail = "";
     mockStore.compose.recipientLabel = "";
@@ -345,7 +419,15 @@ describe("unified compose surface", () => {
     act(() => root.render(<ComposeScreen />));
     const input =
       container.querySelector<HTMLInputElement>('[role="combobox"]');
+    const recipientPopup = container.querySelector(
+      '[role="region"][aria-label="Alıcı arama"]'
+    );
+    const firstOption =
+      container.querySelector<HTMLButtonElement>('[role="option"]');
     expect(input?.getAttribute("aria-expanded")).toBe("true");
+    expect(recipientPopup?.className).toContain("inset-x-0");
+    expect(recipientPopup?.className).not.toMatch(/left-2|right-2|rounded/);
+    expect(firstOption?.className).toContain("min-h-14");
 
     act(() => {
       input?.dispatchEvent(

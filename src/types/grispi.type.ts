@@ -256,16 +256,14 @@ export interface StatusTicketPatchRequest {
 }
 
 export type PatchTicketRequest =
-  | ReplyTicketPatchRequest
-  | StatusTicketPatchRequest;
+  ReplyTicketPatchRequest | StatusTicketPatchRequest;
 
 export interface PatchTicketMutationField {
   key: string;
   value: unknown;
 }
 
-export interface PatchTicketStatusMutationField
-  extends PatchTicketMutationField {
+export interface PatchTicketStatusMutationField extends PatchTicketMutationField {
   key: "ts.status";
   value: {
     id: number;
@@ -296,7 +294,7 @@ export interface PatchTicketResponse {
  */
 export interface Customer {
   id: number;
-  email: string;
+  email: string | null;
   emails: string[];
   fullName: string | null;
   firstName: string | null;

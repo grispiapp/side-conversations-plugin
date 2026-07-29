@@ -10,14 +10,10 @@ import { cn } from "@/lib/utils";
 import { useCustomersQuery } from "@/query/side-conversation-queries";
 
 /**
- * Alıcı otomatik-tamamlama alanı (COMP-02, D-04/05/06/07). No combobox
- * analog exists in this codebase (02-PATTERNS.md) — built from the plain
- * `Input` primitive + a `cn()`-styled absolute dropdown panel, no Radix
- * Popover (explicitly rejected, RESEARCH.md "Alternatives Considered").
- * Typed input and the selected recipient stay in ComposeStore; debounced
- * remote results/loading/error come from the tenant-scoped Query hook. The
- * panel remains locally derived from the current input, so a prior key can
- * never keep stale options visible.
+ * Recipient autocomplete (COMP-02, D-04/05/06/07). No combobox analogue
+ * exists in this codebase (02-PATTERNS.md), so it uses the Input primitive
+ * and a full-width inline results surface. ComposeStore owns the typed and
+ * selected values; the tenant-scoped Query hook owns debounced remote state.
  */
 export const RecipientField = observer(() => {
   const { tenantId } = useGrispi();
@@ -47,14 +43,18 @@ export const RecipientField = observer(() => {
     customerQuery.isFetching;
   const searchError = panelOpen && !searchLoading && customerQuery.isError;
   const searchSettled = panelOpen && !searchLoading && !searchError;
+  const selectableResults = results.filter(
+    (result) => result.email !== null && isValidEmail(result.email)
+  );
   const showFreeEmailRow =
     searchSettled &&
     isValidEmail(trimmedQuery) &&
     !results.some(
-      (result) => result.email.toLowerCase() === trimmedQuery.toLowerCase()
+      (result) => result.email?.toLowerCase() === trimmedQuery.toLowerCase()
     );
-  const selectableCount = results.length + (showFreeEmailRow ? 1 : 0);
-  const hasSelectableOptions = searchSettled && selectableCount > 0;
+  const selectableCount = selectableResults.length + (showFreeEmailRow ? 1 : 0);
+  const hasResultOptions =
+    searchSettled && (results.length > 0 || showFreeEmailRow);
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === "Escape" && panelOpen) {
@@ -73,8 +73,8 @@ export const RecipientField = observer(() => {
       setHighlightedIndex((index) => Math.max(index - 1, 0));
     } else if (event.key === "Enter" && highlightedIndex >= 0) {
       event.preventDefault();
-      if (highlightedIndex < results.length) {
-        compose.selectRecipient(results[highlightedIndex]);
+      if (highlightedIndex < selectableResults.length) {
+        compose.selectRecipient(selectableResults[highlightedIndex]);
       } else {
         compose.selectFreeEmail(trimmedQuery);
       }
@@ -88,9 +88,9 @@ export const RecipientField = observer(() => {
     setPopupOpen(false);
   }
 
-  // D-06/D-04: once the current Query key settles empty, a valid address
-  // becomes the free-email row; an invalid value gets only generic Turkish
-  // validation copy. Raw remote errors are never rendered.
+  // D-06/D-04: after the current Query key settles empty, a valid address
+  // becomes the free-email option. Invalid values receive localized generic
+  // validation copy; raw remote errors are never rendered.
   const showInvalidWarning =
     searchSettled &&
     results.length === 0 &&
@@ -113,18 +113,20 @@ export const RecipientField = observer(() => {
         Alıcı
       </label>
       {compose.recipientLabel ? (
-        <div className="flex min-h-12 min-w-0 items-center justify-between pl-4 text-sm">
+        <div className="flex min-h-12 min-w-0 items-center gap-3 px-4 text-sm">
           <span
             aria-hidden="true"
-            className="mr-2 shrink-0 text-muted-foreground"
+            className="w-12 shrink-0 text-muted-foreground"
           >
             Kime
           </span>
-          <span className="truncate">{compose.recipientLabel}</span>
+          <span className="min-w-0 flex-1 truncate text-left">
+            {compose.recipientLabel}
+          </span>
           <button
             type="button"
             aria-label="Alıcıyı değiştir"
-            className="flex size-10 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            className="-mr-2 flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => {
               compose.selectFreeEmail("");
               compose.setQuery("");
@@ -146,16 +148,16 @@ export const RecipientField = observer(() => {
           className="h-12 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           placeholder="Alıcı ara veya e-posta yaz…"
           role="combobox"
-          aria-expanded={hasSelectableOptions}
-          aria-controls={hasSelectableOptions ? listboxId : undefined}
+          aria-expanded={hasResultOptions}
+          aria-controls={hasResultOptions ? listboxId : undefined}
           aria-activedescendant={
-            hasSelectableOptions && highlightedIndex >= 0
+            hasResultOptions && highlightedIndex >= 0
               ? `compose-recipient-option-${highlightedIndex}`
               : undefined
           }
           aria-describedby={helpId}
           aria-autocomplete="list"
-          aria-haspopup={hasSelectableOptions ? "listbox" : undefined}
+          aria-haspopup={hasResultOptions ? "listbox" : undefined}
         />
       )}
       <span id={helpId} className="sr-only">
@@ -167,12 +169,12 @@ export const RecipientField = observer(() => {
           id={popupId}
           role="region"
           aria-label="Alıcı arama"
-          className="absolute left-2 right-2 top-full z-30 mt-1 overflow-hidden rounded-lg border bg-card shadow-lg"
+          className="absolute inset-x-0 top-full z-30 max-h-[calc(100vh-var(--panel-header-height)-3rem)] overflow-y-auto border-b border-border bg-card shadow-xl shadow-slate-950/10"
         >
           {searchLoading && (
             <div
               role="status"
-              className="px-3 py-2 text-xs text-muted-foreground"
+              className="px-4 py-4 text-sm text-muted-foreground"
             >
               Aranıyor…
             </div>
@@ -181,7 +183,7 @@ export const RecipientField = observer(() => {
           {searchError && (
             <div
               role="alert"
-              className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-destructive"
+              className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-destructive"
             >
               <span>Alıcılar aranamadı.</span>
               <button
@@ -194,40 +196,63 @@ export const RecipientField = observer(() => {
             </div>
           )}
 
-          {hasSelectableOptions && (
+          {hasResultOptions && (
             <div id={listboxId} role="listbox" aria-label="Alıcı seçenekleri">
-              {results.map((vm, index: number) => (
-                <button
-                  key={vm.id}
-                  id={`compose-recipient-option-${index}`}
-                  type="button"
-                  role="option"
-                  aria-selected={index === highlightedIndex}
-                  className={cn(
-                    "flex min-h-11 w-full flex-col items-start justify-center gap-1 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                    index === highlightedIndex ? "bg-accent" : "hover:bg-accent"
-                  )}
-                  onClick={() => compose.selectRecipient(vm)}
-                >
-                  {vm.name && (
-                    <span className="text-sm font-normal">{vm.name}</span>
-                  )}
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {vm.email}
-                  </span>
-                </button>
-              ))}
+              {results.map((vm) => {
+                const selectableIndex = selectableResults.indexOf(vm);
+                const selectable = selectableIndex >= 0;
+
+                if (!selectable) {
+                  return (
+                    <div
+                      key={vm.id}
+                      role="option"
+                      aria-selected="false"
+                      aria-disabled="true"
+                      className="flex min-h-14 w-full cursor-not-allowed flex-col items-start justify-center gap-0.5 border-b border-border bg-muted/20 px-4 py-2.5 text-left text-muted-foreground last:border-b-0"
+                    >
+                      {vm.name && (
+                        <span className="text-sm font-medium">{vm.name}</span>
+                      )}
+                      <span className="text-xs">E-posta adresi bulunmuyor</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    key={vm.id}
+                    id={`compose-recipient-option-${selectableIndex}`}
+                    type="button"
+                    role="option"
+                    aria-selected={selectableIndex === highlightedIndex}
+                    className={cn(
+                      "flex min-h-14 w-full flex-col items-start justify-center gap-0.5 border-b border-border px-4 py-2.5 text-left last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                      selectableIndex === highlightedIndex
+                        ? "bg-accent"
+                        : "hover:bg-accent"
+                    )}
+                    onClick={() => compose.selectRecipient(vm)}
+                  >
+                    {vm.name && (
+                      <span className="text-sm font-medium">{vm.name}</span>
+                    )}
+                    <span className="max-w-full truncate text-xs text-muted-foreground">
+                      {vm.email}
+                    </span>
+                  </button>
+                );
+              })}
 
               {showFreeEmailRow && (
                 <button
-                  id={`compose-recipient-option-${results.length}`}
+                  id={`compose-recipient-option-${selectableResults.length}`}
                   type="button"
                   role="option"
-                  aria-selected={highlightedIndex === results.length}
+                  aria-selected={highlightedIndex === selectableResults.length}
                   className={cn(
-                    "flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                    results.length > 0 && "border-t",
-                    highlightedIndex === results.length && "bg-accent"
+                    "flex min-h-14 w-full items-center gap-3 border-b border-border px-4 py-2.5 text-left text-sm text-primary last:border-b-0 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                    highlightedIndex === selectableResults.length && "bg-accent"
                   )}
                   onClick={() => compose.selectFreeEmail(trimmedQuery)}
                 >
@@ -243,14 +268,14 @@ export const RecipientField = observer(() => {
           {showNoResults && (
             <div
               role="status"
-              className="px-3 py-2 text-center text-xs text-muted-foreground"
+              className="px-4 py-6 text-center text-sm text-muted-foreground"
             >
               Sonuç bulunamadı
             </div>
           )}
 
           {showInvalidWarning && (
-            <div role="alert" className="px-3 py-2 text-xs text-destructive">
+            <div role="alert" className="px-4 py-3 text-sm text-destructive">
               Geçerli bir e-posta adresi girin.
             </div>
           )}

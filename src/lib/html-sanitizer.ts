@@ -6,6 +6,9 @@ const ALLOWED_TAGS = [
   "blockquote",
   "br",
   "em",
+  "h1",
+  "h2",
+  "h3",
   "i",
   "li",
   "ol",
@@ -57,12 +60,6 @@ export interface QuotedHtmlParts {
 export interface QuotedContextPart {
   authoredBodyHtml: string;
   publicVisible: boolean;
-}
-
-export interface QuotedReplyParts {
-  authoredBodyHtml: string;
-  historyHtml?: string;
-  outboundHtml: string;
 }
 
 function escapeHtml(value: string): string {
@@ -183,9 +180,7 @@ export function sanitizeUntrustedDraftHtml(input: string): string {
   return splitQuotedHtml(input).bodyHtml;
 }
 
-function buildPublicHistoryHtml(
-  context: readonly QuotedContextPart[]
-): string {
+function buildPublicHistoryHtml(context: readonly QuotedContextPart[]): string {
   return context
     .filter((part) => part.publicVisible)
     .map((part) => sanitizeHtml(part.authoredBodyHtml))
@@ -234,29 +229,4 @@ export function splitGeneratedReplyHtml(
     bodyHtml: authored.innerHTML,
     quotedHtml: historyHtml,
   };
-}
-
-/**
- * Builds the exact probe-confirmed outbound shape: the new reply followed by
- * one blockquote containing sanitized, chronological public context.
- * Context entries are already provenance-preserving authored bodies, never
- * complete serialized messages, so generated history cannot recurse.
- */
-export function buildQuotedReplyParts(
-  authoredBodyHtml: string,
-  context: readonly QuotedContextPart[]
-): QuotedReplyParts {
-  const authored = sanitizeHtml(authoredBodyHtml);
-  const historyHtml = buildPublicHistoryHtml(context);
-
-  return historyHtml
-    ? {
-        authoredBodyHtml: authored,
-        historyHtml,
-        outboundHtml: `${authored}<blockquote>${historyHtml}</blockquote>`,
-      }
-    : {
-        authoredBodyHtml: authored,
-        outboundHtml: authored,
-      };
 }

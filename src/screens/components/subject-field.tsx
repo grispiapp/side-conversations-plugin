@@ -4,32 +4,64 @@ import { Input } from "@/components/ui/input";
 import { useStore } from "@/contexts/store-context";
 
 /**
- * Konu alanı (COMP-03). Prefill'in kendisi (D-08/D-09) `ComposeScreen`
- * mount effect'inde `compose.initSubject(...)` ile yapılır — bu bileşen
- * yalnızca gösterir/serbestçe düzenlenmesine izin verir (`compose.setSubject`,
- * her zaman üzerine yazar). Boş bırakılırsa Gönder'i ENGELLEMEYEN
- * (non-blocking, D-10) uyarı metni altında gösterilir.
+ * Subject field (COMP-03). ComposeScreen initializes the full value once.
+ * The parent ticket key remains part of the submitted subject but is rendered
+ * as an immutable visual prefix, separate from the editable subject text.
  */
+function splitSubjectPrefix(subject: string): {
+  prefix: string;
+  editableValue: string;
+} {
+  const match = subject.match(/^(\[[^\]\r\n]+\])(?:\s+(.*))?$/s);
+  if (!match) return { prefix: "", editableValue: subject };
+  return {
+    prefix: match[1],
+    editableValue: match[2] ?? "",
+  };
+}
+
 export const SubjectField = observer(() => {
   const compose = useStore().compose;
-  const isEmpty = compose.subject.trim() === "";
+  const { prefix, editableValue } = splitSubjectPrefix(compose.subject);
+  const isEmpty = editableValue.trim() === "";
+  const describedBy = [
+    prefix ? "compose-subject-prefix" : "",
+    isEmpty ? "compose-subject-help" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className="flex min-w-0 flex-col border-b border-border bg-card">
+    <div className="flex min-w-0 items-stretch border-b border-border bg-card">
       <label htmlFor="compose-subject" className="sr-only">
         Konu
       </label>
+      {prefix && (
+        <span
+          id="compose-subject-prefix"
+          aria-label={`Konu ön eki ${prefix}, değiştirilemez`}
+          className="flex h-12 shrink-0 items-center border-r border-border bg-muted/30 px-4 text-sm font-medium text-muted-foreground"
+        >
+          {prefix}
+        </span>
+      )}
       <Input
         id="compose-subject"
-        value={compose.subject}
-        onChange={(event) => compose.setSubject(event.target.value)}
-        className="h-12 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        value={editableValue}
+        onChange={(event) =>
+          compose.setSubject(
+            prefix
+              ? `${prefix}${event.target.value ? ` ${event.target.value}` : ""}`
+              : event.target.value
+          )
+        }
+        className="h-12 min-w-0 flex-1 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         placeholder="Konu"
-        aria-describedby={isEmpty ? "compose-subject-help" : undefined}
+        aria-describedby={describedBy || undefined}
       />
       {isEmpty && (
         <span id="compose-subject-help" className="sr-only">
-          Konu boş — e-posta konusuz gönderilecek.
+          Konu metni boş; yalnızca ana talep ön eki gönderilecek.
         </span>
       )}
     </div>

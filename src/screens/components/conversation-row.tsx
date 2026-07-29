@@ -10,8 +10,8 @@ import {
 } from "@/store/side-conversations-store";
 
 const BADGE_LABEL: Record<ConversationActionBadge, string> = {
-  "yeni-yanit": "Yeni yanıt",
-  "yanit-bekleniyor": "Yanıt bekleniyor",
+  "new-reply": "Yeni yanıt",
+  "awaiting-reply": "Yanıt bekleniyor",
 };
 
 export const ConversationRow = observer(
@@ -63,7 +63,7 @@ export const ConversationRow = observer(
                   "shrink-0 font-semibold",
                   row.lifecycle !== "open"
                     ? "text-slate-600"
-                    : row.actionBadge === "yeni-yanit"
+                    : row.actionBadge === "new-reply"
                       ? "text-amber-800"
                       : "text-emerald-800"
                 )}

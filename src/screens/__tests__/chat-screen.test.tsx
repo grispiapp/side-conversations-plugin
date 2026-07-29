@@ -313,7 +313,6 @@ describe("ChatScreen Query-owned session wiring", () => {
       sideKey: "SC-42",
       sessionKey: 8,
       agentEmail: "agent@example.test",
-      canonicalMessages: mockDetail.data.messages,
       solved: false,
     });
     expect(mockReplyMutation.mutate).toHaveBeenCalledWith(reply);
@@ -481,7 +480,8 @@ describe("ChatScreen Query-owned session wiring", () => {
     click("Çözüldü olarak işaretle");
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.activeElement?.textContent).toBe("Vazgeç");
-    click("Çözmeyi onayla");
+    expect(container.textContent).not.toContain("Çözmeyi onayla");
+    click("Çözüldü olarak işaretle");
     expect(mockStatusMutation.mutate).toHaveBeenCalledWith(solve);
     expect(container.textContent).not.toContain("ÇözüldüTekrar");
 

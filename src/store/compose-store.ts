@@ -1,19 +1,16 @@
 import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
-import {
-  sanitizeHtml,
-  sanitizeUntrustedDraftHtml,
-} from "@/lib/html-sanitizer";
+import { sanitizeHtml, sanitizeUntrustedDraftHtml } from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
-import { formatRequesterField } from "@/lib/side-conversation";
+import { formatRequesterField, isValidEmail } from "@/lib/side-conversation";
 import { MutationEnvelope } from "@/store/active-conversation-store";
 import { CreateTicketRequest } from "@/types/grispi.type";
 
 export interface CustomerVM {
   id: number;
   name: string | null;
-  email: string;
+  email: string | null;
 }
 
 /**
@@ -43,7 +40,7 @@ export class ComposeStore {
    * captured the moment THIS compose session began (set alongside
    * `initSubject`, guarded by the same `subjectInitialized` one-shot). The
    * plugin cannot command the host to revert an in-flight ticket switch, so
-   * D-03's "Kalsın" ("stay in compose") is implemented as PINNING instead —
+   * D-03's stay-in-compose path is implemented as PINNING instead —
    * `submit` prefers this pinned key over whatever LIVE `parentKey` the
    * caller passes, so a dirty draft always posts to the ticket it was
    * started for, never a parent that changed underneath it mid-compose.
@@ -67,8 +64,10 @@ export class ComposeStore {
   /** Selects a matched customer. Falls back to the email when the record
    * carries no name (D-06 fallback — `fullName` is nullable, A3). */
   selectRecipient(vm: CustomerVM): void {
-    this.recipientEmail = vm.email;
-    this.recipientLabel = vm.name || vm.email;
+    const email = vm.email?.trim() ?? "";
+    if (!isValidEmail(email)) return;
+    this.recipientEmail = email;
+    this.recipientLabel = vm.name || email;
   }
 
   /** Selects the typed free-form address (D-05) — label mirrors the email
@@ -128,13 +127,13 @@ export class ComposeStore {
    * Builds the `createTicket` request and hands it to
    * `ActiveConversationStore.startNew` (COMP-04). `agentEmail`/`parentKey`
    * come from `useGrispi()` — the store never reads React context itself,
-   * so the caller (MessageField's Shift+Enter / Plan 05's "Gönder" button)
+   * so the caller (MessageField's Shift+Enter or the submit button)
    * passes them through (T-02-05: `agentEmail` only ever flows FROM the
    * trusted SDK context, never from a form field).
    *
    * M-3b (UAT fix): the LIVE `parentKey` argument is only a fallback — if
    * this session PINNED a parent (`initSubject`), that pinned key wins.
-   * Without this, a dirty draft that survived D-03's "Kalsın" (which only
+   * Without this, a dirty draft retained by D-03 (which only
    * closes the confirm dialog, since the plugin can't command the host to
    * revert `useGrispi().ticket.key`) would silently rebind to whatever
    * parent is now live, contradicting D-03/T-02-01's "no unconfirmed
@@ -212,7 +211,7 @@ export class ComposeStore {
   /**
    * Clears the entire form back to its pristine state. Called internally
    * after a successful `submit`, and externally by ComposeScreen's D-02
-   * `ConfirmDialog` "Vazgeç" confirm handler when the agent explicitly
+   * ConfirmDialog discard handler when the agent explicitly
    * discards a dirty draft (Plan 06) — hence public, not private.
    */
   reset(): void {

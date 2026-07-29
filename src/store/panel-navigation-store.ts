@@ -15,8 +15,7 @@ export interface SelectedConversation {
 }
 
 export type ListFocusTarget =
-  | { kind: "row"; key: string }
-  | { kind: "create-action" };
+  { kind: "row"; key: string } | { kind: "create-action" };
 
 /**
  * Owns list/compose/chat navigation plus the D-02/D-03 dirty-guard return
@@ -43,11 +42,12 @@ export class PanelNavigationStore {
   /**
    * M-2/M-3a (UAT fix, 02-06): this is the FRESH-open seam — the only two
    * call sites are the list header "+" and the empty-state CTA, never a
-   * "resume the current draft" path (D-03's "Kalsın" keeps `screen`
+   * "resume the current draft" path (D-03's keep-draft action leaves `screen`
    * unchanged and never calls this again). `compose.reset()` here
    * guarantees a pristine `ComposeStore` every time compose is opened from
    * the list: without it, a non-dirty back (which does NOT reset — only
-   * Vazgeç/submit do) left stale recipient-search text/hint (M-2) and a
+   * explicit discard and submit do) left stale recipient-search state (M-2)
+   * and a
    * stale prefilled subject from the PREVIOUS parent ticket (M-3a, since
    * `subjectInitialized` was never cleared).
    */

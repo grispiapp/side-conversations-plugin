@@ -1,5 +1,4 @@
 import {
-  buildQuotedReplyParts,
   sanitizeHtml,
   sanitizeUntrustedDraftHtml,
   splitGeneratedReplyHtml,
@@ -11,11 +10,13 @@ describe("sanitizeHtml", () => {
   it("preserves only the lightweight formatting allowlist", () => {
     const result = sanitizeHtml(
       "<p>Hello <strong>bold</strong> <b>b</b> <em>em</em> <i>i</i><br></p>" +
+        "<h1>One</h1><h2>Two</h2><h3>Three</h3>" +
         "<ul><li>one</li></ul><ol><li>two</li></ol><blockquote>old</blockquote>"
     );
 
     expect(result).toBe(
       "<p>Hello <strong>bold</strong> <b>b</b> <em>em</em> <i>i</i><br></p>" +
+        "<h1>One</h1><h2>Two</h2><h3>Three</h3>" +
         "<ul><li>one</li></ul><ol><li>two</li></ol><blockquote>old</blockquote>"
     );
   });
@@ -153,52 +154,6 @@ describe("quote boundary helpers", () => {
     ).toEqual({ bodyHtml: "<p>Do not guess</p>" });
   });
 
-  it("builds one sanitized non-nested quote from chronological public context", () => {
-    const result = buildQuotedReplyParts("<p>New <em>reply</em></p>", [
-      {
-        authoredBodyHtml: "<p>Public 1</p>",
-        publicVisible: true,
-      },
-      {
-        authoredBodyHtml: '<p onclick="steal()">Internal note</p>',
-        publicVisible: false,
-      },
-      {
-        authoredBodyHtml: "<p>Public 2<script>steal()</script></p>",
-        publicVisible: true,
-      },
-    ]);
-
-    expect(result.outboundHtml).toBe(
-      "<p>New <em>reply</em></p><blockquote><p>Public 1</p><p>Public 2</p></blockquote>"
-    );
-    expect(result.authoredBodyHtml).toBe("<p>New <em>reply</em></p>");
-    expect(result.historyHtml).toBe("<p>Public 1</p><p>Public 2</p>");
-    expect(result.outboundHtml.match(/<blockquote>/g)).toHaveLength(1);
-    expect(result.outboundHtml).not.toContain("Internal note");
-    expect(result.outboundHtml).not.toContain("script");
-  });
-
-  it("preserves authored reply blockquotes and trailing authored content as explicit parts", () => {
-    const result = buildQuotedReplyParts(
-      "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
-      [
-        {
-          authoredBodyHtml: "<p>Canonical body</p>",
-          publicVisible: true,
-        },
-      ]
-    );
-
-    expect(result).toEqual({
-      authoredBodyHtml:
-        "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
-      historyHtml: "<p>Canonical body</p>",
-      outboundHtml:
-      "<blockquote><p>Agent quote</p></blockquote><p>After quote</p><blockquote><p>Canonical body</p></blockquote>"
-    });
-  });
-
   it("recognizes generated history only when the final quote exactly matches structured public context", () => {
     const context = [
       {
@@ -212,8 +167,7 @@ describe("quote boundary helpers", () => {
         context
       )
     ).toEqual({
-      bodyHtml:
-        "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
+      bodyHtml: "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
       quotedHtml: "<p>Earlier</p>",
     });
     expect(

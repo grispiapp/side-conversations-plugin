@@ -5,23 +5,23 @@ import {
 } from "../conversation-status";
 
 describe("deriveBadge", () => {
-  it("returns 'kapali' when statusId is SOLVED, regardless of comments", () => {
+  it("returns 'closed' when statusId is SOLVED, regardless of comments", () => {
     const result = deriveBadge({
       statusId: 4,
       publicComments: [{ createdAt: 1000, authorIsAgent: false }],
     });
-    expect(result.badge).toBe("kapali");
+    expect(result.badge).toBe("closed");
   });
 
-  it("returns 'kapali' when statusId is CLOSED, regardless of comments", () => {
+  it("returns 'closed' when statusId is CLOSED, regardless of comments", () => {
     const result = deriveBadge({
       statusId: 5,
       publicComments: [{ createdAt: 1000, authorIsAgent: true }],
     });
-    expect(result.badge).toBe("kapali");
+    expect(result.badge).toBe("closed");
   });
 
-  it("returns 'yanit-bekleniyor' when the last public comment is agent-authored", () => {
+  it("returns 'awaiting-reply' when the last public comment is agent-authored", () => {
     const result = deriveBadge({
       statusId: null,
       publicComments: [
@@ -29,11 +29,11 @@ describe("deriveBadge", () => {
         { createdAt: 2000, authorIsAgent: true },
       ],
     });
-    expect(result.badge).toBe("yanit-bekleniyor");
+    expect(result.badge).toBe("awaiting-reply");
     expect(result.lastPublicCommentAt).toBe(2000);
   });
 
-  it("returns 'yeni-yanit' when the last public comment is external-authored", () => {
+  it("returns 'new-reply' when the last public comment is external-authored", () => {
     const result = deriveBadge({
       statusId: null,
       publicComments: [
@@ -41,13 +41,13 @@ describe("deriveBadge", () => {
         { createdAt: 2000, authorIsAgent: false },
       ],
     });
-    expect(result.badge).toBe("yeni-yanit");
+    expect(result.badge).toBe("new-reply");
     expect(result.lastPublicCommentAt).toBe(2000);
   });
 
-  it("returns 'yeni-yanit' when there are no public comments yet (D-07 safe default)", () => {
+  it("returns 'new-reply' when there are no public comments yet (D-07 safe default)", () => {
     const result = deriveBadge({ statusId: null, publicComments: [] });
-    expect(result.badge).toBe("yeni-yanit");
+    expect(result.badge).toBe("new-reply");
     expect(result.lastPublicCommentAt).toBeNull();
   });
 
@@ -59,24 +59,32 @@ describe("deriveBadge", () => {
       statusId: null,
       publicComments: [{ createdAt: 1000, authorIsAgent: false }],
     });
-    expect(result.badge).toBe("yeni-yanit");
+    expect(result.badge).toBe("new-reply");
     expect(result.lastPublicCommentAt).toBe(1000);
   });
 });
 
 describe("sortConversations", () => {
-  it("groups yeni-yanit -> yanit-bekleniyor -> kapali, desc activity within group, nulls last", () => {
+  it("groups new-reply -> awaiting-reply -> closed, desc activity within group, nulls last", () => {
     const rows: Array<{
       id: string;
       badge: ConversationBadge;
       lastPublicCommentAt: number | null;
     }> = [
-      { id: "closed-old", badge: "kapali", lastPublicCommentAt: 100 },
-      { id: "waiting-new", badge: "yanit-bekleniyor", lastPublicCommentAt: 5000 },
-      { id: "new-null", badge: "yeni-yanit", lastPublicCommentAt: null },
-      { id: "new-recent", badge: "yeni-yanit", lastPublicCommentAt: 9000 },
-      { id: "waiting-old", badge: "yanit-bekleniyor", lastPublicCommentAt: 3000 },
-      { id: "closed-new", badge: "kapali", lastPublicCommentAt: 200 },
+      { id: "closed-old", badge: "closed", lastPublicCommentAt: 100 },
+      {
+        id: "waiting-new",
+        badge: "awaiting-reply",
+        lastPublicCommentAt: 5000,
+      },
+      { id: "new-null", badge: "new-reply", lastPublicCommentAt: null },
+      { id: "new-recent", badge: "new-reply", lastPublicCommentAt: 9000 },
+      {
+        id: "waiting-old",
+        badge: "awaiting-reply",
+        lastPublicCommentAt: 3000,
+      },
+      { id: "closed-new", badge: "closed", lastPublicCommentAt: 200 },
     ];
 
     const sorted = sortConversations(rows).map((row) => row.id);

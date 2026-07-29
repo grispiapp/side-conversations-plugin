@@ -4,12 +4,12 @@ import { useStore } from "@/contexts/store-context";
 import { RichTextComposer } from "@/screens/components/rich-text-composer";
 
 /**
- * Mesaj alanı (D-10/D-11/D-12). Plain Enter is left COMPLETELY untouched —
+ * Message field (D-10/D-11/D-12). Plain Enter remains untouched —
  * a `<textarea>`'s native newline behavior is already correct (RESEARCH.md
  * Pattern 2) — only `Shift+Enter` is intercepted to submit, the inverted
  * shortcut this phase's UI-SPEC calls for (D-12). The reentrancy guard
  * itself lives in `ComposeStore.submit` (D-17), so both entry points this
- * phase (this Shift+Enter handler, and Plan 05's "Gönder" button) call the
+ * phase (the Shift+Enter handler and submit button) call the
  * SAME `submit` and get the SAME protection for free — `submitting` here
  * only disables the field as a visible extra cue, not the actual guard.
  */

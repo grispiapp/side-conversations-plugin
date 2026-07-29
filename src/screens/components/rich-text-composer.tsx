@@ -2,6 +2,7 @@ import {
   CounterClockwiseClockIcon,
   FontBoldIcon,
   FontItalicIcon,
+  HeadingIcon,
   Link2Icon,
   ListBulletIcon,
   QuoteIcon,
@@ -47,6 +48,7 @@ export interface RichTextComposerProps {
 type ToolbarCommand =
   | "bold"
   | "italic"
+  | "heading"
   | "link"
   | "bulletList"
   | "orderedList"
@@ -74,6 +76,12 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
     icon: <FontItalicIcon />,
     command: "italic",
     activeName: "italic",
+  },
+  {
+    label: "Başlık",
+    icon: <HeadingIcon />,
+    command: "heading",
+    activeName: "heading",
   },
   {
     label: "Bağlantı",
@@ -109,9 +117,21 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
   { label: "Yinele", icon: <ReloadIcon />, command: "redo" },
 ];
 
+type HeadingLevel = 1 | 2 | 3;
+
+const HEADING_OPTIONS: Array<{
+  label: string;
+  level: HeadingLevel | null;
+}> = [
+  { label: "Normal metin", level: null },
+  { label: "Başlık 1", level: 1 },
+  { label: "Başlık 2", level: 2 },
+  { label: "Başlık 3", level: 3 },
+];
+
 function editorClassName(mode: "compose" | "reply", disabled: boolean): string {
   return cn(
-    "w-full flex-1 overflow-y-auto break-words px-4 py-3 text-sm leading-6 outline-none",
+    "rich-text-content w-full flex-1 overflow-y-auto break-words px-4 py-3 text-sm leading-6 outline-none",
     mode === "compose" ? "min-h-48" : "max-h-40 min-h-24",
     disabled && "cursor-not-allowed bg-muted/30 text-muted-foreground"
   );
@@ -194,10 +214,15 @@ export const RichTextComposer = forwardRef<
     const lastEmittedHtml = useRef(sanitizeValue(value));
     const linkTriggerRef = useRef<HTMLButtonElement>(null);
     const linkInputRef = useRef<HTMLInputElement>(null);
+    const headingTriggerRef = useRef<HTMLButtonElement>(null);
+    const headingFirstOptionRef = useRef<HTMLButtonElement>(null);
     const linkPanelId = useId();
+    const headingPanelId = useId();
     const [linkEditorOpen, setLinkEditorOpen] = useState(false);
+    const [headingMenuOpen, setHeadingMenuOpen] = useState(false);
     const [linkHref, setLinkHref] = useState("https://");
     const [linkError, setLinkError] = useState("");
+    const [editingExistingLink, setEditingExistingLink] = useState(false);
 
     onChangeRef.current = onChange;
     onSubmitRef.current = onSubmit;
@@ -211,7 +236,7 @@ export const RichTextComposer = forwardRef<
           StarterKit.configure({
             code: false,
             codeBlock: false,
-            heading: false,
+            heading: { levels: [1, 2, 3] },
             horizontalRule: false,
             strike: false,
           }),
@@ -320,16 +345,28 @@ export const RichTextComposer = forwardRef<
     }, [linkEditorOpen]);
 
     useLayoutEffect(() => {
-      if (disabled && linkEditorOpen) {
+      if (headingMenuOpen) headingFirstOptionRef.current?.focus();
+    }, [headingMenuOpen]);
+
+    useLayoutEffect(() => {
+      if (!disabled) return;
+      if (linkEditorOpen) {
         setLinkEditorOpen(false);
         setLinkError("");
       }
-    }, [disabled, linkEditorOpen]);
+      if (headingMenuOpen) setHeadingMenuOpen(false);
+    }, [disabled, headingMenuOpen, linkEditorOpen]);
 
     const closeLinkEditor = () => {
       setLinkEditorOpen(false);
       setLinkError("");
+      setEditingExistingLink(false);
       linkTriggerRef.current?.focus();
+    };
+
+    const closeHeadingMenu = () => {
+      setHeadingMenuOpen(false);
+      headingTriggerRef.current?.focus();
     };
 
     const applyLink = () => {
@@ -352,6 +389,12 @@ export const RichTextComposer = forwardRef<
       closeLinkEditor();
     };
 
+    const removeLink = () => {
+      if (!editor || disabled || !editingExistingLink) return;
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      closeLinkEditor();
+    };
+
     const runToolbarAction = (action: ToolbarAction) => {
       if (!editor || disabled) return;
 
@@ -362,17 +405,27 @@ export const RichTextComposer = forwardRef<
         case "italic":
           editor.chain().focus().toggleItalic().run();
           break;
+        case "heading":
+          if (headingMenuOpen) {
+            closeHeadingMenu();
+            return;
+          }
+          setLinkEditorOpen(false);
+          setLinkError("");
+          setEditingExistingLink(false);
+          setHeadingMenuOpen(true);
+          break;
         case "link": {
           if (linkEditorOpen) {
             closeLinkEditor();
             return;
           }
+          setHeadingMenuOpen(false);
           const currentHref = editor.getAttributes("link").href;
-          setLinkHref(
-            typeof currentHref === "string" && currentHref
-              ? currentHref
-              : "https://"
-          );
+          const hasCurrentLink =
+            typeof currentHref === "string" && currentHref.length > 0;
+          setLinkHref(hasCurrentLink ? currentHref : "https://");
+          setEditingExistingLink(hasCurrentLink);
           setLinkError("");
           setLinkEditorOpen(true);
           break;
@@ -393,6 +446,16 @@ export const RichTextComposer = forwardRef<
           editor.chain().focus().redo().run();
           break;
       }
+    };
+
+    const applyHeading = (level: HeadingLevel | null) => {
+      if (!editor || disabled) return;
+      if (level === null) {
+        editor.chain().focus().setParagraph().run();
+      } else {
+        editor.chain().focus().setHeading({ level }).run();
+      }
+      closeHeadingMenu();
     };
 
     const submitCurrentContent = () => {
@@ -450,6 +513,45 @@ export const RichTextComposer = forwardRef<
         </div>
 
         <div className="border-t border-border bg-card">
+          {headingMenuOpen && (
+            <div
+              id={headingPanelId}
+              role="menu"
+              aria-label="Başlık düzeyi"
+              className="flex flex-wrap gap-1 border-b border-border bg-muted/20 p-2"
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                closeHeadingMenu();
+              }}
+            >
+              {HEADING_OPTIONS.map((option, index) => {
+                const selected =
+                  option.level === null
+                    ? !(editor?.isActive("heading") ?? false)
+                    : (editor?.isActive("heading", {
+                        level: option.level,
+                      }) ?? false);
+                return (
+                  <Button
+                    key={option.label}
+                    ref={index === 0 ? headingFirstOptionRef : undefined}
+                    type="button"
+                    role="menuitemradio"
+                    aria-label={option.label}
+                    aria-checked={selected}
+                    size="sm"
+                    variant={selected ? "secondary" : "ghost"}
+                    className="h-8 px-2"
+                    onClick={() => applyHeading(option.level)}
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+
           {linkEditorOpen && (
             <form
               id={linkPanelId}
@@ -495,18 +597,33 @@ export const RichTextComposer = forwardRef<
                   {linkError}
                 </p>
               )}
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={closeLinkEditor}
-                >
-                  İptal
-                </Button>
-                <Button type="submit" size="sm">
-                  Uygula
-                </Button>
+              <div className="flex items-center justify-between gap-2">
+                {editingExistingLink ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={removeLink}
+                  >
+                    Bağlantıyı kaldır
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={closeLinkEditor}
+                  >
+                    İptal
+                  </Button>
+                  <Button type="submit" size="sm">
+                    Uygula
+                  </Button>
+                </div>
               </div>
             </form>
           )}
@@ -535,7 +652,11 @@ export const RichTextComposer = forwardRef<
                   >
                     <Button
                       ref={
-                        action.command === "link" ? linkTriggerRef : undefined
+                        action.command === "link"
+                          ? linkTriggerRef
+                          : action.command === "heading"
+                            ? headingTriggerRef
+                            : undefined
                       }
                       type="button"
                       variant="ghost"
@@ -543,12 +664,18 @@ export const RichTextComposer = forwardRef<
                       aria-label={action.label}
                       aria-pressed={action.activeName ? pressed : undefined}
                       aria-expanded={
-                        action.command === "link" ? linkEditorOpen : undefined
+                        action.command === "link"
+                          ? linkEditorOpen
+                          : action.command === "heading"
+                            ? headingMenuOpen
+                            : undefined
                       }
                       aria-controls={
                         action.command === "link" && linkEditorOpen
                           ? linkPanelId
-                          : undefined
+                          : action.command === "heading" && headingMenuOpen
+                            ? headingPanelId
+                            : undefined
                       }
                       title={action.label}
                       disabled={disabled || !editor || unavailable}

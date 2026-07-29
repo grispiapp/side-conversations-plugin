@@ -4,8 +4,8 @@ import { FC } from "react";
 import { Button } from "@/components/ui/button";
 
 /**
- * "Daha fazla yükle" pagination footer (D-12). Renders nothing when there is
- * no further page. While loading, the visible content swaps to a spinner
+ * Pagination footer (D-12). Renders nothing when there is no further page.
+ * While loading, the visible content swaps to a spinner
  * icon only — the accessible name (`aria-label`) stays constant so the
  * button never loses its name mid-interaction (D-14 + UI checker note), and
  * the fixed-width icon avoids a layout jump.

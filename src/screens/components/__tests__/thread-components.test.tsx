@@ -210,16 +210,16 @@ describe("RichTextComposer", () => {
     [
       "Kalın",
       "İtalik",
+      "Başlık",
       "Bağlantı",
       "Madde işaretli liste",
       "Numaralı liste",
       "Alıntı",
-    ].forEach(
-      (name) => expect(button(name)).toBeTruthy()
-    );
+    ].forEach((name) => expect(button(name)).toBeTruthy());
     expect(container.textContent).not.toMatch(/Görsel|Tablo|Dosya/);
     expect(container.querySelector('button[aria-label="Emoji"]')).toBeNull();
     expect(editor().className).toContain("overflow-y-auto");
+    expect(editor().className).toContain("rich-text-content");
   });
 
   it("sanitizes editor updates before reporting changes", () => {

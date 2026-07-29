@@ -1,6 +1,6 @@
 /**
- * Converts an HTML comment body into plain text for the row's "son mesaj
- * özeti" (UAT Defect 1, Plan 01-03): Grispi comment bodies arrive as HTML
+ * Converts an HTML comment body into plain text for the row's last-message
+ * summary (UAT Defect 1, Plan 01-03). Grispi comment bodies arrive as HTML
  * (`<p>…</p>`), and rendering them verbatim showed literal tags as text.
  *
  * Security note (T-01 / UAT step 7): this is TEXT EXTRACTION, not HTML

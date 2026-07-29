@@ -1,12 +1,12 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
+import { type VariantProps, cva } from "class-variance-authority";
+import * as React from "react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 // Modeled on button.tsx's cva+cn convention (NOT the current shadcn CLI,
 // which now targets Base UI — see 01-RESEARCH.md Alternatives Considered).
-// Colors per 01-UI-SPEC.md: amber = Yeni yanıt, emerald = Yanıt bekleniyor,
-// slate = Kapalı. `font-semibold` (not `font-medium`) per the 2-weight budget.
+// Colors per 01-UI-SPEC.md: amber = new reply, emerald = awaiting reply,
+// slate = closed. `font-semibold` follows the two-weight type budget.
 const badgeVariants = cva(
   "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
   {
@@ -19,14 +19,17 @@ const badgeVariants = cva(
     },
     defaultVariants: { variant: "closed" },
   }
-)
+);
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
+  extends
+    React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
-export const Badge: React.FC<BadgeProps> = ({ className, variant, ...props }) => (
-  <span className={cn(badgeVariants({ variant }), className)} {...props} />
-)
+export const Badge: React.FC<BadgeProps> = ({
+  className,
+  variant,
+  ...props
+}) => <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 
-export { badgeVariants }
+export { badgeVariants };

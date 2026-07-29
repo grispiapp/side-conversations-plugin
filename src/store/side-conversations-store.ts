@@ -9,7 +9,7 @@ import { getLastSeenAt } from "@/lib/last-seen-store";
 import { SideTicketSummary, Ticket } from "@/types/grispi.type";
 
 export type ConversationLifecycle = ConversationLifecycleStatus;
-export type ConversationActionBadge = Exclude<ConversationBadge, "kapali">;
+export type ConversationActionBadge = Exclude<ConversationBadge, "closed">;
 
 export interface ConversationRowVM {
   key: string;
@@ -80,13 +80,13 @@ function resolveRowState(
 
   const lastSeenAt = getLastSeenAt(tenantId, summary.key);
   const hasUnseen =
-    derived.badge === "yeni-yanit" &&
+    derived.badge === "new-reply" &&
     derived.lastPublicCommentAt !== null &&
     (lastSeenAt === null || lastSeenAt < derived.lastPublicCommentAt);
 
   return {
     lifecycle: "open",
-    actionBadge: derived.badge === "kapali" ? null : derived.badge,
+    actionBadge: derived.badge === "closed" ? null : derived.badge,
     hasUnseen,
     lastPublicCommentAt: derived.lastPublicCommentAt,
   };
@@ -143,7 +143,7 @@ export function refreshConversationRowUnseen(
 ): ConversationRowVM {
   if (
     row.lifecycle !== "open" ||
-    row.actionBadge !== "yeni-yanit" ||
+    row.actionBadge !== "new-reply" ||
     row.lastPublicCommentAt === null
   ) {
     return row.hasUnseen ? { ...row, hasUnseen: false } : row;
@@ -157,7 +157,7 @@ export function refreshConversationRowUnseen(
 function sortConversationRows(rows: ConversationRowVM[]): ConversationRowVM[] {
   const groupOrder = (row: ConversationRowVM) => {
     if (row.lifecycle !== "open") return 2;
-    return row.actionBadge === "yeni-yanit" ? 0 : 1;
+    return row.actionBadge === "new-reply" ? 0 : 1;
   };
 
   return [...rows].sort((a, b) => {

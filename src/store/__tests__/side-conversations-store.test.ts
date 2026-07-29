@@ -97,7 +97,7 @@ describe("side-conversation row projection", () => {
       subject: "Subject SIDE-1",
       summary: "Yeni yanıt",
       lifecycle: "open",
-      actionBadge: "yeni-yanit",
+      actionBadge: "new-reply",
       hasUnseen: true,
       hydrationFailed: false,
     });
@@ -126,9 +126,7 @@ describe("side-conversation row projection", () => {
       summary("SIDE-CLOSED", 5),
       makeTicket({
         key: "SIDE-CLOSED",
-        comments: [
-          makeComment(4_000, "ROLE_END_USER", "vendor@example.test"),
-        ],
+        comments: [makeComment(4_000, "ROLE_END_USER", "vendor@example.test")],
       })
     );
 
@@ -161,14 +159,14 @@ describe("side-conversation row projection", () => {
         ...base,
         key: "WAITING",
         lifecycle: "open",
-        actionBadge: "yanit-bekleniyor",
+        actionBadge: "awaiting-reply",
         lastPublicCommentAt: 8000,
       },
       {
         ...base,
         key: "NEW",
         lifecycle: "open",
-        actionBadge: "yeni-yanit",
+        actionBadge: "new-reply",
         lastPublicCommentAt: 1000,
       },
       {
@@ -176,18 +174,14 @@ describe("side-conversation row projection", () => {
         key: "NEW",
         subject: "duplicate",
         lifecycle: "open",
-        actionBadge: "yeni-yanit",
+        actionBadge: "new-reply",
         lastPublicCommentAt: 500,
       },
     ];
 
     expect(
       dedupeAndSortConversationRows("tenant-1", rows).map((row) => row.key)
-    ).toEqual([
-      "NEW",
-      "WAITING",
-      "SOLVED",
-    ]);
+    ).toEqual(["NEW", "WAITING", "SOLVED"]);
   });
 
   it("recomputes only local unseen state when the read watermark changes", () => {
@@ -203,7 +197,7 @@ describe("side-conversation row projection", () => {
     window.localStorage.setItem("sc:lastSeenAt:tenant-1:SIDE-1", "4000");
 
     expect(refreshConversationRowUnseen("tenant-1", row)).toMatchObject({
-      actionBadge: "yeni-yanit",
+      actionBadge: "new-reply",
       hasUnseen: false,
     });
   });
