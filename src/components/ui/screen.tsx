@@ -1,13 +1,23 @@
 import { Button } from "./button";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
-import { AllHTMLAttributes, FC, MouseEventHandler } from "react";
+import {
+  AllHTMLAttributes,
+  FC,
+  HTMLAttributes,
+  MouseEventHandler,
+  ReactNode,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
 type ScreenProps = AllHTMLAttributes<HTMLDivElement>;
 
-type ScreenHeaderProps = AllHTMLAttributes<HTMLDivElement> & {
+type ScreenHeaderProps = Omit<HTMLAttributes<HTMLElement>, "title"> & {
+  title?: ReactNode;
+  subtitle?: ReactNode;
   onBack?: MouseEventHandler<HTMLButtonElement>;
+  backLabel?: string;
+  trailing?: ReactNode;
 };
 
 type ScreenTitleProps = AllHTMLAttributes<HTMLHeadingElement>;
@@ -18,7 +28,10 @@ export const Screen: FC<ScreenProps> = ({ children, className, ...props }) => {
   return (
     <div
       {...props}
-      className={cn("flex fixed inset-0 flex-col bg-slate-50", className)}
+      className={cn(
+        "fixed inset-0 flex min-h-0 min-w-0 flex-col overflow-hidden bg-background",
+        className
+      )}
     >
       {children}
     </div>
@@ -28,27 +41,47 @@ export const Screen: FC<ScreenProps> = ({ children, className, ...props }) => {
 export const ScreenHeader: FC<ScreenHeaderProps> = ({
   children,
   className,
+  title,
+  subtitle,
   onBack,
+  backLabel = "Geri dön",
+  trailing,
   ...props
 }) => {
+  const resolvedTitle = title ?? children;
+
   return (
-    <div
+    <header
       {...props}
       className={cn(
-        "flex gap-4 justify-between items-center px-3 py-2 bg-white shadow backdrop-blur max-h-18 min-h-12",
+        "flex h-[var(--panel-header-height)] max-h-[var(--panel-header-height)] min-h-[var(--panel-header-height)] min-w-0 items-center border-b border-border bg-card px-2",
         className
       )}
     >
       {onBack && (
-        <div className="flex-1">
-          <Button onClick={onBack} size="icon">
-            <ChevronLeftIcon className="size-6" />
-          </Button>
-        </div>
+        <Button
+          type="button"
+          onClick={onBack}
+          size="header"
+          variant="ghost"
+          aria-label={backLabel}
+          className="mr-1 shrink-0"
+        >
+          <ChevronLeftIcon className="size-5" aria-hidden="true" />
+        </Button>
       )}
-      <div className="line-clamp-2 flex-[2] text-center">{children}</div>
-      {onBack && <div className="flex-1" />}
-    </div>
+      <div className={cn("min-w-0 flex-1", !onBack && "pl-2")}>
+        <div className="min-w-0 truncate text-left">{resolvedTitle}</div>
+        {subtitle !== undefined && (
+          <div className="min-w-0 truncate text-left text-xs text-muted-foreground">
+            {subtitle}
+          </div>
+        )}
+      </div>
+      {trailing !== undefined && (
+        <div className="ml-2 flex shrink-0 items-center">{trailing}</div>
+      )}
+    </header>
   );
 };
 
@@ -58,9 +91,12 @@ export const ScreenTitle: FC<ScreenTitleProps> = ({
   ...props
 }) => {
   return (
-    <h3 {...props} className={cn("font-medium", className)}>
+    <h1
+      {...props}
+      className={cn("truncate text-base font-semibold leading-5", className)}
+    >
       {children}
-    </h3>
+    </h1>
   );
 };
 
@@ -70,7 +106,13 @@ export const ScreenContent: FC<ScreenContentProps> = ({
   ...props
 }) => {
   return (
-    <div {...props} className={cn("overflow-y-auto flex-1", className)}>
+    <div
+      {...props}
+      className={cn(
+        "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        className
+      )}
+    >
       {children}
     </div>
   );

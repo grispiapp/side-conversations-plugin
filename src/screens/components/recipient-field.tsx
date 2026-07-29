@@ -25,6 +25,8 @@ export const RecipientField = observer(() => {
   const customerQuery = useCustomersQuery(tenantId, compose.query);
   const results = customerQuery.customers;
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const listboxId = "compose-recipient-options";
+  const helpId = "compose-recipient-help";
 
   // Reset keyboard highlight whenever the result set changes underneath it
   // (new search settled, or the panel closed) — an index into a stale array
@@ -46,19 +48,24 @@ export const RecipientField = observer(() => {
     !results.some(
       (result) => result.email.toLowerCase() === trimmedQuery.toLowerCase()
     );
+  const selectableCount = results.length + (showFreeEmailRow ? 1 : 0);
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
-    if (!searchSettled || results.length === 0) return;
+    if (!searchSettled || selectableCount === 0) return;
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setHighlightedIndex((index) => Math.min(index + 1, results.length - 1));
+      setHighlightedIndex((index) => Math.min(index + 1, selectableCount - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setHighlightedIndex((index) => Math.max(index - 1, 0));
     } else if (event.key === "Enter" && highlightedIndex >= 0) {
       event.preventDefault();
-      compose.selectRecipient(results[highlightedIndex]);
+      if (highlightedIndex < results.length) {
+        compose.selectRecipient(results[highlightedIndex]);
+      } else {
+        compose.selectFreeEmail(trimmedQuery);
+      }
     }
   }
 
@@ -77,14 +84,20 @@ export const RecipientField = observer(() => {
     !showInvalidWarning;
 
   return (
-    <div className="relative flex flex-col gap-1">
+    <div className="relative flex min-w-0 flex-col gap-1.5">
+      <label
+        htmlFor="compose-recipient"
+        className="text-xs font-semibold text-foreground"
+      >
+        Alıcı
+      </label>
       {compose.recipientLabel ? (
-        <div className="flex items-center justify-between rounded-md border border-input bg-card px-3 py-1.5 text-sm">
+        <div className="flex min-h-11 min-w-0 items-center justify-between rounded-md border border-input bg-card pl-3 text-sm shadow-sm">
           <span className="truncate">{compose.recipientLabel}</span>
           <button
             type="button"
             aria-label="Alıcıyı değiştir"
-            className="shrink-0 text-muted-foreground hover:text-foreground"
+            className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             onClick={() => {
               compose.selectFreeEmail("");
               compose.setQuery("");
@@ -95,18 +108,33 @@ export const RecipientField = observer(() => {
         </div>
       ) : (
         <Input
+          id="compose-recipient"
           value={compose.query}
           onChange={(event) => compose.setQuery(event.target.value)}
           onKeyDown={handleKeyDown}
+          className="h-11"
           placeholder="İsim veya e-posta ile ara…"
           role="combobox"
           aria-expanded={panelOpen}
+          aria-controls={panelOpen ? listboxId : undefined}
+          aria-activedescendant={
+            highlightedIndex >= 0
+              ? `compose-recipient-option-${highlightedIndex}`
+              : undefined
+          }
+          aria-describedby={helpId}
+          aria-autocomplete="list"
         />
       )}
+      <span id={helpId} className="text-xs text-muted-foreground">
+        Müşteri seçin veya geçerli bir e-posta adresi girin.
+      </span>
 
       {panelOpen && (
         <div
+          id={listboxId}
           role="listbox"
+          aria-label="Alıcı seçenekleri"
           className="absolute top-full z-10 mt-1 w-full rounded-md border bg-card shadow"
         >
           {searchLoading && (
@@ -119,11 +147,12 @@ export const RecipientField = observer(() => {
             results.map((vm, index: number) => (
               <button
                 key={vm.id}
+                id={`compose-recipient-option-${index}`}
                 type="button"
                 role="option"
                 aria-selected={index === highlightedIndex}
                 className={cn(
-                  "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left",
+                  "flex min-h-11 w-full flex-col items-start justify-center gap-0.5 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                   index === highlightedIndex ? "bg-accent" : "hover:bg-accent"
                 )}
                 onClick={() => compose.selectRecipient(vm)}
@@ -151,8 +180,14 @@ export const RecipientField = observer(() => {
 
           {showFreeEmailRow && (
             <button
+              id={`compose-recipient-option-${results.length}`}
               type="button"
-              className="flex w-full items-center gap-2 border-t px-3 py-2 text-left text-sm text-primary hover:bg-accent"
+              role="option"
+              aria-selected={highlightedIndex === results.length}
+              className={cn(
+                "flex min-h-11 w-full items-center gap-2 border-t px-3 py-2 text-left text-sm text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                highlightedIndex === results.length && "bg-accent"
+              )}
               onClick={() => compose.selectFreeEmail(trimmedQuery)}
             >
               <EnvelopeClosedIcon className="size-4 shrink-0" />
