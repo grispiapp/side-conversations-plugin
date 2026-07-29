@@ -167,4 +167,21 @@ describe("quote boundary helpers", () => {
     expect(result).not.toContain("already quoted");
     expect(result).not.toContain("script");
   });
+
+  it("preserves authored reply blockquotes while stripping quote history only from canonical context", () => {
+    const result = buildQuotedReplyHtml(
+      "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
+      [
+        {
+          html: "<p>Canonical body</p><blockquote><p>Old history</p></blockquote>",
+          publicVisible: true,
+        },
+      ]
+    );
+
+    expect(result).toBe(
+      "<blockquote><p>Agent quote</p></blockquote><p>After quote</p><blockquote><p>Canonical body</p></blockquote>"
+    );
+    expect(result).not.toContain("Old history");
+  });
 });

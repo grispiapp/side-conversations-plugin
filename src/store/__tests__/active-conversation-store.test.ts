@@ -160,6 +160,42 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
     });
   });
 
+  it.each([
+    [
+      "<blockquote><p>Yalnız alıntı</p></blockquote>",
+      "<blockquote><p>Yalnız alıntı</p></blockquote>",
+    ],
+    [
+      "<p>Önce</p><blockquote><p>Yazılan alıntı</p></blockquote><p>Sonra</p>",
+      "<p>Önce</p><blockquote><p>Yazılan alıntı</p></blockquote><p>Sonra</p><blockquote><p>Önceki</p></blockquote>",
+    ],
+  ])(
+    "preserves agent-authored blockquotes at the outbound reply boundary",
+    (draft, expectedBody) => {
+      store.activateSession(6, "SIDE-6");
+      store.setDraftHtml(draft);
+      const envelope = store.sendReply({
+        tenantId: "tenant-1",
+        parentKey: "PARENT-1",
+        sideKey: "SIDE-6",
+        sessionKey: 6,
+        agentEmail: "agent@example.test",
+        canonicalMessages:
+          draft.startsWith("<p>")
+            ? [
+                canonical(1, "<p>Önceki</p>", 1_000, {
+                  direction: "incoming",
+                  senderEmail: "vendor@example.test",
+                }),
+              ]
+            : [],
+      });
+
+      expect(envelope?.request.comment.body).toBe(expectedBody);
+      expect(store.getOverlayMessages(6, "SIDE-6")[0].body).toBe(expectedBody);
+    }
+  );
+
   it("reconciles accepted own public overlays FIFO one-to-one without dropping unmatched overlays", () => {
     store.activateSession(4, "SIDE-4");
     store.setDraftHtml("<p>Aynı</p>");

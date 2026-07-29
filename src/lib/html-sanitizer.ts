@@ -176,7 +176,7 @@ export function buildQuotedReplyHtml(
   replyHtml: string,
   context: readonly QuotedContextPart[]
 ): string {
-  const reply = splitQuotedHtml(replyHtml).bodyHtml;
+  const reply = sanitizeHtml(replyHtml);
   const publicContext = context
     .filter((part) => part.publicVisible)
     .map((part) => splitQuotedHtml(part.html).bodyHtml)

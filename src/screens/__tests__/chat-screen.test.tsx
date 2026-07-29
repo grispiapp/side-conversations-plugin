@@ -314,6 +314,43 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(mockReplyMutation.mutate).toHaveBeenCalledWith(reply);
   });
 
+  it("passes authored blockquote and trailing editor content intact to reply submission", () => {
+    render(<ChatScreen />);
+
+    const editor = container.querySelector<HTMLDivElement>(
+      '[role="textbox"][aria-label="Yanıt"]'
+    );
+    if (!editor) throw new Error("Editor not found");
+    const paste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, "clipboardData", {
+      value: {
+        getData: (type: string) =>
+          type === "text/html"
+            ? "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>"
+            : "Agent quote\nAfter quote",
+      },
+    });
+    act(() => editor.dispatchEvent(paste));
+    act(() =>
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        })
+      )
+    );
+
+    const submittedHtml =
+      mockStore.activeConversation.setDraftHtml.mock.calls.at(-1)?.[0];
+    expect(submittedHtml).toContain(
+      "<blockquote><p>Agent quote</p></blockquote>"
+    );
+    expect(submittedHtml).toContain("<p>After quote</p>");
+    expect(mockStore.activeConversation.sendReply).toHaveBeenCalledTimes(1);
+  });
+
   it("routes failed retries through the matching hook with exact envelope identity", () => {
     const create = envelope("create", "failed-create");
     const reply = envelope("reply", "failed-reply");
