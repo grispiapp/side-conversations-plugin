@@ -1,3 +1,7 @@
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactElement, act } from "react";
+import { Root, createRoot } from "react-dom/client";
+
 import { grispiAPI } from "@/grispi/client/api";
 import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
 import { createTestQueryClient } from "@/query/query-client";
@@ -5,9 +9,11 @@ import {
   customerSearchOptions,
   sideConversationDetailOptions,
   sideConversationListOptions,
+  useCustomersQuery,
 } from "@/query/side-conversation-queries";
 import {
   AdvancedSearchResponse,
+  Customer,
   CustomerSearchResponse,
   Ticket,
 } from "@/types/grispi.type";
@@ -91,13 +97,35 @@ function makeListPage(
   };
 }
 
-function makeCustomerPage(): CustomerSearchResponse {
+function makeCustomerPage(content: Customer[] = []): CustomerSearchResponse {
   return {
-    content: [],
+    content,
     totalPages: 1,
-    totalSize: 0,
+    totalSize: content.length,
     pageNumber: 0,
-    numberOfElements: 0,
+    numberOfElements: content.length,
+  };
+}
+
+function makeCustomer(id: number, email: string, fullName: string): Customer {
+  return {
+    id,
+    email,
+    emails: [email],
+    fullName,
+    firstName: null,
+    lastName: null,
+    phone: null,
+    phones: [],
+    organization: null,
+    language: null,
+    tags: [],
+    fieldMap: {},
+    role: "ROLE_END_USER",
+    createdAt: 0,
+    updatedAt: 0,
+    groups: null,
+    enabled: true,
   };
 }
 
@@ -279,5 +307,118 @@ describe("side-conversation query contracts", () => {
     expect(mockedGetUser).toHaveBeenCalledWith(92);
     expect(data.pages[0].rows[0].recipientEmail).toBe("requester@example.test");
     expect(data.pages[0].rows[0].recipientEmail).not.toBe("SIDE-1");
+  });
+});
+
+describe("useCustomersQuery", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let client: ReturnType<typeof createTestQueryClient>;
+
+  function Harness({ tenantId, term }: { tenantId: string; term: string }) {
+    const query = useCustomersQuery(tenantId, term);
+    return (
+      <div data-waiting={String(query.isDebouncing || query.isPending)}>
+        {query.customers.map((customer) => customer.email).join(",")}
+      </div>
+    );
+  }
+
+  function render(ui: ReactElement): void {
+    act(() => {
+      root.render(
+        <QueryClientProvider client={client}>{ui}</QueryClientProvider>
+      );
+    });
+  }
+
+  async function advanceAndFlush(ms: number): Promise<void> {
+    await act(async () => {
+      jest.advanceTimersByTime(ms);
+      for (let index = 0; index < 10; index += 1) {
+        await Promise.resolve();
+      }
+    });
+  }
+
+  beforeAll(() => {
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.resetAllMocks();
+    client = createTestQueryClient();
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    client.clear();
+    jest.useRealTimers();
+  });
+
+  it("waits 300ms, normalizes the term and publishes Query-owned customers", async () => {
+    mockedCustomerSearch.mockResolvedValue(
+      makeCustomerPage([makeCustomer(1, "ada@example.test", "Ada")])
+    );
+
+    render(<Harness tenantId="tenant-1" term="  ADA " />);
+    expect(mockedCustomerSearch).not.toHaveBeenCalled();
+    expect(container.textContent).toBe("");
+
+    await advanceAndFlush(299);
+    expect(mockedCustomerSearch).not.toHaveBeenCalled();
+
+    await advanceAndFlush(1);
+    expect(mockedCustomerSearch).toHaveBeenCalledWith({
+      searchTerm: "ada",
+      size: 10,
+      page: 0,
+    });
+    expect(container.textContent).toBe("ada@example.test");
+  });
+
+  it("never renders an earlier term or tenant result under the current key", async () => {
+    let resolveOld!: (value: CustomerSearchResponse) => void;
+    mockedCustomerSearch
+      .mockReturnValueOnce(
+        new Promise<CustomerSearchResponse>((resolve) => {
+          resolveOld = resolve;
+        })
+      )
+      .mockResolvedValueOnce(
+        makeCustomerPage([makeCustomer(2, "new@example.test", "New")])
+      )
+      .mockResolvedValueOnce(
+        makeCustomerPage([makeCustomer(3, "tenant2@example.test", "T2")])
+      );
+
+    render(<Harness tenantId="tenant-1" term="old" />);
+    await advanceAndFlush(300);
+
+    render(<Harness tenantId="tenant-1" term="new" />);
+    expect(container.textContent).toBe("");
+    await advanceAndFlush(300);
+    expect(container.textContent).toBe("new@example.test");
+
+    resolveOld(makeCustomerPage([makeCustomer(1, "old@example.test", "Old")]));
+    await advanceAndFlush(0);
+    expect(container.textContent).toBe("new@example.test");
+
+    render(<Harness tenantId="tenant-2" term="new" />);
+    expect(container.textContent).toBe("");
+    await advanceAndFlush(0);
+    expect(container.textContent).toBe("tenant2@example.test");
+    expect(mockedCustomerSearch).toHaveBeenLastCalledWith({
+      searchTerm: "new",
+      size: 10,
+      page: 0,
+    });
   });
 });
