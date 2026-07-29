@@ -16,6 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Temel ve Salt Okunur Görüşme Listesi** - Panel, aktif talebe bağlı yan görüşmeleri rozetleriyle, doğru sırayla ve sayfalanmış olarak gösterir (completed 2026-07-23)
 - [x] **Phase 2: Yeni Yan Görüşme Başlatma** - Temsilci alıcı/konu/mesaj ile yeni görüşme açar; side ticket oluşur ve alıcıya gerçek e-posta gider (completed 2026-07-23)
 - [ ] **Phase 3: Görüşme Detayı ve Yaşam Döngüsü** - Temsilci mesajları yön ayrımıyla görür, yanıtlar, kapatır/yeniden açar ve okundu işaretler
+- [ ] **Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu** - Tiptap/DOMPurify, tenant-scoped React Query, senkron thread navigasyonu ve ortak 372px inbox kabuğuyla Phase 3 deneyimini güvenli ve tutarlı hâle getirir
 - [ ] **Phase 4: Zenginleştirmeler ve Dayanıklılık** - Dosya ekleme, talep özeti, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
 
 ## Phase Details
@@ -113,14 +114,36 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Temsilci, bozuk özel editör ve dağınık uzak-state akışları yerine güvenli Tiptap/DOMPurify bileşimi, tenant-scoped React Query cache'i, senkron thread seçimi ve liste/compose/detay boyunca tek erişilebilir 372px inbox deneyimi kullanır; Phase 3 davranışlarının tamamı korunur.
+**Requirements**: CORE-03, LIST-01, LIST-02, LIST-03, LIST-04, LIST-05, LIST-06, COMP-01, COMP-02, COMP-03, COMP-04, THRD-01, THRD-02, THRD-03, THRD-04, SYNC-02
 **Depends on:** Phase 3
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
 
-Plans:
+  1. Tiptap 2.27.2 editörü kalın/italik/link/liste/alıntı/emoji, Enter/Shift+Enter/IME, paste/restore/clear ve focus davranışlarını güvenilir biçimde sunar; DOMPurify uzak, yapıştırılmış, restore edilmiş ve gönderilecek HTML için tek güven sınırıdır
+  2. Liste, thread ve müşteri arama cache'leri tenant/parent/side/term anahtarlarıyla birbirinden ayrılır; MobX yalnız navigasyon, taslak, focus/scroll sinyalleri ve optimistic overlay tutar; polling ve önceki ticket verisini yeni key altında taşıma yoktur
+  3. Satır aktivasyonu side-ticket + parent-ticket + sessionKey tuple'ını fetch başlamadan senkron seçer; hızlı A→B seçiminde stale veri/callback görünmez ve geri dönüş odağı etkinleştiren satıra gelir
+  4. Create/reply/solve/reopen retry aynı dondurulmuş request identity'sini kullanır; başarı inactive parent-list dahil exact cache'leri await eder, hata cache yenilemez ve canonical/optimistic mesajlar duplicate olmadan reconcile edilir
+  5. Liste, compose ve detay tek 48px header/44px target sisteminde, 64–72px yoğun liste ve ortak rich composer ile ~372px'te yatay taşmadan, klavye/screen-reader erişilebilir çalışır
+  6. Odaklı ve tam test suite'i, TypeScript, güvenlik gate'leri ve production build geçer; Phase 3'ün on maddelik canlı tenant/mailbox UAT'ı son test geçişine kadar açıkça `DEFERRED — NOT TESTED` kalır
 
-- [ ] TBD (run /gsd:plan-phase 03.1 to break down)
+**Plans:** 5 plans
+
+**Wave 1**
+
+- [ ] 03.1-01-PLAN.md — Tiptap 2.27.2 editör ve DOMPurify tek HTML güven sınırı
+- [ ] 03.1-02-PLAN.md — Plugin/standalone tenant kaynağı, QueryClient, exact query key/options sözleşmeleri
+
+**Wave 2** *(blocked on 03.1-02)*
+
+- [ ] 03.1-03-PLAN.md — Senkron selected-thread session, listeye focus dönüşü ve Query-owned liste/müşteri GET state'i
+
+**Wave 3** *(blocked on 03.1-01, 03.1-02, 03.1-03)*
+
+- [ ] 03.1-04-PLAN.md — Query-owned detail/mutation lifecycle, immutable retry envelope ve canonical overlay reconciliation
+
+**Wave 4** *(blocked on 03.1-01, 03.1-03, 03.1-04)*
+
+- [ ] 03.1-05-PLAN.md — Ortak erişilebilir 372px inbox/list/compose/detail kabuğu, tam test/build/UI doğrulaması
 
 ### Phase 4: Zenginleştirmeler ve Dayanıklılık
 
@@ -141,11 +164,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Temel ve Salt Okunur Görüşme Listesi | 4/4 | Complete    | 2026-07-23 |
 | 2. Yeni Yan Görüşme Başlatma | 6/6 | Complete    | 2026-07-23 |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 5/6 | In Progress|  |
+| 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 0/5 | Not started | - |
 | 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
