@@ -121,7 +121,6 @@ function makeDetail(overrides: Record<string, unknown> = {}) {
       solved: false,
       reopenable: false,
       messages: canonicalMessages(),
-      scrollTargetMessageId: "comment-1",
       latestRelevantExternalAt: 1_000,
     },
     isPending: false,

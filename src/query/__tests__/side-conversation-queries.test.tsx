@@ -558,7 +558,6 @@ describe("canonical detail and mutation executors", () => {
       lifecycle: "solved",
       solved: true,
       reopenable: true,
-      scrollTargetMessageId: "comment-1",
       latestRelevantExternalAt: 1_000,
     });
     expect(detail.messages).toEqual([
@@ -704,7 +703,6 @@ describe("canonical detail and mutation executors", () => {
       solved: false,
       reopenable: false,
       messages: [],
-      scrollTargetMessageId: null,
       latestRelevantExternalAt: null,
     };
     client.setQueryData(["side-conversation", "tenant-1", "SIDE-1"], detail);
@@ -749,6 +747,89 @@ describe("canonical detail and mutation executors", () => {
     container.remove();
   });
 
+  it("recomputes the first-unseen scroll target when cached detail is reopened", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    selected = {
+      ticketKey: "SIDE-1",
+      parentKey: "PARENT-1",
+      sessionKey: 1,
+    };
+    store.activateSession(1, "SIDE-1");
+    client.setQueryData(["side-conversation", "tenant-1", "SIDE-1"], {
+      sideKey: "SIDE-1",
+      recipientLabel: "Vendor",
+      subject: "Konu",
+      lifecycle: "open" as const,
+      solved: false,
+      reopenable: false,
+      messages: [
+        {
+          id: "comment-1",
+          direction: "incoming" as const,
+          body: "<p>İlk</p>",
+          status: "sent" as const,
+          createdAt: 1_000,
+          internal: false,
+        },
+        {
+          id: "comment-2",
+          direction: "own" as const,
+          body: "<p>Son</p>",
+          status: "sent" as const,
+          createdAt: 2_000,
+          internal: false,
+        },
+      ],
+      latestRelevantExternalAt: 1_000,
+    });
+    jest.spyOn(client, "invalidateQueries").mockResolvedValue();
+    const getSelectedConversation = () => selected;
+
+    function DetailHarness({ sessionKey }: { sessionKey: number }) {
+      useSideConversationDetailQuery(
+        "tenant-1",
+        "SIDE-1",
+        "PARENT-1",
+        sessionKey,
+        store,
+        getSelectedConversation
+      );
+      return null;
+    }
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <DetailHarness sessionKey={1} />
+        </QueryClientProvider>
+      );
+      await Promise.resolve();
+    });
+    expect(store.consumeScrollRequest(1, "SIDE-1")).toBe("comment-1");
+    expect(
+      window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-1")
+    ).toBe("1000");
+
+    selected = { ...selected, sessionKey: 2 };
+    store.activateSession(2, "SIDE-1");
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <DetailHarness sessionKey={2} />
+        </QueryClientProvider>
+      );
+      await Promise.resolve();
+    });
+
+    expect(mockedGetTicket).not.toHaveBeenCalled();
+    expect(store.consumeScrollRequest(2, "SIDE-1")).toBe("comment-2");
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it("passes the exact reply request, accepts the transport once, then awaits exact list/detail convergence", async () => {
     const envelope = replyEnvelope();
     const listRefresh = deferred<void>();
@@ -770,7 +851,6 @@ describe("canonical detail and mutation executors", () => {
           internal: false,
         },
       ],
-      scrollTargetMessageId: "comment-10",
       latestRelevantExternalAt: null,
     });
     const invalidate = jest
@@ -903,7 +983,6 @@ describe("canonical detail and mutation executors", () => {
         subject: "Konu",
         solved: false,
         messages: [],
-        scrollTargetMessageId: null,
         latestRelevantExternalAt: null,
       });
     });

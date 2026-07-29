@@ -73,7 +73,6 @@ export interface SideConversationDetail {
   solved: boolean;
   reopenable: boolean;
   messages: MessageVM[];
-  scrollTargetMessageId: string | null;
   latestRelevantExternalAt: number | null;
 }
 
@@ -248,12 +247,7 @@ export function sideConversationDetailOptions(
       requireIdentity(tenantId, "tenantId");
       return grispiAPI.tickets
         .getTicket(requireIdentity(sideKey, "sideKey"))
-        .then((ticket) =>
-          normalizeSideConversationDetail(
-            ticket,
-            requireIdentity(tenantId, "tenantId")
-          )
-        );
+        .then(normalizeSideConversationDetail);
     },
     enabled: Boolean(tenantId && sideKey),
     staleTime: DETAIL_STALE_TIME,
@@ -293,6 +287,10 @@ export function useSideConversationDetailQuery(
     }
 
     const lastSeenAt = getLastSeenAt(tenantId, sideKey);
+    const scrollTargetMessageId = resolveDetailScrollTarget(
+      query.data.messages,
+      lastSeenAt
+    );
     if (
       query.data.latestRelevantExternalAt !== null &&
       (lastSeenAt === null ||
@@ -310,11 +308,11 @@ export function useSideConversationDetailQuery(
       sideKey,
       query.data.messages
     );
-    if (query.data.scrollTargetMessageId) {
+    if (scrollTargetMessageId) {
       activeConversation.requestScroll(
         sessionKey,
         sideKey,
-        query.data.scrollTargetMessageId
+        scrollTargetMessageId
       );
     }
     void queryClient.invalidateQueries({
@@ -430,9 +428,21 @@ function resolveRecipientLabel(ticket: Ticket): string {
   return name || email || "—";
 }
 
+export function resolveDetailScrollTarget(
+  messages: readonly MessageVM[],
+  lastSeenAt: number | null
+): string | null {
+  const firstUnseen = messages.find(
+    (message) =>
+      message.direction === "incoming" &&
+      !message.internal &&
+      (lastSeenAt === null || message.createdAt > lastSeenAt)
+  );
+  return firstUnseen?.id ?? messages[messages.length - 1]?.id ?? null;
+}
+
 export function normalizeSideConversationDetail(
-  ticket: Ticket,
-  tenantId: string
+  ticket: Ticket
 ): SideConversationDetail {
   const messages = [...(ticket.comments ?? [])]
     .sort(
@@ -441,10 +451,6 @@ export function normalizeSideConversationDetail(
     .map(normalizeComment);
   const externalPublic = messages.filter(
     (message) => message.direction === "incoming" && !message.internal
-  );
-  const lastSeenAt = getLastSeenAt(tenantId, ticket.key);
-  const firstUnseen = externalPublic.find(
-    (message) => lastSeenAt === null || message.createdAt > lastSeenAt
   );
   const latestRelevantExternalAt =
     externalPublic.length > 0
@@ -463,8 +469,6 @@ export function normalizeSideConversationDetail(
     solved: lifecycle !== "open",
     reopenable: lifecycle === "solved",
     messages,
-    scrollTargetMessageId:
-      firstUnseen?.id ?? messages[messages.length - 1]?.id ?? null,
     latestRelevantExternalAt,
   };
 }
