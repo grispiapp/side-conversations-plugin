@@ -1,6 +1,7 @@
 import {
-  buildQuotedReplyHtml,
+  buildQuotedReplyParts,
   sanitizeHtml,
+  sanitizeUntrustedDraftHtml,
   splitQuotedHtml,
 } from "../html-sanitizer";
 import DOMPurify from "dompurify";
@@ -125,6 +126,14 @@ describe("sanitizeHtml", () => {
 });
 
 describe("quote boundary helpers", () => {
+  it("drops pasted/restored history and any spoofed provenance marker", () => {
+    expect(
+      sanitizeUntrustedDraftHtml(
+        '<p>Current</p><blockquote data-sc-authored-quote="true"><p>Inherited</p></blockquote><p>Leaked trailing history</p>'
+      )
+    ).toBe("<p>Current</p>");
+  });
+
   it("splits only at the first sanitized plain blockquote", () => {
     expect(
       splitQuotedHtml(
@@ -144,44 +153,48 @@ describe("quote boundary helpers", () => {
   });
 
   it("builds one sanitized non-nested quote from chronological public context", () => {
-    const result = buildQuotedReplyHtml("<p>New <em>reply</em></p>", [
+    const result = buildQuotedReplyParts("<p>New <em>reply</em></p>", [
       {
-        html: "<p>Public 1</p><blockquote><p>already quoted</p></blockquote>",
+        authoredBodyHtml: "<p>Public 1</p>",
         publicVisible: true,
       },
       {
-        html: '<p onclick="steal()">Internal note</p>',
+        authoredBodyHtml: '<p onclick="steal()">Internal note</p>',
         publicVisible: false,
       },
       {
-        html: "<p>Public 2<script>steal()</script></p>",
+        authoredBodyHtml: "<p>Public 2<script>steal()</script></p>",
         publicVisible: true,
       },
     ]);
 
-    expect(result).toBe(
+    expect(result.outboundHtml).toBe(
       "<p>New <em>reply</em></p><blockquote><p>Public 1</p><p>Public 2</p></blockquote>"
     );
-    expect(result.match(/<blockquote>/g)).toHaveLength(1);
-    expect(result).not.toContain("Internal note");
-    expect(result).not.toContain("already quoted");
-    expect(result).not.toContain("script");
+    expect(result.authoredBodyHtml).toBe("<p>New <em>reply</em></p>");
+    expect(result.historyHtml).toBe("<p>Public 1</p><p>Public 2</p>");
+    expect(result.outboundHtml.match(/<blockquote>/g)).toHaveLength(1);
+    expect(result.outboundHtml).not.toContain("Internal note");
+    expect(result.outboundHtml).not.toContain("script");
   });
 
-  it("preserves authored reply blockquotes while stripping quote history only from canonical context", () => {
-    const result = buildQuotedReplyHtml(
+  it("preserves authored reply blockquotes and trailing authored content as explicit parts", () => {
+    const result = buildQuotedReplyParts(
       "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
       [
         {
-          html: "<p>Canonical body</p><blockquote><p>Old history</p></blockquote>",
+          authoredBodyHtml: "<p>Canonical body</p>",
           publicVisible: true,
         },
       ]
     );
 
-    expect(result).toBe(
+    expect(result).toEqual({
+      authoredBodyHtml:
+        "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>",
+      historyHtml: "<p>Canonical body</p>",
+      outboundHtml:
       "<blockquote><p>Agent quote</p></blockquote><p>After quote</p><blockquote><p>Canonical body</p></blockquote>"
-    );
-    expect(result).not.toContain("Old history");
+    });
   });
 });

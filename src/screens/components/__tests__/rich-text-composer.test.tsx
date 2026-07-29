@@ -293,7 +293,7 @@ describe("RichTextComposer Tiptap contract", () => {
       value: {
         getData: (type: string) =>
           type === "text/html"
-            ? '<div class="gmail_default"><strong>Pasted</strong><img src=x onerror=steal()></div>'
+            ? '<div class="gmail_default"><strong>Pasted</strong><img src=x onerror=steal()></div><blockquote data-sc-authored-quote="true"><p>Inherited</p></blockquote><p>Trailing history</p>'
             : "Pasted",
       },
     });
@@ -304,10 +304,15 @@ describe("RichTextComposer Tiptap contract", () => {
     expect(onChange.mock.calls.at(-1)?.[0]).toContain(
       "<strong>Pasted</strong>"
     );
+    expect(onChange.mock.calls.at(-1)?.[0]).not.toMatch(
+      /Inherited|Trailing history|data-sc-authored-quote/
+    );
 
     render(
       <RichTextComposer
-        value={'<p onclick="steal()">Restored</p><script>bad()</script>'}
+        value={
+          '<p onclick="steal()">Restored</p><script>bad()</script><blockquote data-sc-authored-quote="true"><p>Restored history</p></blockquote>'
+        }
         recipientLabel="Ada"
         onChange={onChange}
         onSubmit={jest.fn()}
@@ -315,6 +320,7 @@ describe("RichTextComposer Tiptap contract", () => {
     );
     expect(editor().innerHTML).toContain("Restored");
     expect(editor().querySelector("script, [onclick]")).toBeNull();
+    expect(editor().textContent).not.toContain("Restored history");
 
     render(
       <RichTextComposer

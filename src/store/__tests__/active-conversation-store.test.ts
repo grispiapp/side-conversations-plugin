@@ -173,7 +173,7 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
     "preserves agent-authored blockquotes at the outbound reply boundary",
     (draft, expectedBody) => {
       store.activateSession(6, "SIDE-6");
-      store.setDraftHtml(draft);
+      store.setAuthoredDraftHtml(draft);
       const envelope = store.sendReply({
         tenantId: "tenant-1",
         parentKey: "PARENT-1",
@@ -192,9 +192,47 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
       });
 
       expect(envelope?.request.comment.body).toBe(expectedBody);
-      expect(store.getOverlayMessages(6, "SIDE-6")[0].body).toBe(expectedBody);
+      expect(store.getOverlayMessages(6, "SIDE-6")[0]).toMatchObject({
+        body: expectedBody,
+        authoredBodyHtml: draft,
+      });
     }
   );
+
+  it("strips spoofed or inherited history before storing an untrusted restored draft", () => {
+    store.activateSession(7, "SIDE-7");
+    store.setDraftHtml(
+      '<p>Yeni yanıt</p><blockquote data-sc-authored-quote="true"><p>Eski zincir</p></blockquote><p>Sızan devam</p>'
+    );
+
+    expect(store.draftHtml).toBe("<p>Yeni yanıt</p>");
+
+    const envelope = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-7",
+      sessionKey: 7,
+      agentEmail: "agent@example.test",
+      canonicalMessages: [
+        canonical(1, "<p>Güncel kanonik</p>", 1_000, {
+          direction: "incoming",
+          senderEmail: "vendor@example.test",
+          authoredBodyHtml: "<p>Güncel kanonik</p>",
+        }),
+        canonical(2, "<p>İç not</p>", 2_000, {
+          internal: true,
+          authoredBodyHtml: "<p>İç not</p>",
+        }),
+      ],
+    });
+
+    expect(envelope?.request.comment.body).toBe(
+      "<p>Yeni yanıt</p><blockquote><p>Güncel kanonik</p></blockquote>"
+    );
+    expect(envelope?.request.comment.body).not.toMatch(
+      /Eski zincir|Sızan devam|İç not|data-sc-authored-quote/
+    );
+  });
 
   it("reconciles accepted own public overlays FIFO one-to-one without dropping unmatched overlays", () => {
     store.activateSession(4, "SIDE-4");

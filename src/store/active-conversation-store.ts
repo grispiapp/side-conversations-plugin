@@ -1,7 +1,12 @@
 import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
-import { buildQuotedReplyHtml, sanitizeHtml } from "@/lib/html-sanitizer";
+import {
+  buildQuotedReplyParts,
+  sanitizeHtml,
+  sanitizeUntrustedDraftHtml,
+  splitQuotedHtml,
+} from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
 import {
   CreateTicketRequest,
@@ -36,6 +41,7 @@ export interface MessageVM {
   senderName?: string;
   senderEmail?: string;
   internal?: boolean;
+  authoredBodyHtml?: string;
   quotedHtml?: string;
 }
 
@@ -222,6 +228,7 @@ export class ActiveConversationStore {
           id: clientMessageId,
           direction: "own",
           body: sanitizeHtml(params.body),
+          authoredBodyHtml: sanitizeHtml(params.body),
           status: "pending",
           createdAt: envelope.startedAt,
           senderEmail: envelopeCreator(envelope) ?? undefined,
@@ -235,7 +242,11 @@ export class ActiveConversationStore {
   }
 
   setDraftHtml(html: string): void {
-    this.draftHtml = html;
+    this.draftHtml = sanitizeUntrustedDraftHtml(html);
+  }
+
+  setAuthoredDraftHtml(html: string): void {
+    this.draftHtml = sanitizeHtml(html);
   }
 
   sendReply(
@@ -250,17 +261,17 @@ export class ActiveConversationStore {
       return null;
     }
 
-    const body = sanitizeHtml(
-      buildQuotedReplyHtml(
-        sanitizeHtml(this.draftHtml),
-        params.canonicalMessages
-          .filter((message) => message.status === "sent" && !message.internal)
-          .map((message) => ({
-            html: message.body,
-            publicVisible: true,
-          }))
-      )
+    const reply = buildQuotedReplyParts(
+      this.draftHtml,
+      params.canonicalMessages
+        .filter((message) => message.status === "sent" && !message.internal)
+        .map((message) => ({
+          authoredBodyHtml:
+            message.authoredBodyHtml ?? splitQuotedHtml(message.body).bodyHtml,
+          publicVisible: true,
+        }))
     );
+    const body = sanitizeHtml(reply.outboundHtml);
     if (htmlToText(body) === "") return null;
 
     const request: ReplyTicketPatchRequest = {
@@ -292,6 +303,8 @@ export class ActiveConversationStore {
           id: clientMessageId,
           direction: "own",
           body,
+          authoredBodyHtml: reply.authoredBodyHtml,
+          quotedHtml: reply.historyHtml,
           status: "pending",
           createdAt: envelope.startedAt,
           senderEmail: params.agentEmail,

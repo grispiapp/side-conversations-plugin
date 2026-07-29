@@ -22,7 +22,10 @@ import {
 } from "react";
 
 import { Button } from "@/components/ui/button";
-import { sanitizeHtml } from "@/lib/html-sanitizer";
+import {
+  sanitizeHtml,
+  sanitizeUntrustedDraftHtml,
+} from "@/lib/html-sanitizer";
 import { cn } from "@/lib/utils";
 
 export interface RichTextComposerProps {
@@ -34,6 +37,7 @@ export interface RichTextComposerProps {
   required?: boolean;
   onChange: (html: string) => void;
   onSubmit: (html: string) => void;
+  valueIsTrustedAuthored?: boolean;
   disabled?: boolean;
   autoFocus?: boolean;
   className?: string;
@@ -161,6 +165,7 @@ export const RichTextComposer = forwardRef<
       required = false,
       onChange,
       onSubmit,
+      valueIsTrustedAuthored = false,
       disabled = false,
       autoFocus = false,
       className,
@@ -171,7 +176,10 @@ export const RichTextComposer = forwardRef<
     const onChangeRef = useRef(onChange);
     const onSubmitRef = useRef(onSubmit);
     const disabledRef = useRef(disabled);
-    const lastEmittedHtml = useRef(sanitizeHtml(value));
+    const sanitizeValue = valueIsTrustedAuthored
+      ? sanitizeHtml
+      : sanitizeUntrustedDraftHtml;
+    const lastEmittedHtml = useRef(sanitizeValue(value));
     const linkTriggerRef = useRef<HTMLButtonElement>(null);
     const linkInputRef = useRef<HTMLInputElement>(null);
     const linkPanelId = useId();
@@ -235,7 +243,7 @@ export const RichTextComposer = forwardRef<
             const clipboardHtml = event.clipboardData?.getData("text/html");
             const clipboardText =
               event.clipboardData?.getData("text/plain") || "";
-            const safePaste = sanitizeHtml(
+            const safePaste = sanitizeUntrustedDraftHtml(
               clipboardHtml || plainTextHtml(clipboardText)
             );
             if (!safePaste) return true;
@@ -274,12 +282,12 @@ export const RichTextComposer = forwardRef<
     useLayoutEffect(() => {
       if (!editor) return;
 
-      const safeValue = sanitizeHtml(value);
+      const safeValue = sanitizeValue(value);
       if (safeValue === lastEmittedHtml.current) return;
 
       lastEmittedHtml.current = safeValue;
       editor.commands.setContent(safeValue, false);
-    }, [editor, value]);
+    }, [editor, sanitizeValue, value]);
 
     useLayoutEffect(() => {
       const editorElement = (editor?.view.dom as HTMLDivElement) ?? null;

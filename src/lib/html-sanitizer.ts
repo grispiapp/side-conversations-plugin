@@ -55,8 +55,14 @@ export interface QuotedHtmlParts {
 }
 
 export interface QuotedContextPart {
-  html: string;
+  authoredBodyHtml: string;
   publicVisible: boolean;
+}
+
+export interface QuotedReplyParts {
+  authoredBodyHtml: string;
+  historyHtml?: string;
+  outboundHtml: string;
 }
 
 function escapeHtml(value: string): string {
@@ -168,22 +174,40 @@ export function splitQuotedHtml(input: string): QuotedHtmlParts {
 }
 
 /**
+ * Treats externally supplied editor content as untrusted draft restoration.
+ * A plain blockquote is the probed provider-history boundary, so the quote
+ * and everything after it are discarded before the value enters draft state.
+ * DOMPurify strips any spoofed marker attributes before boundary detection.
+ */
+export function sanitizeUntrustedDraftHtml(input: string): string {
+  return splitQuotedHtml(input).bodyHtml;
+}
+
+/**
  * Builds the exact probe-confirmed outbound shape: the new reply followed by
  * one blockquote containing sanitized, chronological public context.
- * Existing quoted sections are excluded to prevent recursive quote growth.
+ * Context entries are already provenance-preserving authored bodies, never
+ * complete serialized messages, so generated history cannot recurse.
  */
-export function buildQuotedReplyHtml(
-  replyHtml: string,
+export function buildQuotedReplyParts(
+  authoredBodyHtml: string,
   context: readonly QuotedContextPart[]
-): string {
-  const reply = sanitizeHtml(replyHtml);
-  const publicContext = context
+): QuotedReplyParts {
+  const authored = sanitizeHtml(authoredBodyHtml);
+  const historyHtml = context
     .filter((part) => part.publicVisible)
-    .map((part) => splitQuotedHtml(part.html).bodyHtml)
+    .map((part) => sanitizeHtml(part.authoredBodyHtml))
     .filter(Boolean)
     .join("");
 
-  return publicContext
-    ? `${reply}<blockquote>${publicContext}</blockquote>`
-    : reply;
+  return historyHtml
+    ? {
+        authoredBodyHtml: authored,
+        historyHtml,
+        outboundHtml: `${authored}<blockquote>${historyHtml}</blockquote>`,
+      }
+    : {
+        authoredBodyHtml: authored,
+        outboundHtml: authored,
+      };
 }

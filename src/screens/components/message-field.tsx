@@ -35,9 +35,10 @@ export const MessageField = observer(({ onSubmit }: MessageFieldProps) => {
         editorLabel="Mesaj"
         sectionLabel="Yeni görüşme mesajı"
         required
-        onChange={(html) => compose.setMessage(html)}
+        valueIsTrustedAuthored
+        onChange={(html) => compose.setAuthoredMessage(html)}
         onSubmit={(html) => {
-          compose.setMessage(html);
+          compose.setAuthoredMessage(html);
           onSubmit();
         }}
         disabled={compose.submitting}

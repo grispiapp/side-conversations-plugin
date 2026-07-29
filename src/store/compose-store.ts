@@ -1,7 +1,10 @@
 import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
-import { sanitizeHtml } from "@/lib/html-sanitizer";
+import {
+  sanitizeHtml,
+  sanitizeUntrustedDraftHtml,
+} from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
 import { formatRequesterField } from "@/lib/side-conversation";
 import { MutationEnvelope } from "@/store/active-conversation-store";
@@ -98,7 +101,11 @@ export class ComposeStore {
 
   /** Drives the message textarea (COMP-04). */
   setMessage(value: string): void {
-    this.message = value;
+    this.message = sanitizeUntrustedDraftHtml(value);
+  }
+
+  setAuthoredMessage(value: string): void {
+    this.message = sanitizeHtml(value);
   }
 
   /**

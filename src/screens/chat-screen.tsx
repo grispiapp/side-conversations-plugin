@@ -191,7 +191,7 @@ export const ChatScreen = observer(() => {
       return;
     }
 
-    activeConversation.setDraftHtml(html);
+    activeConversation.setAuthoredDraftHtml(html);
     executeEnvelope(
       activeConversation.sendReply({
         tenantId,
@@ -413,6 +413,7 @@ export const ChatScreen = observer(() => {
         <RichTextComposer
           ref={composerRef}
           value={activeConversation.draftHtml}
+          valueIsTrustedAuthored
           recipientLabel={recipientLabel}
           disabled={
             solved ||
@@ -422,7 +423,7 @@ export const ChatScreen = observer(() => {
             detail.isPending ||
             detail.isError
           }
-          onChange={(html) => activeConversation.setDraftHtml(html)}
+          onChange={(html) => activeConversation.setAuthoredDraftHtml(html)}
           onSubmit={submitReply}
           className="shrink-0"
         />

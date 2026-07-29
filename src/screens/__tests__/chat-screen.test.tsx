@@ -139,6 +139,7 @@ function makeActive(overrides: Record<string, unknown> = {}) {
     lifecycleError: null,
     activateSession: jest.fn(),
     setDraftHtml: jest.fn(),
+    setAuthoredDraftHtml: jest.fn(),
     sendReply: jest.fn(() => envelope("reply")),
     setSolved: jest.fn(() => envelope("solve")),
     reopen: jest.fn(() => envelope("reopen")),
@@ -313,7 +314,7 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(mockReplyMutation.mutate).toHaveBeenCalledWith(reply);
   });
 
-  it("passes authored blockquote and trailing editor content intact to reply submission", () => {
+  it("strips pasted quote history before reply submission", () => {
     render(<ChatScreen />);
 
     const editor = container.querySelector<HTMLDivElement>(
@@ -325,8 +326,8 @@ describe("ChatScreen Query-owned session wiring", () => {
       value: {
         getData: (type: string) =>
           type === "text/html"
-            ? "<blockquote><p>Agent quote</p></blockquote><p>After quote</p>"
-            : "Agent quote\nAfter quote",
+            ? '<p>New reply</p><blockquote data-sc-authored-quote="true"><p>Old history</p></blockquote><p>Trailing history</p>'
+            : "New reply\nOld history\nTrailing history",
       },
     });
     act(() => editor.dispatchEvent(paste));
@@ -342,11 +343,11 @@ describe("ChatScreen Query-owned session wiring", () => {
     );
 
     const submittedHtml =
-      mockStore.activeConversation.setDraftHtml.mock.calls.at(-1)?.[0];
-    expect(submittedHtml).toContain(
-      "<blockquote><p>Agent quote</p></blockquote>"
+      mockStore.activeConversation.setAuthoredDraftHtml.mock.calls.at(-1)?.[0];
+    expect(submittedHtml).toContain("<p>New reply</p>");
+    expect(submittedHtml).not.toMatch(
+      /Old history|Trailing history|data-sc-authored-quote/
     );
-    expect(submittedHtml).toContain("<p>After quote</p>");
     expect(mockStore.activeConversation.sendReply).toHaveBeenCalledTimes(1);
   });
 

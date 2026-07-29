@@ -53,6 +53,7 @@ beforeEach(() => {
       selectRecipient: jest.fn(),
       setSubject: jest.fn(),
       setMessage: jest.fn(),
+      setAuthoredMessage: jest.fn(),
       initSubject: jest.fn(),
       getEffectiveParentKey: jest.fn(() => "PARENT-1"),
       submit: jest.fn(),
