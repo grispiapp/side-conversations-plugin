@@ -20,6 +20,8 @@ import { bootstrapPluginInit } from "./plugin-bootstrap";
 
 type GrispiContextType = {
   ticket: Ticket | null;
+  /** Authenticated tenant used to isolate every React Query cache key. */
+  tenantId: string | null;
   settings: Settings | null;
   loading: boolean;
   /**
@@ -73,6 +75,7 @@ export const GrispiProvider: React.FC<{
 }> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [agentEmail, setAgentEmail] = useState<string | null>(null);
 
@@ -144,6 +147,7 @@ export const GrispiProvider: React.FC<{
       );
 
       grispiAPI.authentication.setTenantId(standaloneConfig.tenantId);
+      setTenantId(standaloneConfig.tenantId);
       grispiAPI.authentication.setToken(standaloneConfig.token);
 
       setSettings({});
@@ -163,6 +167,7 @@ export const GrispiProvider: React.FC<{
           "REACT_APP_DEV_TOKEN (see src/lib/standalone-dev.ts) and restart " +
           "`npm start`."
       );
+      setTenantId(null);
       setLoading(false);
       return;
     }
@@ -181,6 +186,7 @@ export const GrispiProvider: React.FC<{
       setSettings,
       setLoading,
       setAgentEmail,
+      setTenantId,
       switchTicket,
     });
 
@@ -196,6 +202,7 @@ export const GrispiProvider: React.FC<{
     <GrispiContext.Provider
       value={{
         ticket,
+        tenantId,
         settings,
         loading,
         agentEmail,
