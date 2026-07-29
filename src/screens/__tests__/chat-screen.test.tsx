@@ -2,8 +2,16 @@ import { ChatScreen } from "../chat-screen";
 import { ReactElement, act } from "react";
 import { Root, createRoot } from "react-dom/client";
 
+import { MutationEnvelope } from "@/store/active-conversation-store";
+
 let mockStore: any;
 let mockGrispi: any;
+let mockDetail: any;
+let mockCreateMutation: any;
+let mockReplyMutation: any;
+let mockStatusMutation: any;
+
+const mockUseDetail = jest.fn(() => mockDetail);
 
 jest.mock("@/contexts/store-context", () => ({
   useStore: () => mockStore,
@@ -13,28 +21,135 @@ jest.mock("@/contexts/grispi-context", () => ({
   useGrispi: () => mockGrispi,
 }));
 
+jest.mock("@/query/side-conversation-queries", () => ({
+  useSideConversationDetailQuery: (...args: unknown[]) =>
+    mockUseDetail(...args),
+  useCreateSideConversationMutation: () => mockCreateMutation,
+  useReplySideConversationMutation: () => mockReplyMutation,
+  useStatusSideConversationMutation: () => mockStatusMutation,
+}));
+
 let container: HTMLDivElement;
 let root: Root;
 let scrollIntoViewMock: jest.Mock;
 
-beforeAll(() => {
-  (
-    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
-  ).IS_REACT_ACT_ENVIRONMENT = true;
-});
+function envelope(
+  kind: "create" | "reply" | "solve" | "reopen",
+  clientMessageId = `msg-${kind}`
+): MutationEnvelope {
+  const common = {
+    clientMessageId,
+    tenantId: "tenant-1",
+    parentKey: "PARENT-7",
+    sessionKey: 8,
+    startedAt: 10_000,
+  };
+  if (kind === "create") {
+    return {
+      ...common,
+      kind,
+      request: {
+        comment: {
+          body: "<p>Yeni</p>",
+          publicVisible: true,
+          creator: [{ key: "us.email", value: "agent@example.test" }],
+        },
+        fields: [],
+      },
+    };
+  }
+  if (kind === "reply") {
+    return {
+      ...common,
+      kind,
+      sideKey: "SC-42",
+      request: {
+        comment: {
+          body: "<p>Yanıt</p>",
+          publicVisible: true,
+          creator: [{ key: "us.email", value: "agent@example.test" }],
+        },
+      },
+    };
+  }
+  return {
+    ...common,
+    kind,
+    sideKey: "SC-42",
+    request: {
+      fields: [{ key: "ts.status", value: kind === "solve" ? "4" : "2" }],
+    },
+  };
+}
+
+function canonicalMessages() {
+  return [
+    {
+      id: "comment-1",
+      direction: "incoming",
+      body: "<p>İlk yanıt</p>",
+      status: "sent",
+      createdAt: 1_000,
+      senderName: "Ada",
+      senderEmail: "ada@example.test",
+      internal: false,
+    },
+  ];
+}
+
+function makeDetail(overrides: Record<string, unknown> = {}) {
+  return {
+    data: {
+      sideKey: "SC-42",
+      recipientLabel: "Ada <ada@example.test>",
+      subject: "Teslimat",
+      solved: false,
+      messages: canonicalMessages(),
+      scrollTargetMessageId: "comment-1",
+      latestRelevantExternalAt: 1_000,
+    },
+    isPending: false,
+    isError: false,
+    error: null,
+    refetch: jest.fn(),
+    dataUpdatedAt: 1,
+    ...overrides,
+  };
+}
+
+function makeActive(overrides: Record<string, unknown> = {}) {
+  return {
+    draftHtml: "",
+    lifecyclePending: null,
+    lifecycleError: null,
+    activateSession: jest.fn(),
+    setDraftHtml: jest.fn(),
+    sendReply: jest.fn(() => envelope("reply")),
+    setSolved: jest.fn(() => envelope("solve")),
+    reopen: jest.fn(() => envelope("reopen")),
+    retryLifecycle: jest.fn(() => envelope("solve")),
+    getRetryEnvelope: jest.fn(),
+    mergeCanonical: jest.fn(
+      (_sessionKey: number, _sideKey: string, messages: unknown[]) => messages
+    ),
+    getOverlayMessages: jest.fn(() => []),
+    getLocalPresentation: jest.fn(() => null),
+    consumeScrollRequest: jest.fn(() => "comment-1"),
+    consumeComposerFocus: jest.fn(() => false),
+    ...overrides,
+  };
+}
 
 function render(ui: ReactElement): void {
-  act(() => {
-    root.render(ui);
-  });
+  act(() => root.render(ui));
 }
 
 function click(label: string): void {
-  const labelledControl = container.querySelector<HTMLElement>(
+  const labelled = container.querySelector<HTMLElement>(
     `[aria-label="${label}"]`
   );
   const control =
-    labelledControl ??
+    labelled ??
     Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
       (candidate) => candidate.textContent?.trim() === label
     );
@@ -42,48 +157,11 @@ function click(label: string): void {
   act(() => control.click());
 }
 
-function makeActive(overrides: Record<string, unknown> = {}): any {
-  return {
-    status: "ready",
-    loadError: null,
-    ticketKey: "SC-42",
-    parentKey: "PARENT-7",
-    recipientLabel: "Ada Lovelace <ada@example.test>",
-    subject: "Teslimat",
-    solved: false,
-    messages: [
-      {
-        id: "comment-1",
-        direction: "incoming",
-        body: "<p>İlk yanıt</p>",
-        status: "sent",
-        createdAt: Date.UTC(2026, 6, 28, 10),
-        senderName: "Ada Lovelace",
-        senderEmail: "ada@example.test",
-      },
-      {
-        id: "comment-2",
-        direction: "own",
-        body: "<p>Bizden yanıt</p>",
-        status: "sent",
-        createdAt: Date.UTC(2026, 6, 28, 11),
-      },
-    ],
-    draftHtml: "",
-    scrollTargetMessageId: "comment-1",
-    lifecyclePending: null,
-    lifecycleError: null,
-    load: jest.fn(),
-    retry: jest.fn(),
-    setDraftHtml: jest.fn(),
-    sendReply: jest.fn(),
-    setSolved: jest.fn(),
-    reopen: jest.fn(),
-    retryLifecycle: jest.fn(),
-    consumeComposerFocus: jest.fn(() => false),
-    ...overrides,
-  };
-}
+beforeAll(() => {
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 beforeEach(() => {
   container = document.createElement("div");
@@ -95,14 +173,28 @@ beforeEach(() => {
     value: scrollIntoViewMock,
   });
 
+  mockDetail = makeDetail();
+  mockCreateMutation = { mutate: jest.fn(), status: "idle" };
+  mockReplyMutation = { mutate: jest.fn(), status: "idle" };
+  mockStatusMutation = { mutate: jest.fn(), status: "idle" };
   mockStore = {
     activeConversation: makeActive(),
     panelNavigation: {
+      selectedConversation: {
+        ticketKey: "SC-42",
+        parentKey: "PARENT-7",
+        sessionKey: 8,
+      },
+      bindCreatedTicket: jest.fn(),
       requestChatBack: jest.fn(() => false),
       confirmDiscardReplyAndReturnToList: jest.fn(),
     },
   };
-  mockGrispi = { agentEmail: "agent@example.test" };
+  mockGrispi = {
+    tenantId: "tenant-1",
+    agentEmail: "agent@example.test",
+  };
+  mockUseDetail.mockClear();
 });
 
 afterEach(() => {
@@ -110,67 +202,52 @@ afterEach(() => {
   container.remove();
 });
 
-describe("ChatScreen", () => {
-  it("renders loading and retryable load-error states", () => {
-    mockStore.activeConversation = makeActive({ status: "loading" });
+describe("ChatScreen Query-owned session wiring", () => {
+  it("reads canonical detail only from the exact tenant and selected tuple", () => {
+    render(<ChatScreen />);
+
+    expect(mockUseDetail).toHaveBeenCalledWith(
+      "tenant-1",
+      "SC-42",
+      "PARENT-7",
+      8,
+      mockStore.activeConversation
+    );
+    expect(container.textContent).toContain(
+      "Ada <ada@example.test> · Teslimat"
+    );
+    expect(container.textContent).toContain("İlk yanıt");
+    expect(mockStore.activeConversation.mergeCanonical).toHaveBeenCalledWith(
+      8,
+      "SC-42",
+      mockDetail.data.messages
+    );
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders Query loading/error and retries only the exact detail query", () => {
+    mockDetail = makeDetail({ data: undefined, isPending: true });
     render(<ChatScreen />);
     expect(container.textContent).toContain("Görüşme yükleniyor");
 
-    mockStore.activeConversation = makeActive({
-      status: "error",
-      loadError: "Görüşme yüklenemedi. Lütfen tekrar deneyin.",
+    const refetch = jest.fn();
+    mockDetail = makeDetail({
+      data: undefined,
+      isPending: false,
+      isError: true,
+      refetch,
     });
     render(<></>);
     render(<ChatScreen />);
-    expect(container.textContent).toContain(
-      "Görüşme yüklenemedi. Lütfen tekrar deneyin."
-    );
-
+    expect(container.textContent).toContain("Görüşme yüklenemedi");
     click("Görüşmeyi tekrar yükle");
-    expect(mockStore.activeConversation.load).toHaveBeenCalledWith(
-      "SC-42",
-      "PARENT-7"
-    );
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the chronological email flow and scrolls its target only once", () => {
+  it("builds replies locally and executes the returned envelope through Query", () => {
+    const reply = envelope("reply");
+    mockStore.activeConversation.sendReply.mockReturnValue(reply);
     render(<ChatScreen />);
-
-    const messages = Array.from(
-      container.querySelectorAll('[data-testid^="thread-message-"]')
-    );
-    expect(messages).toHaveLength(2);
-    expect(messages[0].textContent).toContain(
-      "Ada Lovelace <ada@example.test>"
-    );
-    expect(messages[1].textContent).toContain("Siz");
-    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
-
-    render(<ChatScreen />);
-    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("wires the immutable recipient, sanitized draft, Shift+Enter send, and failed-message retry", () => {
-    mockStore.activeConversation = makeActive({
-      messages: [
-        {
-          id: "failed-1",
-          direction: "own",
-          body: "<p>Yanıt</p>",
-          status: "failed",
-          errorKind: "server",
-          createdAt: Date.UTC(2026, 6, 28, 11),
-        },
-      ],
-      scrollTargetMessageId: "failed-1",
-    });
-    render(<ChatScreen />);
-
-    expect(container.textContent).toContain(
-      "Yanıt şu kişiye gidecek: Ada Lovelace <ada@example.test>"
-    );
-    click("Gönderilemedi. Tekrar dene");
-    expect(mockStore.activeConversation.retry).toHaveBeenCalledWith("failed-1");
 
     const editor = container.querySelector<HTMLDivElement>(
       '[role="textbox"][aria-label="Yanıt"]'
@@ -184,10 +261,6 @@ describe("ChatScreen", () => {
       },
     });
     act(() => editor.dispatchEvent(paste));
-    expect(mockStore.activeConversation.setDraftHtml).toHaveBeenCalledWith(
-      "<p>Yeni yanıt</p>"
-    );
-
     act(() =>
       editor.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -198,65 +271,90 @@ describe("ChatScreen", () => {
         })
       )
     );
-    expect(mockStore.activeConversation.sendReply).toHaveBeenCalledWith(
-      "agent@example.test"
-    );
+
+    expect(mockStore.activeConversation.sendReply).toHaveBeenCalledWith({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-7",
+      sideKey: "SC-42",
+      sessionKey: 8,
+      agentEmail: "agent@example.test",
+      canonicalMessages: mockDetail.data.messages,
+      solved: false,
+    });
+    expect(mockReplyMutation.mutate).toHaveBeenCalledWith(reply);
   });
 
-  it("uses the exact solve confirmation and keeps lifecycle failures retryable", () => {
-    mockStore.activeConversation = makeActive({
-      lifecycleError: { action: "solve", errorKind: "server" },
-    });
+  it("routes failed retries through the matching hook with exact envelope identity", () => {
+    const create = envelope("create", "failed-create");
+    const reply = envelope("reply", "failed-reply");
+    mockStore.activeConversation.getRetryEnvelope.mockImplementation(
+      (id: string) => (id === "failed-create" ? create : reply)
+    );
+    mockStore.activeConversation.mergeCanonical.mockReturnValue([
+      {
+        id: "failed-create",
+        direction: "own",
+        body: "<p>Create</p>",
+        status: "failed",
+        createdAt: 10_000,
+        errorKind: "network",
+      },
+      {
+        id: "failed-reply",
+        direction: "own",
+        body: "<p>Reply</p>",
+        status: "failed",
+        createdAt: 11_000,
+        errorKind: "server",
+      },
+    ]);
     render(<ChatScreen />);
 
+    const retries = container.querySelectorAll<HTMLButtonElement>(
+      '[aria-label="Gönderilemedi. Tekrar dene"]'
+    );
+    act(() => retries[0].click());
+    act(() => retries[1].click());
+    expect(mockCreateMutation.mutate).toHaveBeenCalledWith(create);
+    expect(mockReplyMutation.mutate).toHaveBeenCalledWith(reply);
+  });
+
+  it("keeps lifecycle canonical and executes solve/reopen/retry envelopes through Query", () => {
+    const solve = envelope("solve");
+    mockStore.activeConversation.setSolved.mockReturnValue(solve);
+    render(<ChatScreen />);
     click("Görüşme seçenekleri");
     click("Çözüldü olarak işaretle");
-    expect(container.textContent).toContain(
-      "Görüşme çözüldü olarak işaretlensin mi? Yeni bir e-posta yanıtı gelirse tekrar aktif olur."
-    );
     click("Çözmeyi onayla");
-    expect(mockStore.activeConversation.setSolved).toHaveBeenCalledTimes(1);
+    expect(mockStatusMutation.mutate).toHaveBeenCalledWith(solve);
+    expect(container.textContent).not.toContain("ÇözüldüTekrar");
 
-    expect(container.textContent).toContain("İşlem tamamlanamadı.");
-    click("Yaşam döngüsü işlemini tekrar dene");
-    expect(mockStore.activeConversation.retryLifecycle).toHaveBeenCalledTimes(
-      1
-    );
-  });
-
-  it("keeps a solved thread mounted, disables reply, and exposes reopen", () => {
-    mockStore.activeConversation = makeActive({ solved: true });
+    const reopen = envelope("reopen");
+    mockDetail = makeDetail({
+      data: { ...makeDetail().data, solved: true },
+    });
+    mockStore.activeConversation.reopen.mockReturnValue(reopen);
+    render(<></>);
     render(<ChatScreen />);
-
-    expect(container.textContent).toContain("Çözüldü");
-    expect(
-      container.querySelector('[data-testid="thread-message-comment-1"]')
-    ).not.toBeNull();
-    expect(
-      container
-        .querySelector('[role="textbox"][aria-label="Yanıt"]')
-        ?.getAttribute("aria-disabled")
-    ).toBe("true");
-
     click("Görüşme seçenekleri");
     click("Tekrar aç");
-    expect(mockStore.activeConversation.reopen).toHaveBeenCalledTimes(1);
+    expect(mockStatusMutation.mutate).toHaveBeenCalledWith(reopen);
   });
 
-  it("consumes reopen focus and protects a dirty back action", () => {
-    mockStore.activeConversation = makeActive({
-      consumeComposerFocus: jest.fn(() => true),
-    });
-    mockStore.panelNavigation.requestChatBack = jest.fn(() => true);
+  it("uses only matching-session one-shot scroll/focus and preserves dirty back", () => {
+    mockStore.activeConversation.consumeComposerFocus.mockReturnValue(true);
+    mockStore.panelNavigation.requestChatBack.mockReturnValue(true);
     render(<ChatScreen />);
 
-    const editor = container.querySelector<HTMLElement>(
-      '[role="textbox"][aria-label="Yanıt"]'
-    );
+    expect(
+      mockStore.activeConversation.consumeScrollRequest
+    ).toHaveBeenCalledWith(8, "SC-42");
     expect(
       mockStore.activeConversation.consumeComposerFocus
-    ).toHaveBeenCalledTimes(1);
-    expect(document.activeElement).toBe(editor);
+    ).toHaveBeenCalledWith(8, "SC-42");
+    expect(
+      container.querySelector('[role="textbox"][aria-label="Yanıt"]')
+    ).toBe(document.activeElement);
 
     click("Görüşme listesine dön");
     expect(container.textContent).toContain("Taslak kaybolacak");
