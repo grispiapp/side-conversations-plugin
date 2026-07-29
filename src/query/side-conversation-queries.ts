@@ -91,6 +91,7 @@ function requireIdentity(value: string | null, identityName: string): string {
 }
 
 async function hydrateSummaries(
+  tenantId: string,
   summaries: SideTicketSummary[]
 ): Promise<ConversationRowVM[]> {
   const hydration = await Promise.allSettled(
@@ -98,6 +99,7 @@ async function hydrateSummaries(
   );
   let rows = hydration.map((outcome, index) =>
     projectConversationRow(
+      tenantId,
       summaries[index],
       outcome.status === "fulfilled" ? outcome.value : null
     )
@@ -117,6 +119,7 @@ async function hydrateSummaries(
       if (outcome.status !== "fulfilled") return;
       const rowIndex = failedIndexes[repairIndex];
       repairedRows[rowIndex] = projectConversationRow(
+        tenantId,
         summaries[rowIndex],
         outcome.value
       );
@@ -156,6 +159,7 @@ async function hydrateSummaries(
 }
 
 async function fetchSideConversationPage(
+  tenantId: string,
   parentKey: string,
   page: number
 ): Promise<SideConversationListPage> {
@@ -173,7 +177,7 @@ async function fetchSideConversationPage(
       },
       { size: PAGE_SIZE, page }
     );
-  const rows = await hydrateSummaries(response.content);
+  const rows = await hydrateSummaries(tenantId, response.content);
 
   return {
     rows,
@@ -193,6 +197,7 @@ export function sideConversationListOptions(
     queryFn: ({ pageParam }) => {
       requireIdentity(tenantId, "tenantId");
       return fetchSideConversationPage(
+        tenantId!,
         requireIdentity(parentKey, "parentKey"),
         pageParam
       );
@@ -218,6 +223,7 @@ export function useSideConversationsQuery(
   const rows = useMemo(
     () =>
       dedupeAndSortConversationRows(
+        tenantId ?? "",
         query.data?.pages.flatMap((page) => page.rows) ?? []
       ),
     [query.data]
@@ -236,7 +242,12 @@ export function sideConversationDetailOptions(
       requireIdentity(tenantId, "tenantId");
       return grispiAPI.tickets
         .getTicket(requireIdentity(sideKey, "sideKey"))
-        .then(normalizeSideConversationDetail);
+        .then((ticket) =>
+          normalizeSideConversationDetail(
+            ticket,
+            requireIdentity(tenantId, "tenantId")
+          )
+        );
     },
     enabled: Boolean(tenantId && sideKey),
     staleTime: DETAIL_STALE_TIME,
@@ -249,7 +260,8 @@ export function useSideConversationDetailQuery(
   sideKey: string | null,
   parentKey: string | null,
   sessionKey: number | null,
-  activeConversation: ActiveConversationStore
+  activeConversation: ActiveConversationStore,
+  getSelectedConversation: () => SelectedMutationSession | null
 ) {
   const queryClient = useQueryClient();
   const query = useQuery(sideConversationDetailOptions(tenantId, sideKey));
@@ -263,6 +275,28 @@ export function useSideConversationDetailQuery(
       sessionKey === null
     ) {
       return;
+    }
+    const selected = getSelectedConversation();
+    if (
+      !selected ||
+      selected.ticketKey !== sideKey ||
+      selected.parentKey !== parentKey ||
+      selected.sessionKey !== sessionKey
+    ) {
+      return;
+    }
+
+    const lastSeenAt = getLastSeenAt(tenantId, sideKey);
+    if (
+      query.data.latestRelevantExternalAt !== null &&
+      (lastSeenAt === null ||
+        query.data.latestRelevantExternalAt > lastSeenAt)
+    ) {
+      setLastSeenAt(
+        tenantId,
+        sideKey,
+        query.data.latestRelevantExternalAt
+      );
     }
 
     activeConversation.reconcileCanonical(
@@ -284,6 +318,7 @@ export function useSideConversationDetailQuery(
     });
   }, [
     activeConversation,
+    getSelectedConversation,
     parentKey,
     query.data,
     query.dataUpdatedAt,
@@ -401,7 +436,8 @@ function resolveStatusId(ticket: Ticket): string | null {
 }
 
 export function normalizeSideConversationDetail(
-  ticket: Ticket
+  ticket: Ticket,
+  tenantId: string
 ): SideConversationDetail {
   const messages = [...(ticket.comments ?? [])]
     .sort(
@@ -411,7 +447,7 @@ export function normalizeSideConversationDetail(
   const externalPublic = messages.filter(
     (message) => message.direction === "incoming" && !message.internal
   );
-  const lastSeenAt = getLastSeenAt(ticket.key);
+  const lastSeenAt = getLastSeenAt(tenantId, ticket.key);
   const firstUnseen = externalPublic.find(
     (message) => lastSeenAt === null || message.createdAt > lastSeenAt
   );
@@ -419,13 +455,6 @@ export function normalizeSideConversationDetail(
     externalPublic.length > 0
       ? Math.max(...externalPublic.map((message) => message.createdAt))
       : null;
-
-  if (
-    latestRelevantExternalAt !== null &&
-    (lastSeenAt === null || latestRelevantExternalAt > lastSeenAt)
-  ) {
-    setLastSeenAt(ticket.key, latestRelevantExternalAt);
-  }
 
   const subject = ticket.fieldMap?.["ts.subject"]?.value;
   return {

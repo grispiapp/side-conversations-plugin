@@ -61,7 +61,8 @@ export const ChatScreen = observer(() => {
     sideKey,
     parentKey,
     sessionKey,
-    activeConversation
+    activeConversation,
+    () => panelNavigation.selectedConversation
   );
   const createMutation = useCreateSideConversationMutation(boundary);
   const replyMutation = useReplySideConversationMutation(boundary);

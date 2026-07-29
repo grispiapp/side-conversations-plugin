@@ -14,6 +14,7 @@ import {
   sideConversationDetailOptions,
   sideConversationListOptions,
   useCustomersQuery,
+  useSideConversationDetailQuery,
 } from "@/query/side-conversation-queries";
 import { ActiveConversationStore } from "@/store/active-conversation-store";
 import { RootStore } from "@/store/root-store";
@@ -575,6 +576,91 @@ describe("canonical detail and mutation executors", () => {
         body: "<p>Not</p>",
       }),
     ]);
+    expect(
+      window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-1")
+    ).toBeNull();
+  });
+
+  it("does not mark a deferred stale A detail query read after the selected session moves to B", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const sideA = deferred<Ticket>();
+    mockedGetTicket.mockImplementation((key: string) =>
+      key === "SIDE-A" ? sideA.promise : Promise.resolve(makeTicket(key))
+    );
+
+    function DetailHarness({
+      sideKey,
+      parentKey,
+      sessionKey,
+    }: {
+      sideKey: string;
+      parentKey: string;
+      sessionKey: number;
+    }) {
+      useSideConversationDetailQuery(
+        "tenant-1",
+        sideKey,
+        parentKey,
+        sessionKey,
+        store,
+        () => selected
+      );
+      return null;
+    }
+
+    selected = {
+      ticketKey: "SIDE-A",
+      parentKey: "PARENT-A",
+      sessionKey: 1,
+    };
+    store.activateSession(1, "SIDE-A");
+    act(() => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <DetailHarness
+            sideKey="SIDE-A"
+            parentKey="PARENT-A"
+            sessionKey={1}
+          />
+        </QueryClientProvider>
+      );
+    });
+
+    selected = {
+      ticketKey: "SIDE-B",
+      parentKey: "PARENT-B",
+      sessionKey: 2,
+    };
+    store.activateSession(2, "SIDE-B");
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <DetailHarness
+            sideKey="SIDE-B"
+            parentKey="PARENT-B"
+            sessionKey={2}
+          />
+        </QueryClientProvider>
+      );
+      for (let index = 0; index < 5; index += 1) await Promise.resolve();
+    });
+
+    sideA.resolve(makeTicket("SIDE-A"));
+    await act(async () => {
+      for (let index = 0; index < 5; index += 1) await Promise.resolve();
+    });
+
+    expect(
+      window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-A")
+    ).toBeNull();
+    expect(
+      window.localStorage.getItem("sc:lastSeenAt:tenant-1:SIDE-B")
+    ).toBe("1000");
+
+    act(() => root.unmount());
+    container.remove();
   });
 
   it("passes the exact reply request, accepts the transport once, then awaits exact list/detail convergence", async () => {

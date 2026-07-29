@@ -43,6 +43,7 @@ function resolveRecipientEmail(ticket: Ticket): {
 }
 
 function resolveRowState(
+  tenantId: string,
   ticket: Ticket,
   summary: SideTicketSummary
 ): Pick<
@@ -69,7 +70,7 @@ function resolveRowState(
     };
   }
 
-  const lastSeenAt = getLastSeenAt(summary.key);
+  const lastSeenAt = getLastSeenAt(tenantId, summary.key);
   const hasUnseen =
     derived.badge === "yeni-yanit" &&
     derived.lastPublicCommentAt !== null &&
@@ -84,6 +85,7 @@ function resolveRowState(
 }
 
 export function projectConversationRow(
+  tenantId: string,
   summary: SideTicketSummary,
   ticket: Ticket | null
 ): ConversationRowVM {
@@ -106,7 +108,7 @@ export function projectConversationRow(
     .filter((comment) => comment.publicVisible)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
   const { email: recipientEmail, requesterId } = resolveRecipientEmail(ticket);
-  const state = resolveRowState(ticket, summary);
+  const state = resolveRowState(tenantId, ticket, summary);
   const plainSummary = htmlToText(lastPublicComment?.body ?? "");
   const truncatedSummary =
     plainSummary.length > SUMMARY_MAX_LENGTH
@@ -125,6 +127,7 @@ export function projectConversationRow(
 }
 
 export function refreshConversationRowUnseen(
+  tenantId: string,
   row: ConversationRowVM
 ): ConversationRowVM {
   if (
@@ -135,7 +138,7 @@ export function refreshConversationRowUnseen(
     return row.hasUnseen ? { ...row, hasUnseen: false } : row;
   }
 
-  const lastSeenAt = getLastSeenAt(row.key);
+  const lastSeenAt = getLastSeenAt(tenantId, row.key);
   const hasUnseen = lastSeenAt === null || lastSeenAt < row.lastPublicCommentAt;
   return hasUnseen === row.hasUnseen ? row : { ...row, hasUnseen };
 }
@@ -154,12 +157,13 @@ function sortConversationRows(rows: ConversationRowVM[]): ConversationRowVM[] {
 }
 
 export function dedupeAndSortConversationRows(
+  tenantId: string,
   rows: ConversationRowVM[]
 ): ConversationRowVM[] {
   const byKey = new Map<string, ConversationRowVM>();
   for (const row of rows) {
     if (!byKey.has(row.key)) {
-      byKey.set(row.key, refreshConversationRowUnseen(row));
+      byKey.set(row.key, refreshConversationRowUnseen(tenantId, row));
     }
   }
   return sortConversationRows(Array.from(byKey.values()));

@@ -73,6 +73,7 @@ describe("side-conversation row projection", () => {
 
   it("projects recipient, plain-text summary and independent unseen/action state", () => {
     const row = projectConversationRow(
+      "tenant-1",
       summary("SIDE-1"),
       makeTicket({
         fieldMap: {
@@ -103,7 +104,9 @@ describe("side-conversation row projection", () => {
   });
 
   it("returns a neutral visible row for failed hydration and never exposes the key as recipient", () => {
-    expect(projectConversationRow(summary("SIDE-SECRET"), null)).toEqual({
+    expect(
+      projectConversationRow("tenant-1", summary("SIDE-SECRET"), null)
+    ).toEqual({
       key: "SIDE-SECRET",
       recipientEmail: "—",
       requesterId: null,
@@ -158,7 +161,9 @@ describe("side-conversation row projection", () => {
       },
     ];
 
-    expect(dedupeAndSortConversationRows(rows).map((row) => row.key)).toEqual([
+    expect(
+      dedupeAndSortConversationRows("tenant-1", rows).map((row) => row.key)
+    ).toEqual([
       "NEW",
       "WAITING",
       "SOLVED",
@@ -167,6 +172,7 @@ describe("side-conversation row projection", () => {
 
   it("recomputes only local unseen state when the read watermark changes", () => {
     const row = projectConversationRow(
+      "tenant-1",
       summary("SIDE-1"),
       makeTicket({
         comments: [makeComment(4000, "ROLE_END_USER", "vendor@example.test")],
@@ -174,11 +180,32 @@ describe("side-conversation row projection", () => {
     );
     expect(row.hasUnseen).toBe(true);
 
-    window.localStorage.setItem("sc:lastSeenAt:SIDE-1", "4000");
+    window.localStorage.setItem("sc:lastSeenAt:tenant-1:SIDE-1", "4000");
 
-    expect(refreshConversationRowUnseen(row)).toMatchObject({
+    expect(refreshConversationRowUnseen("tenant-1", row)).toMatchObject({
       actionBadge: "yeni-yanit",
       hasUnseen: false,
     });
+  });
+
+  it("does not reuse a same-side-key read watermark across tenants", () => {
+    window.localStorage.setItem("sc:lastSeenAt:tenant-a:SIDE-1", "4000");
+    const ticket = makeTicket({
+      comments: [makeComment(4000, "ROLE_END_USER", "vendor@example.test")],
+    });
+
+    const tenantA = projectConversationRow(
+      "tenant-a",
+      summary("SIDE-1"),
+      ticket
+    );
+    const tenantB = projectConversationRow(
+      "tenant-b",
+      summary("SIDE-1"),
+      ticket
+    );
+
+    expect(tenantA.hasUnseen).toBe(false);
+    expect(tenantB.hasUnseen).toBe(true);
   });
 });

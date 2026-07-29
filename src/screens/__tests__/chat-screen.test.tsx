@@ -27,9 +27,17 @@ jest.mock("@/query/side-conversation-queries", () => ({
     sideKey: unknown,
     parentKey: unknown,
     sessionKey: unknown,
-    activeConversation: unknown
+    activeConversation: unknown,
+    getSelectedConversation: unknown
   ) =>
-    mockUseDetail(tenantId, sideKey, parentKey, sessionKey, activeConversation),
+    mockUseDetail(
+      tenantId,
+      sideKey,
+      parentKey,
+      sessionKey,
+      activeConversation,
+      getSelectedConversation
+    ),
   useCreateSideConversationMutation: () => mockCreateMutation,
   useReplySideConversationMutation: () => mockReplyMutation,
   useStatusSideConversationMutation: () => mockStatusMutation,
@@ -218,7 +226,8 @@ describe("ChatScreen Query-owned session wiring", () => {
       "SC-42",
       "PARENT-7",
       8,
-      mockStore.activeConversation
+      mockStore.activeConversation,
+      expect.any(Function)
     );
     expect(container.textContent).toContain("Ada <ada@example.test>");
     expect(container.textContent).toContain("Konu: Teslimat");
