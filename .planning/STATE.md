@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: dosya-ekleri-ve-inline-g-rseller
 status: executing
-stopped_at: Phase 4 Plan 01 complete — probe/package/toast/test-infra gate closed
-last_updated: "2026-07-31T22:42:49.930Z"
+stopped_at: Phase 4 Plan 02 complete — attachment upload client, types, and pure validation/format rules landed
+last_updated: "2026-07-31T22:55:09.608Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 4 execution started
 progress:
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 4 execution started
 
@@ -68,6 +68,7 @@ Progress: [██████████] 100%
 | Phase 02 P05 | 15min | 3 tasks | 3 files |
 | Phase 02 P06 | 55min | 6 tasks | 7 files |
 | Phase 04 P01 | 45min | 3 tasks | 7 files |
+| Phase 04 P02 | ~20min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,9 @@ Recent decisions affecting current work:
 - [Phase 04]: public/v1 tickets PATCH/POST silently ignores comment.attachmentIds; only /v2/tickets binds attachments correctly
 - [Phase 04]: Client attachment size/count limits (D-08) are a UX/deliverability choice, not a server constraint
 - [Phase 04]: One attachment id binds to exactly one comment (N1); re-attaching returns HTTP 422
+- [Phase ?]: [Phase 04, Plan 02]: HttpHandler.sendMultipart never spreads the class's default JSON headers — extraHeaders (Authentication.headers only) is the sole header source, closing the sendMultipart-drops-Content-Type bug the method exists to prevent
+- [Phase ?]: [Phase 04, Plan 02]: Attachments.upload posts to the probe-confirmed root path attachments/upload (no public/v1 prefix) — final path string locked for Plan 06's write-path wiring
+- [Phase ?]: [Phase 04, Plan 02]: Attachment.inline?: boolean is real (not a no-op) — Phase 04 Plan 01's live probe confirmed it round-trips as inline:true, so Plan 04/08's inline-image flow can rely on it
 
 ### Pending Todos
 
@@ -141,6 +145,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T22:42:49.925Z
-Stopped at: Phase 4 Plan 01 complete — probe/package/toast/test-infra gate closed
-Resume file: .planning/phases/04-dosya-ekleri-ve-inline-g-rseller/04-02-PLAN.md
+Last session: 2026-07-31T22:55:09.603Z
+Stopped at: Phase 4 Plan 02 complete — attachment upload client, types, and pure validation/format rules landed
+Resume file: .planning/phases/04-dosya-ekleri-ve-inline-g-rseller/04-03-PLAN.md

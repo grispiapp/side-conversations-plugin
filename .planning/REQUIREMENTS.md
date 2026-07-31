@@ -94,10 +94,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | THRD-02 | Phase 3 | Complete |
 | THRD-03 | Phase 3 | Complete |
 | THRD-04 | Phase 3 | Complete |
-| COMP-05 | Phase 4 | In Progress (contract/infra done in Plan 01; UI lands Plan 02-06) |
+| COMP-05 | Phase 4 | In Progress (contract/infra done in Plan 01; upload client + pure validation/format rules done in Plan 02; UI lands Plan 05-06) |
 | COMP-06 | Phase 4 | Pending |
 | COMP-07 | Phase 4 | Pending |
-| THRD-05 | Phase 4 | Pending |
+| THRD-05 | Phase 4 | In Progress (shared upload client + attachmentIds request-type support done in Plan 02; reply-flow wiring lands Plan 06) |
 | SYNC-01 | Phase 4 | Pending |
 
 **Coverage:**
