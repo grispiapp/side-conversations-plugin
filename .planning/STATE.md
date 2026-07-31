@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_phase: 4
 status: planning
 stopped_at: Phase 03.1 complete; manual UAT deferred — NOT TESTED; ready to plan Phase 4
-last_updated: "2026-07-29T15:13:42.044Z"
+last_updated: "2026-07-31T10:44:35.114Z"
 last_activity: 2026-07-29
 progress:
   total_phases: 5
@@ -116,6 +117,10 @@ None yet.
 - Faz 1 öncesi: custom field key'leri (örn. `tu.sc_parent_key`) tenant'ta Grispi admin'de tanımlanmalı (dış bağımlılık); kod settings'ten okur
 - Faz 2 başında: requester set mekanizması (field değer formatı + kayıtsız alıcıda `POST /customers` ihtiyacı) canlı tenant'ta tek API denemesiyle doğrulanmalı
 - Faz 4: "alıcıyla önceki görüşmeler" v2 preview endpoint'ine (`GET /public/v2/tickets`) dayanır — değişebilir, izole/bayraklı kullanılmalı
+
+### Roadmap Evolution
+
+- Phase 4 edited: ek/attachment kapsamı genişletildi: COMP-08 + THRD-06 eklendi, COMP-05/THRD-05 revize (Base64 varsayımı düzeltildi)
 
 ## Deferred Items
 

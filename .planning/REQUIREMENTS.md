@@ -28,9 +28,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **COMP-02**: Alıcı alanı müşteri aramasıyla otomatik tamamlanır; kayıtlı olmayan serbest e-posta adresi de girilebilir
 - [x] **COMP-03**: Konu alanı talep anahtarı + talep başlığıyla önceden dolu gelir ve düzenlenebilir
 - [x] **COMP-04**: Temsilci mesajı gönderdiğinde side ticket oluşur, alıcıya e-posta gider ve temsilci doğrudan görüşme ekranına yönlendirilir
-- [ ] **COMP-05**: Temsilci mesaja dosya ekleyebilir (Base64, boyut sınırı uyarısıyla)
+- [ ] **COMP-05**: Temsilci yeni görüşme mesajına sürükle-bırak veya ataç ikonuyla birden fazla dosya ekler; ekler gönderim öncesi listede (ad, boyut, önizleme) görünür ve tek tek kaldırılabilir; `POST /attachments/upload` ile yüklenip mesaja `comment.attachmentIds` ile bağlanır *(rev. 2026-07-31 — önceki "Base64" varsayımı grispi-ui referans implementasyonuyla çürütüldü)*
 - [ ] **COMP-06**: Temsilci "Talep özetini ekle" ile ana talebin son public yorumlarını mesaj gövdesine alıntılayabilir
 - [ ] **COMP-07**: Temsilci alıcıyı seçtiğinde, bu alıcıyla yapılmış önceki yan görüşmeler listelenir ve tek dokunuşla açılabilir (v2 preview `GET /tickets?requesterEmail=` endpoint'ine dayanır; Grispi değişiklikleri önceden bildirir)
+- [ ] **COMP-08**: Editöre yapıştırılan görsel Grispi'ye yüklenir ve dönen `objectUrl` ile editörde inline gösterilir; gönderilen mesajda da inline kalır (ortak composer — compose ve yanıt) *(eklendi 2026-07-31)*
 
 ### Görüşme Detayı (THRD)
 
@@ -38,7 +39,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **THRD-02**: Temsilci görüşmeye yanıt yazar; yanıt alıcıya e-posta olarak gider ve thread'e eklenir
 - [x] **THRD-03**: Temsilci görüşmeyi kapatabilir ve yeniden açabilir; kapalı görüşmeye gelen yanıt görüşmeyi tekrar aktif gösterir
 - [x] **THRD-04**: Görüşme açıldığında "Yeni yanıt" durumu okundu sayılır (temsilci bazında, localStorage)
-- [ ] **THRD-05**: Temsilci yanıta dosya ekleyebilir (Base64)
+- [ ] **THRD-05**: Temsilci yanıta da aynı şekilde çoklu dosya ekleyebilir (ortak composer; upload + `comment.attachmentIds`) *(rev. 2026-07-31 — "Base64" varsayımı düzeltildi)*
+- [ ] **THRD-06**: Görüşmede karşı tarafın gönderdiği ekler mesajla birlikte görünür (görsel önizleme / dosya chip'i) ve açılıp indirilebilir; `inline: true` ekler gövdede zaten göründüğü için listeden filtrelenir *(eklendi 2026-07-31)*
 
 ### Tazelik (SYNC)
 
