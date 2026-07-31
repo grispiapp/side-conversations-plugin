@@ -6,14 +6,14 @@ current_phase: 4
 current_phase_name: dosya-ekleri-ve-inline-g-rseller
 status: executing
 stopped_at: Phase 4 Plan 02 complete — attachment upload client, types, and pure validation/format rules landed
-last_updated: "2026-07-31T22:55:09.608Z"
+last_updated: "2026-07-31T23:19:36.197Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 29
-  completed_plans: 22
+  completed_plans: 24
   percent: 67
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
-Plan: 3 of 8
+Plan: 4 of 8
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 4 execution started
 
@@ -69,6 +69,7 @@ Progress: [██████████] 100%
 | Phase 02 P06 | 55min | 6 tasks | 7 files |
 | Phase 04 P01 | 45min | 3 tasks | 7 files |
 | Phase 04 P02 | ~20min | 3 tasks | 10 files |
+| Phase 04 P03 | 40min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,10 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04, Plan 02]: HttpHandler.sendMultipart never spreads the class's default JSON headers — extraHeaders (Authentication.headers only) is the sole header source, closing the sendMultipart-drops-Content-Type bug the method exists to prevent
 - [Phase ?]: [Phase 04, Plan 02]: Attachments.upload posts to the probe-confirmed root path attachments/upload (no public/v1 prefix) — final path string locked for Plan 06's write-path wiring
 - [Phase ?]: [Phase 04, Plan 02]: Attachment.inline?: boolean is real (not a no-op) — Phase 04 Plan 01's live probe confirmed it round-trips as inline:true, so Plan 04/08's inline-image flow can rely on it
+- [Phase 04-03]: AttachmentUploader is injectable, defaulting to a grispiAPI.attachments.upload singleton closure (store reads module singleton, not React context)
+- [Phase 04-03]: Two-surface (compose/reply) bucket split uses four flat private arrays, not a nested Record, avoiding per-key observable annotation complexity under makeAutoObservable's deep:false
+- [Phase 04-03]: AttachmentChip's remove button is hand-built at UI-SPEC's literal 20px (size-5), not Button's size=toolbar (32px) that the pattern map cited
+- [Phase 04-03]: collectAttachmentIds always merges inline ids before chip ids (fixed order); downstream Plan 05/06/08 callers must not re-sort
 
 ### Pending Todos
 
@@ -145,6 +150,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T22:55:09.603Z
+Last session: 2026-07-31T23:16:50.473Z
 Stopped at: Phase 4 Plan 02 complete — attachment upload client, types, and pure validation/format rules landed
 Resume file: .planning/phases/04-dosya-ekleri-ve-inline-g-rseller/04-03-PLAN.md

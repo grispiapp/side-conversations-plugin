@@ -28,7 +28,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **COMP-02**: Alıcı alanı müşteri aramasıyla otomatik tamamlanır; kayıtlı olmayan serbest e-posta adresi de girilebilir
 - [x] **COMP-03**: Konu alanı talep anahtarı + talep başlığıyla önceden dolu gelir ve düzenlenebilir
 - [x] **COMP-04**: Temsilci mesajı gönderdiğinde side ticket oluşur, alıcıya e-posta gider ve temsilci doğrudan görüşme ekranına yönlendirilir
-- [ ] **COMP-05**: Temsilci yeni görüşme mesajına sürükle-bırak veya ataç ikonuyla birden fazla dosya ekler; ekler gönderim öncesi listede (ad, boyut, önizleme) görünür ve tek tek kaldırılabilir; `POST /attachments/upload` ile yüklenip mesaja `comment.attachmentIds` ile bağlanır *(rev. 2026-07-31 — önceki "Base64" varsayımı grispi-ui referans implementasyonuyla çürütüldü; rev. 2026-08-01 — Plan 04-01 canlı probu doğru yolun `public/v1` ön eksiz `attachments/upload` olduğunu ve bağlamanın `/v2/tickets` gerektirdiğini kanıtladı)* — Plan 04-01 (canlı sözleşme + paket/altyapı hazırlığı) tamam; kullanıcıya görünür ataç/chip UI Plan 04-02/03/05/06'da geliyor
+- [ ] **COMP-05**: Temsilci yeni görüşme mesajına sürükle-bırak veya ataç ikonuyla birden fazla dosya ekler; ekler gönderim öncesi listede (ad, boyut, önizleme) görünür ve tek tek kaldırılabilir; `POST /attachments/upload` ile yüklenip mesaja `comment.attachmentIds` ile bağlanır *(rev. 2026-07-31 — önceki "Base64" varsayımı grispi-ui referans implementasyonuyla çürütüldü; rev. 2026-08-01 — Plan 04-01 canlı probu doğru yolun `public/v1` ön eksiz `attachments/upload` olduğunu ve bağlamanın `/v2/tickets` gerektirdiğini kanıtladı)* — Plan 04-01 (canlı sözleşme + paket/altyapı hazırlığı) tamam; upload client + pure kurallar Plan 04-02'de; ek yaşam döngüsü store'u (`AttachmentUploadStore`) ve `AttachmentChip` pill bileşeni Plan 04-03'te test edilerek tamamlandı, ancak henüz `rich-text-composer.tsx`'e takılmadı — composer entegrasyonu Plan 04-05/06'da
 - [ ] **COMP-06**: Temsilci "Talep özetini ekle" ile ana talebin son public yorumlarını mesaj gövdesine alıntılayabilir
 - [ ] **COMP-07**: Temsilci alıcıyı seçtiğinde, bu alıcıyla yapılmış önceki yan görüşmeler listelenir ve tek dokunuşla açılabilir (v2 preview `GET /tickets?requesterEmail=` endpoint'ine dayanır; Grispi değişiklikleri önceden bildirir)
 - [ ] **COMP-08**: Editöre yapıştırılan görsel Grispi'ye yüklenir ve dönen `objectUrl` ile editörde inline gösterilir; gönderilen mesajda da inline kalır (ortak composer — compose ve yanıt) *(eklendi 2026-07-31)* — Plan 04-01 hazırlık tamam; uygulama Plan 04-02/07/08'de geliyor
@@ -39,7 +39,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **THRD-02**: Temsilci görüşmeye yanıt yazar; yanıt alıcıya e-posta olarak gider ve thread'e eklenir
 - [x] **THRD-03**: Temsilci görüşmeyi kapatabilir ve yeniden açabilir; kapalı görüşmeye gelen yanıt görüşmeyi tekrar aktif gösterir
 - [x] **THRD-04**: Görüşme açıldığında "Yeni yanıt" durumu okundu sayılır (temsilci bazında, localStorage)
-- [ ] **THRD-05**: Temsilci yanıta da aynı şekilde çoklu dosya ekleyebilir (ortak composer; upload + `comment.attachmentIds`) *(rev. 2026-07-31 — "Base64" varsayımı düzeltildi)*
+- [ ] **THRD-05**: Temsilci yanıta da aynı şekilde çoklu dosya ekleyebilir (ortak composer; upload + `comment.attachmentIds`) *(rev. 2026-07-31 — "Base64" varsayımı düzeltildi)* — Plan 04-03: `AttachmentUploadStore`'un `reply` kovası `compose` kovasından bağımsız olarak testlerle doğrulandı; composer entegrasyonu Plan 04-06'da
 - [ ] **THRD-06**: Görüşmede karşı tarafın gönderdiği ekler mesajla birlikte görünür (görsel önizleme / dosya chip'i) ve açılıp indirilebilir; `inline: true` ekler gövdede zaten göründüğü için listeden filtrelenir *(eklendi 2026-07-31)*
 
 ### Tazelik (SYNC)
@@ -94,10 +94,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | THRD-02 | Phase 3 | Complete |
 | THRD-03 | Phase 3 | Complete |
 | THRD-04 | Phase 3 | Complete |
-| COMP-05 | Phase 4 | In Progress (contract/infra done in Plan 01; upload client + pure validation/format rules done in Plan 02; UI lands Plan 05-06) |
+| COMP-05 | Phase 4 | In Progress (contract/infra done in Plan 01; upload client + pure validation/format rules done in Plan 02; upload-lifecycle store + chip component done in Plan 03; composer wiring lands Plan 05-06) |
 | COMP-06 | Phase 4 | Pending |
 | COMP-07 | Phase 4 | Pending |
-| THRD-05 | Phase 4 | In Progress (shared upload client + attachmentIds request-type support done in Plan 02; reply-flow wiring lands Plan 06) |
+| THRD-05 | Phase 4 | In Progress (shared upload client + attachmentIds request-type support done in Plan 02; independent reply-surface bucket done in Plan 03; composer wiring lands Plan 06) |
 | SYNC-01 | Phase 4 | Pending |
 
 **Coverage:**
