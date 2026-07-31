@@ -209,6 +209,8 @@ Identical palette to `03-UI-SPEC.md` — no new hues introduced:
 
 Accent is **never** used for: the attach toolbar button (stays `text-muted-foreground`, ghost, matching every other toolbar icon — it is not a toggle/active-state control), idle/uploaded chip pills (neutral `bg-muted`, not primary), the file-type icons inside chips (`text-muted-foreground`).
 
+**Distribution (60/30/10) — carried from `03-UI-SPEC.md` unchanged.** ~60% neutral surfaces (`--background` / `--card`: composer body, chip icon slots, toast surface), ~30% secondary/muted (`--muted` chip fills, `--muted-foreground` filenames, sizes, file-type icons, attach button), ~10% accent + semantic (`--primary` limited to the transient drag overlay and existing Phase 3 uses; `--destructive` limited to failed chips and error toasts). This phase adds surface area only in the 60% and 30% bands — the 10% band gains no persistent element, since the only new primary usage (drag overlay) exists solely during an active drag gesture.
+
 ---
 
 ## Copywriting Contract
