@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 4
 status: planning
 stopped_at: Phase 03.1 complete; manual UAT deferred — NOT TESTED; ready to plan Phase 4
-last_updated: "2026-07-31T10:44:35.114Z"
+last_updated: "2026-07-31T10:46:52.024Z"
 last_activity: 2026-07-29
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 4
   total_plans: 21
   completed_plans: 21
-  percent: 80
+  percent: 67
 ---
 
 # Project State
@@ -121,6 +121,7 @@ None yet.
 ### Roadmap Evolution
 
 - Phase 4 edited: ek/attachment kapsamı genişletildi: COMP-08 + THRD-06 eklendi, COMP-05/THRD-05 revize (Base64 varsayımı düzeltildi)
+- Phase 5 added: Faz 4 bölündü: ekler Faz 4'te kaldı, talep özeti + önceki görüşmeler + sessiz tazeleme Faz 5'e taşındı
 
 ## Deferred Items
 

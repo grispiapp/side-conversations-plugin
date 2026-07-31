@@ -17,7 +17,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Yeni Yan Görüşme Başlatma** - Temsilci alıcı/konu/mesaj ile yeni görüşme açar; side ticket oluşur ve alıcıya gerçek e-posta gider (completed 2026-07-23)
 - [ ] **Phase 3: Görüşme Detayı ve Yaşam Döngüsü** - Temsilci mesajları yön ayrımıyla görür, yanıtlar, kapatır/yeniden açar ve okundu işaretler
 - [x] **Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu** - Tiptap/DOMPurify, tenant-scoped React Query, senkron thread navigasyonu ve ortak 372px inbox kabuğuyla Phase 3 deneyimini güvenli ve tutarlı hâle getirir (completed 2026-07-29)
-- [ ] **Phase 4: Zenginleştirmeler ve Dayanıklılık** - Dosya ekleme, talep özeti, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
+- [ ] **Phase 4: Dosya Ekleri ve Inline Görseller** - Temsilci çoklu dosya ekler (sürükle-bırak/ataç), editöre yapıştırdığı görsel inline gömülür, gelen ekler thread'de görünür
+- [ ] **Phase 5: Zenginleştirmeler ve Dayanıklılık** - Talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
 
 ## Phase Details
 
@@ -145,21 +146,33 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] 03.1-05-PLAN.md — Ortak erişilebilir 372px inbox/list/compose/detail kabuğu, tam test/build/UI doğrulaması
 
-### Phase 4: Zenginleştirmeler ve Dayanıklılık
+### Phase 4: Dosya Ekleri ve Inline Görseller
 
-**Goal**: Uçtan uca döngü çalışırken deneyimi tamamlar: dosya ekleme (çoklu sürükle-bırak, inline görsel, gelen ekler), talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme.
+**Goal**: Temsilci yan görüşmelere dosya ekleyebilir ve alabilir: yeni görüşmede ve yanıtta çoklu sürükle-bırak/ataç ile ek yükler, editöre yapıştırdığı görsel inline gömülür, karşı tarafın gönderdiği ekleri thread'de görüp açabilir.
 **Mode:** mvp
 **Depends on**: Phase 3
-**Requirements**: COMP-05, COMP-06, COMP-07, COMP-08, THRD-05, THRD-06, SYNC-01
+**Requirements**: COMP-05, COMP-08, THRD-05, THRD-06
 **Success Criteria** (what must be TRUE):
 
   1. Temsilci hem yeni görüşmede hem yanıtta sürükle-bırak veya ataç ikonuyla birden fazla dosya ekler; ekler gönderim öncesi listede (ad, boyut, önizleme) görünür ve tek tek kaldırılabilir
   2. Ekler `POST /attachments/upload` ile yüklenir ve mesaja `comment.attachmentIds` ile bağlanır; alıcı ekleri e-postayla alır
   3. Editöre yapıştırılan görsel Grispi'ye yüklenip dönen `objectUrl` ile editörde inline görünür ve gönderilen mesajda inline kalır
   4. Görüşmede karşı tarafın gönderdiği ekler mesajla birlikte görünür (görsel önizleme / dosya chip'i) ve açılıp indirilebilir
-  5. Temsilci "Talep özetini ekle" ile ana talebin son public yorumlarını mesaj gövdesine alıntılayabilir
-  6. Temsilci compose'da alıcıyı seçtiğinde, o alıcıyla yapılmış önceki yan görüşmeler listelenir ve tek dokunuşla açılabilir
-  7. Panel görünürken liste ve açık görüşme makul aralıklarla (30-60 sn) sessizce tazelenir; yeni yanıtlar kendiliğinden belirir
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 5: Zenginleştirmeler ve Dayanıklılık
+
+**Goal**: Uçtan uca döngü çalışırken deneyimi tamamlar: talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme.
+**Mode:** mvp
+**Depends on**: Phase 4
+**Requirements**: COMP-06, COMP-07, SYNC-01
+**Success Criteria** (what must be TRUE):
+
+  1. Temsilci "Talep özetini ekle" ile ana talebin son public yorumlarını mesaj gövdesine alıntılayabilir
+  2. Temsilci compose'da alıcıyı seçtiğinde, o alıcıyla yapılmış önceki yan görüşmeler listelenir ve tek dokunuşla açılabilir
+  3. Panel görünürken liste ve açık görüşme makul aralıklarla (30-60 sn) sessizce tazelenir; yeni yanıtlar kendiliğinden belirir
 
 **Plans**: TBD
 **UI hint**: yes
@@ -167,7 +180,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4
+Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -175,4 +188,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4
 | 2. Yeni Yan Görüşme Başlatma | 6/6 | Complete    | 2026-07-23 |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 5/6 | In Progress|  |
 | 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
-| 4. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
+| 4. Dosya Ekleri ve Inline Görseller | 0/TBD | Not started | - |
+| 5. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
