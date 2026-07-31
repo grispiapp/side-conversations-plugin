@@ -48,4 +48,41 @@ export class HttpHandler {
 
     return response.json();
   }
+
+  /**
+   * Multipart upload path (Phase 4, attachment uploads). Deliberately does
+   * NOT spread `this.headers` — that object always carries the default
+   * `Content-Type: application/json`, and setting a `Content-Type` to any
+   * string value (including `undefined`, which WHATWG `Headers` coerces to
+   * the literal string `"undefined"` — confirmed live, RESEARCH.md
+   * Architecture Patterns Pattern 1) breaks the browser's automatic
+   * multipart boundary generation. `extraHeaders` should be
+   * `Authentication.headers` only (tenantId + Authorization), confirmed to
+   * never carry a content-type key (`src/grispi/client/authentication.ts`).
+   */
+  async sendMultipart<T>(
+    url: string,
+    formData: FormData,
+    extraHeaders: Record<string, string>
+  ): Promise<T> {
+    let response: Response;
+
+    try {
+      response = await fetch(`${this.baseUrl}/${url}`, {
+        method: "POST",
+        cache: "no-cache",
+        body: formData,
+        headers: { ...extraHeaders },
+      });
+    } catch (cause) {
+      throw new NetworkError(cause);
+    }
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new HttpError(response.status, body);
+    }
+
+    return response.json();
+  }
 }
