@@ -1,3 +1,4 @@
+import { Attachments } from "./attachments";
 import { Authentication } from "./authentication";
 import { Customers } from "./customers";
 import { HttpHandler } from "./http-handler";
@@ -10,6 +11,7 @@ export class GrispiAPI {
   readonly tickets: Tickets;
   readonly users: Users;
   readonly customers: Customers;
+  readonly attachments: Attachments;
 
   constructor() {
     this.httpHandler = new HttpHandler();
@@ -17,6 +19,7 @@ export class GrispiAPI {
     this.tickets = new Tickets(this.httpHandler, this.authentication);
     this.users = new Users(this.httpHandler, this.authentication);
     this.customers = new Customers(this.httpHandler, this.authentication);
+    this.attachments = new Attachments(this.httpHandler, this.authentication);
   }
 }
 

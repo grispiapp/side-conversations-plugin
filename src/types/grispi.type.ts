@@ -27,7 +27,17 @@ export interface User {
   fields: any[];
 }
 
-interface Attachment {
+/**
+ * A single attachment, both as the shape embedded in a `Comment` and as one
+ * element of the `POST .../attachments/upload` response array. `inline` is
+ * CONFIRMED live (Phase 04 Plan 01 probe A1/A3, see `04-01-SUMMARY.md`
+ * "Probe Findings") — present on the upload response and round-trips as
+ * `inline:true` on the re-fetched comment's attachment when uploaded with
+ * `?inline=true` (D-22 is implementable). `objectUrl` needs no auth header —
+ * it 307-redirects to a time-limited signed S3 URL; never persist the
+ * resolved S3 link, always keep `objectUrl` itself.
+ */
+export interface Attachment {
   id: number;
   filename: string;
   objectKey: string;
@@ -38,6 +48,31 @@ interface Attachment {
   userId: number;
   objectThumbUrl: string;
   objectUrl: string;
+  inline?: boolean;
+}
+
+/**
+ * `POST {no public/v1 prefix}/attachments/upload` response element —
+ * CONFIRMED live (Phase 04 Plan 01 Task 1 checkpoint probe A1, see
+ * `04-01-SUMMARY.md` "Probe Findings"; also matches
+ * `.planning/research/attachment-upload-contract.md` §1). The endpoint
+ * always returns an ARRAY, even for a single uploaded file — callers consume
+ * only the first element. Same field set as the live-confirmed response
+ * body (identical to `Attachment`, kept as its own named interface since
+ * this is a response contract, not the embedded-on-a-`Comment` shape).
+ */
+export interface UploadFilesResponse {
+  id: number;
+  filename: string;
+  objectKey: string;
+  objectThumbKey: string;
+  bucket: string;
+  mimeType: string;
+  size: number;
+  userId: number;
+  objectThumbUrl: string;
+  objectUrl: string;
+  inline?: boolean;
 }
 
 export interface Comment {
@@ -215,12 +250,20 @@ export interface GrispiUserProfile {
  * `boolean`) because this is the one field that turns the side ticket into
  * a real outbound email (D-13) — a caller cannot accidentally construct a
  * silent/internal-only side ticket.
+ *
+ * `comment.attachmentIds` (Phase 04 Plan 01 checkpoint probe A2/N2, see
+ * `04-01-SUMMARY.md` "Probe Findings" and "Architecture Decision" — only
+ * `/v2/tickets` binds attachments; `public/v1` silently ignores this field)
+ * — MUST be omitted entirely when there are zero attachment ids, never sent
+ * as an empty array (RESEARCH.md "Assuming attachmentIds field must always
+ * be present" pitfall).
  */
 export interface CreateTicketRequest {
   comment: {
     body: string;
     publicVisible: true;
     creator: [{ key: "us.email"; value: string }];
+    attachmentIds?: number[];
   };
   fields: Array<{ key: string; value: string }>;
 }
@@ -230,12 +273,17 @@ export interface CreateTicketRequest {
  * (Phase 03 Plan 01). It is deliberately separate from
  * `CreateTicketRequest`: PATCH callers cannot resend subject, requester, or
  * parent-link fields.
+ *
+ * `comment.attachmentIds` — same probe-backed contract and same
+ * omit-when-empty rule as `CreateTicketRequest.comment.attachmentIds`
+ * (see that doc-comment for the full rationale).
  */
 export interface ReplyTicketPatchRequest {
   comment: {
     body: string;
     publicVisible: true;
     creator: [{ key: "us.email"; value: string }];
+    attachmentIds?: number[];
   };
 }
 
