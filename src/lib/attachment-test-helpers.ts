@@ -1,0 +1,71 @@
+/**
+ * Test-only helpers for constructing `File`/clipboard-paste/drop events under
+ * jsdom. NOT imported by any production source file — only from `__tests__/`
+ * directories (04-PATTERNS.md §`src/lib/attachment-test-helpers.ts`).
+ *
+ * Extracted from the `Object.defineProperty(event, "clipboardData", ...)`
+ * idiom already used inline in
+ * `src/screens/components/__tests__/rich-text-composer.test.tsx` (jsdom's
+ * real `ClipboardEvent`/`DataTransfer` don't support constructing arbitrary
+ * `files`, so read-only DOM event properties are faked this way).
+ *
+ * `hasNativeDataTransfer` records, at test-run time, whether this jsdom
+ * version supports `new DataTransfer()` + `items.add(file)` (04-VALIDATION.md
+ * Wave 0 capability registration, RESEARCH.md A11). `makeDropEvent` uses a
+ * real `DataTransfer` when available and falls back to a plain-object stub
+ * otherwise, so drop tests built on top of this helper are resilient to
+ * jsdom's historically inconsistent `DataTransfer` support across versions.
+ */
+
+/** Minimal shape drop/paste handlers read off `event.dataTransfer` / `event.clipboardData`. */
+interface FakeFileTransfer {
+  files: File[];
+  getData?: (type: string) => string;
+}
+
+export function makeTestFile(name: string, size: number, type: string): File {
+  return new File([new Uint8Array(size)], name, { type });
+}
+
+/**
+ * Runtime capability probe: does this jsdom support constructing a real
+ * `DataTransfer` and adding a `File` to it via `items.add`? Computed once at
+ * module load; `04-01-SUMMARY.md` records the observed value for this repo's
+ * pinned Jest/jsdom version.
+ */
+export const hasNativeDataTransfer: boolean = (() => {
+  try {
+    const dt = new DataTransfer();
+    const probe = new File([new Uint8Array(1)], "probe.txt", {
+      type: "text/plain",
+    });
+    dt.items.add(probe);
+    return dt.files.length === 1;
+  } catch {
+    return false;
+  }
+})();
+
+export function makeClipboardPasteEvent(files: File[], html?: string): Event {
+  const event = new Event("paste", { bubbles: true, cancelable: true });
+  const clipboardData: FakeFileTransfer = {
+    files,
+    getData: (type: string) => (type === "text/html" ? (html ?? "") : ""),
+  };
+  Object.defineProperty(event, "clipboardData", { value: clipboardData });
+  return event;
+}
+
+export function makeDropEvent(files: File[]): Event {
+  const event = new Event("drop", { bubbles: true, cancelable: true });
+  let dataTransfer: DataTransfer | FakeFileTransfer;
+  if (hasNativeDataTransfer) {
+    const dt = new DataTransfer();
+    files.forEach((file) => dt.items.add(file));
+    dataTransfer = dt;
+  } else {
+    dataTransfer = { files };
+  }
+  Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+  return event;
+}

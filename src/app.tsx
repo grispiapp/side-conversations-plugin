@@ -1,3 +1,4 @@
+import { Toaster } from "./components/ui/sonner";
 import { GrispiProvider, useGrispi } from "./contexts/grispi-context";
 import { StoreProvider, useStore } from "./contexts/store-context";
 import { ChatScreen } from "./screens/chat-screen";
@@ -68,6 +69,7 @@ const App = () => {
     <StoreProvider>
       <GrispiProvider>
         <AppContent />
+        <Toaster />
       </GrispiProvider>
     </StoreProvider>
   );

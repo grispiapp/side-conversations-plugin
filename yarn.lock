@@ -2057,6 +2057,11 @@
   resolved "https://registry.npmjs.org/@tiptap/extension-dropcursor/-/extension-dropcursor-2.27.2.tgz"
   integrity sha512-oEu/OrktNoQXq1x29NnH/GOIzQZm8ieTQl3FK27nxfBPA89cNoH4mFEUmBL5/OFIENIjiYG3qWpg6voIqzswNw==
 
+"@tiptap/extension-file-handler@2.27.2":
+  version "2.27.2"
+  resolved "https://registry.npmjs.org/@tiptap/extension-file-handler/-/extension-file-handler-2.27.2.tgz"
+  integrity sha512-RaGBOp/2eH0DonCD0xouk9o+3z5TuYuyZTxHvh1CA3H8pH3gFufRbkI+D9Lu3Uhb149isM5L01FpgX1f6BYkFg==
+
 "@tiptap/extension-floating-menu@^2.27.2":
   version "2.27.2"
   resolved "https://registry.npmjs.org/@tiptap/extension-floating-menu/-/extension-floating-menu-2.27.2.tgz"
@@ -2088,6 +2093,11 @@
   version "2.27.2"
   resolved "https://registry.npmjs.org/@tiptap/extension-horizontal-rule/-/extension-horizontal-rule-2.27.2.tgz"
   integrity sha512-WGWUSgX+jCsbtf9Y9OCUUgRZYuwjVoieW5n6mAUohJ9/6gc6sGIOrUpBShf+HHo6WD+gtQjRd+PssmX3NPWMpg==
+
+"@tiptap/extension-image@2.27.2":
+  version "2.27.2"
+  resolved "https://registry.npmjs.org/@tiptap/extension-image/-/extension-image-2.27.2.tgz"
+  integrity sha512-5zL/BY41FIt72azVrCrv3n+2YJ/JyO8wxCcA4Dk1eXIobcgVyIdo4rG39gCqIOiqziAsqnqoj12QHTBtHsJ6mQ==
 
 "@tiptap/extension-italic@^2.27.2":
   version "2.27.2"
@@ -3255,6 +3265,11 @@ at-least-node@^1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/at-least-node/-/at-least-node-1.0.0.tgz"
   integrity sha512-+q/t7Ekv1EDY2l6Gda6LLiX14rU9TV20Wa3ofeQmwPFZbOMo9DXrLbOjFaaclkXKWidIaopwAObQDqwWtGUjqg==
+
+attr-accept@^2.2.5:
+  version "2.2.5"
+  resolved "https://registry.npmjs.org/attr-accept/-/attr-accept-2.2.5.tgz"
+  integrity sha512-0bDNnY/u6pPwHDMoF0FieU354oBi0a8rD9FcsLwzcGWbc8KS8KPIi7y+s13OlVY+gMWc/9xEMUgNE6Qm8ZllYQ==
 
 autoprefixer@^10.4.12, autoprefixer@^10.4.13:
   version "10.4.19"
@@ -5243,6 +5258,11 @@ file-loader@^6.2.0:
   dependencies:
     loader-utils "^2.0.0"
     schema-utils "^3.0.0"
+
+file-selector@^4.0.1:
+  version "4.0.2"
+  resolved "https://registry.npmjs.org/file-selector/-/file-selector-4.0.2.tgz"
+  integrity sha512-gG5a3fIH+jVZY3AZeupJBjYnRd65YUTCO26gKhfE24LvmGPmBAx0peyxrjUkX6PhKfTUl9UPi7UYwvDS6RI2Jg==
 
 filelist@^1.0.4:
   version "1.0.4"
@@ -8679,6 +8699,14 @@ react-dom@^18.3.1:
     loose-envify "^1.1.0"
     scheduler "^0.23.2"
 
+react-dropzone@19.1.1:
+  version "19.1.1"
+  resolved "https://registry.npmjs.org/react-dropzone/-/react-dropzone-19.1.1.tgz"
+  integrity sha512-zxuTwbyvP+FSdesiHafT/0UMTX/Ne1ri8XPTn7KM97ZinHKFy3N6KiKEGRiG28ibYV+nG6sHxoJlkVoDxIMHxQ==
+  dependencies:
+    attr-accept "^2.2.5"
+    file-selector "^4.0.1"
+
 react-error-overlay@^6.0.11:
   version "6.0.11"
   resolved "https://registry.npmjs.org/react-error-overlay/-/react-error-overlay-6.0.11.tgz"
@@ -9309,6 +9337,11 @@ sockjs@^0.3.24:
     faye-websocket "^0.11.3"
     uuid "^8.3.2"
     websocket-driver "^0.7.4"
+
+sonner@2.0.7:
+  version "2.0.7"
+  resolved "https://registry.npmjs.org/sonner/-/sonner-2.0.7.tgz"
+  integrity sha512-W6ZN4p58k8aDKA4XPcx2hpIQXBRAgyiWVkYhT7CvK6D3iAu7xjvVyhQHg2/iaKJZ1XVJ4r7XuwGL+WGEK37i9w==
 
 source-list-map@^2.0.0, source-list-map@^2.0.1:
   version "2.0.1"
