@@ -34,6 +34,29 @@ function editor(): HTMLDivElement {
   return result;
 }
 
+function makeAttachment(overrides: Partial<{
+  id: number;
+  filename: string;
+  mimeType: string;
+  size: number;
+  inline: boolean;
+}> = {}) {
+  const id = overrides.id ?? 1;
+  return {
+    id,
+    filename: overrides.filename ?? `file-${id}.txt`,
+    objectKey: `objectKey-${id}`,
+    objectThumbKey: `objectThumbKey-${id}`,
+    bucket: "bucket",
+    mimeType: overrides.mimeType ?? "text/plain",
+    size: overrides.size ?? 2048,
+    userId: 4,
+    objectThumbUrl: `https://usercontent.grispi.net/thumb-${id}`,
+    objectUrl: `https://usercontent.grispi.net/file-${id}`,
+    ...(overrides.inline !== undefined ? { inline: overrides.inline } : {}),
+  };
+}
+
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -190,6 +213,126 @@ describe("ThreadMessage", () => {
     expect(container.textContent).toContain("After quote");
     expect(container.textContent).not.toContain("Earlier public message");
     expect(container.textContent).not.toContain("Gönderiliyor");
+  });
+
+  it("renders no attachment block at all when the message has no attachments", () => {
+    render(<ThreadMessage message={baseMessage} onRetry={jest.fn()} />);
+    expect(container.querySelectorAll("a[target='_blank']").length).toBe(0);
+  });
+
+  it("renders an image attachment as a new-tab thumbnail link with hardened rel", () => {
+    const image = makeAttachment({ id: 10, filename: "ekran-goruntusu.png", mimeType: "image/png" });
+    render(
+      <ThreadMessage
+        message={{ ...baseMessage, attachments: [image] }}
+        onRetry={jest.fn()}
+      />
+    );
+
+    const link = container.querySelector<HTMLAnchorElement>(
+      `a[href="${image.objectUrl}"]`
+    );
+    expect(link).not.toBeNull();
+    expect(link?.target).toBe("_blank");
+    expect(link?.rel).toContain("noopener");
+    expect(link?.rel).toContain("noreferrer");
+    expect(link?.querySelector("img")?.getAttribute("alt")).toBe(
+      image.filename
+    );
+  });
+
+  it("renders a pdf attachment in the file chip row, not the thumbnail row", () => {
+    const pdf = makeAttachment({ id: 11, filename: "fatura.pdf", mimeType: "application/pdf" });
+    render(
+      <ThreadMessage
+        message={{ ...baseMessage, attachments: [pdf] }}
+        onRetry={jest.fn()}
+      />
+    );
+
+    const link = container.querySelector<HTMLAnchorElement>(
+      `a[href="${pdf.objectUrl}"]`
+    );
+    expect(link).not.toBeNull();
+    expect(link?.querySelector("img")).toBeNull();
+    expect(link?.textContent).toContain("fatura.pdf");
+  });
+
+  it("renders an SVG attachment as a file chip, never a thumbnail (D-10)", () => {
+    const svg = makeAttachment({ id: 12, filename: "logo.svg", mimeType: "image/svg+xml" });
+    render(
+      <ThreadMessage
+        message={{ ...baseMessage, attachments: [svg] }}
+        onRetry={jest.fn()}
+      />
+    );
+
+    const link = container.querySelector<HTMLAnchorElement>(
+      `a[href="${svg.objectUrl}"]`
+    );
+    expect(link).not.toBeNull();
+    expect(link?.querySelector("img")).toBeNull();
+    expect(
+      container.querySelector(`img[src="${svg.objectUrl}"]`)
+    ).toBeNull();
+  });
+
+  it("still renders an inline-flagged attachment (D-22 regression guard)", () => {
+    const inlineImage = makeAttachment({
+      id: 13,
+      filename: "gomulu.png",
+      mimeType: "image/png",
+      inline: true,
+    });
+    render(
+      <ThreadMessage
+        message={{ ...baseMessage, attachments: [inlineImage] }}
+        onRetry={jest.fn()}
+      />
+    );
+
+    expect(
+      container.querySelector(`a[href="${inlineImage.objectUrl}"]`)
+    ).not.toBeNull();
+  });
+
+  it("shows attachments for own-direction messages too", () => {
+    const file = makeAttachment({ id: 14, filename: "kanit.pdf", mimeType: "application/pdf" });
+    render(
+      <ThreadMessage
+        message={{
+          ...baseMessage,
+          id: "own-1",
+          direction: "own",
+          attachments: [file],
+        }}
+        onRetry={jest.fn()}
+      />
+    );
+
+    expect(
+      container.querySelector(`a[href="${file.objectUrl}"]`)
+    ).not.toBeNull();
+  });
+
+  it("renders the attachment filename as plain text, never through an HTML sink", () => {
+    const malicious = makeAttachment({
+      id: 15,
+      filename: "<img onerror=a()>.pdf",
+      mimeType: "application/pdf",
+    });
+    render(
+      <ThreadMessage
+        message={{ ...baseMessage, attachments: [malicious] }}
+        onRetry={jest.fn()}
+      />
+    );
+
+    expect(container.querySelector("[onerror]")).toBeNull();
+    const link = container.querySelector<HTMLAnchorElement>(
+      `a[href="${malicious.objectUrl}"]`
+    );
+    expect(link?.textContent).toContain(malicious.filename);
   });
 });
 

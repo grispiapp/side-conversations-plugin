@@ -1,8 +1,12 @@
 import { ExclamationTriangleIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { FC, useState } from "react";
 
+import { attachmentKind } from "@/lib/attachment-format";
 import { sanitizeHtml, splitQuotedHtml } from "@/lib/html-sanitizer";
 import { cn } from "@/lib/utils";
+import { AttachmentChip } from "@/screens/components/attachment-chip";
+import { AttachmentChipVM } from "@/store/attachment-upload-store";
+import { Attachment } from "@/types/grispi.type";
 
 export interface ThreadMessageData {
   id: string;
@@ -16,6 +20,7 @@ export interface ThreadMessageData {
   internal?: boolean;
   authoredBodyHtml?: string;
   quotedHtml?: string;
+  attachments?: Attachment[];
 }
 
 export interface ThreadMessageProps {
@@ -42,6 +47,84 @@ function formatTime(timestamp: number): string {
     dateStyle: "short",
     timeStyle: "short",
   }).format(timestamp);
+}
+
+function toAttachmentChipVM(attachment: Attachment): AttachmentChipVM {
+  return {
+    id: `attachment-${attachment.id}`,
+    filename: attachment.filename,
+    size: attachment.size,
+    mimeType: attachment.mimeType,
+    status: "done",
+    attachmentId: attachment.id,
+  };
+}
+
+/**
+ * UI-SPEC §9 — two zones, only the zones with content render: an image
+ * thumbnail row first (any `image/*` attachment except SVG, D-10 — SVG is
+ * NEVER thumbnailed anywhere in this plugin), then a file chip row for
+ * everything else (pdf/video/generic/svg), reusing the same read-only
+ * `AttachmentChip` shell the composer uses (Plan 03). `inline: true`
+ * attachments are NOT filtered here (D-22, deliberate divergence from
+ * grispi-ui) — this plugin never renders incoming body images (D-21), so
+ * this list is the only place a third party's screenshot is ever visible.
+ * `objectUrl` needs no auth header (Plan 01 live probe) and is rendered/
+ * linked directly; every link opens in a new tab via plain anchor semantics
+ * (D-20) — no imperative popup-window API is used anywhere in this file.
+ */
+function ThreadAttachments({
+  attachments,
+}: {
+  attachments: Attachment[];
+}): JSX.Element {
+  const images = attachments.filter(
+    (attachment) => attachmentKind(attachment.mimeType) === "image"
+  );
+  const files = attachments.filter(
+    (attachment) => attachmentKind(attachment.mimeType) !== "image"
+  );
+
+  return (
+    <div className="mt-2">
+      {images.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {images.map((attachment) => (
+            <a
+              key={attachment.id}
+              href={attachment.objectUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={attachment.filename}
+              className="block size-[72px] shrink-0 overflow-hidden rounded-md border border-border"
+            >
+              <img
+                src={attachment.objectUrl}
+                alt={attachment.filename}
+                className="size-full object-cover"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+      {files.length > 0 && (
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-1.5",
+            images.length > 0 && "mt-1.5"
+          )}
+        >
+          {files.map((attachment) => (
+            <AttachmentChip
+              key={attachment.id}
+              chip={toAttachmentChipVM(attachment)}
+              href={attachment.objectUrl}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -121,6 +204,10 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
             />
           )}
         </div>
+      )}
+
+      {message.attachments && message.attachments.length > 0 && (
+        <ThreadAttachments attachments={message.attachments} />
       )}
 
       {message.status === "pending" && (
