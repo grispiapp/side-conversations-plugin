@@ -628,6 +628,103 @@ describe("canonical detail and mutation executors", () => {
     ).toBeNull();
   });
 
+  it("projects comment.attachments to MessageVM.attachments without filtering inline-flagged ones (D-22)", async () => {
+    const external = makeTicket("SIDE-1").comments[0].creator;
+    const fileAttachment = {
+      id: 630,
+      filename: "fatura.pdf",
+      objectKey: "objectKey-630",
+      objectThumbKey: "objectThumbKey-630",
+      bucket: "bucket",
+      mimeType: "application/pdf",
+      size: 1024,
+      userId: 4,
+      objectThumbUrl: "https://usercontent.grispi.net/thumb-630",
+      objectUrl: "https://usercontent.grispi.net/file-630",
+    };
+    // Marked as embedded-in-body by the server (P3 probe). D-22 requires this
+    // record to still come through the projection unfiltered — this plugin
+    // never renders incoming body images (D-21), so this is the ONLY place
+    // the counterparty's screenshot is visible at all.
+    const inlineAttachment = {
+      ...fileAttachment,
+      id: 631,
+      filename: "screenshot.png",
+      mimeType: "image/png",
+      objectThumbUrl: "https://usercontent.grispi.net/thumb-631",
+      objectUrl: "https://usercontent.grispi.net/file-631",
+      inline: true,
+    };
+    mockedGetTicket.mockResolvedValue({
+      ...makeTicket("SIDE-1"),
+      comments: [
+        {
+          ...makeTicket("SIDE-1").comments[0],
+          id: 1,
+          createdAt: 1_000,
+          creator: external,
+          body: "<p>Incoming</p>",
+          attachments: [fileAttachment, inlineAttachment],
+        },
+      ],
+    });
+
+    const detail = await client.fetchQuery(
+      sideConversationDetailOptions("tenant-1", "SIDE-1")
+    );
+
+    expect(detail.messages[0]).toEqual(
+      expect.objectContaining({
+        id: "comment-1",
+        direction: "incoming",
+        body: "<p>Incoming</p>",
+        createdAt: 1_000,
+        senderEmail: external.email,
+        attachments: [fileAttachment, inlineAttachment],
+      })
+    );
+    // D-22 regression guard, isolated from the objectContaining match above.
+    expect(detail.messages[0].attachments).toContainEqual(
+      expect.objectContaining({ id: 631, inline: true })
+    );
+  });
+
+  it("leaves MessageVM.attachments undefined when comment.attachments is an empty array", async () => {
+    mockedGetTicket.mockResolvedValue({
+      ...makeTicket("SIDE-1"),
+      comments: [
+        {
+          ...makeTicket("SIDE-1").comments[0],
+          attachments: [],
+        },
+      ],
+    });
+
+    const detail = await client.fetchQuery(
+      sideConversationDetailOptions("tenant-1", "SIDE-1")
+    );
+
+    expect(detail.messages[0].attachments).toBeUndefined();
+  });
+
+  it("leaves MessageVM.attachments undefined and does not throw when comment.attachments is missing", async () => {
+    const baseTicket = makeTicket("SIDE-1");
+    const commentWithoutAttachments = {
+      ...baseTicket.comments[0],
+    } as Record<string, unknown>;
+    delete commentWithoutAttachments.attachments;
+    mockedGetTicket.mockResolvedValue({
+      ...baseTicket,
+      comments: [commentWithoutAttachments],
+    });
+
+    const detail = await client.fetchQuery(
+      sideConversationDetailOptions("tenant-1", "SIDE-1")
+    );
+
+    expect(detail.messages[0].attachments).toBeUndefined();
+  });
+
   it("uses the same terminal lifecycle parser for status-5 detail as the list projection", async () => {
     const closedTicket = {
       ...makeTicket("SIDE-1"),

@@ -431,6 +431,13 @@ function normalizeComment(
     senderEmail: comment.creator?.email || undefined,
     internal: !comment.publicVisible,
     quotedHtml: quoted.quotedHtml,
+    // D-22: NO filtering here, deliberately. grispi-ui drops `inline: true`
+    // attachments from this list because it renders them inside the body
+    // instead — this plugin never renders incoming body images (D-21), so
+    // dropping inline-flagged attachments would make a third party's
+    // screenshot vanish entirely. Every attachment the comment carries is
+    // projected through, unconditionally.
+    attachments: comment.attachments?.length ? comment.attachments : undefined,
   };
 }
 

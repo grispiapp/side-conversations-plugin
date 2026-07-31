@@ -4,6 +4,7 @@ import { makeAutoObservable } from "mobx";
 import { sanitizeHtml, sanitizeUntrustedDraftHtml } from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
 import {
+  Attachment,
   CreateTicketRequest,
   ReplyTicketPatchRequest,
   StatusTicketPatchRequest,
@@ -38,6 +39,7 @@ export interface MessageVM {
   internal?: boolean;
   authoredBodyHtml?: string;
   quotedHtml?: string;
+  attachments?: Attachment[];
 }
 
 export type MutationEnvelope =
