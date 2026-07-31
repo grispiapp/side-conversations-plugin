@@ -6,14 +6,14 @@ current_phase: 4
 current_phase_name: dosya-ekleri-ve-inline-g-rseller
 status: executing
 stopped_at: Phase 4 Plan 02 complete — attachment upload client, types, and pure validation/format rules landed
-last_updated: "2026-07-31T23:19:36.197Z"
+last_updated: "2026-07-31T23:31:32.585Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 29
-  completed_plans: 24
+  completed_plans: 25
   percent: 67
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 4 execution started
 
@@ -70,6 +70,7 @@ Progress: [██████████] 100%
 | Phase 04 P01 | 45min | 3 tasks | 7 files |
 | Phase 04 P02 | ~20min | 3 tasks | 10 files |
 | Phase 04 P03 | 40min | 2 tasks | 6 files |
+| Phase 04 P04 | 20min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,8 @@ Recent decisions affecting current work:
 - [Phase 04-03]: Two-surface (compose/reply) bucket split uses four flat private arrays, not a nested Record, avoiding per-key observable annotation complexity under makeAutoObservable's deep:false
 - [Phase 04-03]: AttachmentChip's remove button is hand-built at UI-SPEC's literal 20px (size-5), not Button's size=toolbar (32px) that the pattern map cited
 - [Phase 04-03]: collectAttachmentIds always merges inline ids before chip ids (fixed order); downstream Plan 05/06/08 callers must not re-sort
+- [Phase 04]: D-22 mirrors 'empty→undefined' idiom: normalizeComment carries comment.attachments through with zero filtering — inline:true attachments are never dropped since this plugin never renders incoming body images (D-21)
+- [Phase 04]: ThreadMessage's image/file MIME split (attachmentKind === 'image', SVG excluded per D-10) computed inline per-render, not as a store-level derived field
 
 ### Pending Todos
 
@@ -150,6 +153,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T23:16:50.473Z
+Last session: 2026-07-31T23:28:19.695Z
 Stopped at: Phase 4 Plan 02 complete — attachment upload client, types, and pure validation/format rules landed
 Resume file: .planning/phases/04-dosya-ekleri-ve-inline-g-rseller/04-03-PLAN.md

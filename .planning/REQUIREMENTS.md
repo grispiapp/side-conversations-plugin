@@ -40,7 +40,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **THRD-03**: Temsilci görüşmeyi kapatabilir ve yeniden açabilir; kapalı görüşmeye gelen yanıt görüşmeyi tekrar aktif gösterir
 - [x] **THRD-04**: Görüşme açıldığında "Yeni yanıt" durumu okundu sayılır (temsilci bazında, localStorage)
 - [ ] **THRD-05**: Temsilci yanıta da aynı şekilde çoklu dosya ekleyebilir (ortak composer; upload + `comment.attachmentIds`) *(rev. 2026-07-31 — "Base64" varsayımı düzeltildi)* — Plan 04-03: `AttachmentUploadStore`'un `reply` kovası `compose` kovasından bağımsız olarak testlerle doğrulandı; composer entegrasyonu Plan 04-06'da
-- [ ] **THRD-06**: Görüşmede karşı tarafın gönderdiği ekler mesajla birlikte görünür (görsel önizleme / dosya chip'i) ve açılıp indirilebilir; `inline: true` ekler gövdede zaten göründüğü için listeden filtrelenir *(eklendi 2026-07-31)*
+- [x] **THRD-06**: Görüşmede karşı tarafın gönderdiği ekler mesajla birlikte görünür (görsel önizleme / dosya chip'i) ve açılıp indirilebilir; `inline: true` ekler listeden FİLTRELENMEZ (D-22, rev. 2026-08-01 — bu plugin gelen gövde görsellerini hiç göstermediği için (D-21) filtreleme karşı tarafın ekran görüntüsünü tamamen görünmez kılardı) *(eklendi 2026-07-31)*
 
 ### Tazelik (SYNC)
 
