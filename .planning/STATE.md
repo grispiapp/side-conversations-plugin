@@ -3,15 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 4
-status: planning
-stopped_at: Phase 4 planned (8 plans, checker approved)
-last_updated: "2026-07-31T12:47:43.756Z"
-last_activity: 2026-07-29
+current_phase_name: dosya-ekleri-ve-inline-g-rseller
+status: executing
+stopped_at: Phase 4 Plan 01 complete — probe/package/toast/test-infra gate closed
+last_updated: "2026-07-31T22:42:49.930Z"
+last_activity: 2026-07-31
+last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 29
-  completed_plans: 21
+  completed_plans: 22
   percent: 67
 ---
 
@@ -22,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayrılmadan yürütebilmeli; talep sahibi bu yazışmaları asla görmemeli.
-**Current focus:** Phase 4 — Zenginleştirmeler ve Dayanıklılık
+**Current focus:** Phase 4 — dosya-ekleri-ve-inline-g-rseller
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-29
+Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
+Plan: 2 of 8
+Status: Ready to execute
+Last activity: 2026-07-31 — Phase 4 execution started
 
 Progress: [██████████] 100%
 
@@ -65,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 02 P04 | ~20min | 3 tasks | 8 files |
 | Phase 02 P05 | 15min | 3 tasks | 3 files |
 | Phase 02 P06 | 55min | 6 tasks | 7 files |
+| Phase 04 P01 | 45min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -103,6 +106,11 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 02 Plan 05: compose-screen isDirty stays hardcoded false — wiring compose.isDirty is paired with Plan 06's ConfirmDialog, not this plan
 - [Phase 02]: [Phase 02, Plan 06]: Compose session pins its parent ticket key at open (initSubject); submit() prefers the pinned key over the live parentKey argument, and reset() clears the pin — prevents D-03's 'Kalsın' from silently rebinding a dirty draft to a different ticket (closes T-02-01)
 - [Phase 02]: [Phase 02, Plan 06]: Fresh-compose reset lives in PanelNavigationStore.openCompose() (the single entry point for '+' and empty-state CTA), not scattered across every back-navigation path — every genuinely fresh compose open is pristine without disturbing an in-progress D-03 session
+- [Phase 04]: Upload endpoint has NO public/v1 prefix: POST https://api.grispi.net/attachments/upload
+- [Phase 04]: Comment-bearing ticket writes (create+reply) use /v2/tickets; status-only lifecycle PATCH stays on public/v1 to preserve D-15
+- [Phase 04]: public/v1 tickets PATCH/POST silently ignores comment.attachmentIds; only /v2/tickets binds attachments correctly
+- [Phase 04]: Client attachment size/count limits (D-08) are a UX/deliverability choice, not a server constraint
+- [Phase 04]: One attachment id binds to exactly one comment (N1); re-attaching returns HTTP 422
 
 ### Pending Todos
 
@@ -133,6 +141,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T12:47:43.749Z
-Stopped at: Phase 4 planned (8 plans, checker approved)
-Resume file: .planning/phases/04-dosya-ekleri-ve-inline-g-rseller/04-01-PLAN.md
+Last session: 2026-07-31T22:42:49.925Z
+Stopped at: Phase 4 Plan 01 complete — probe/package/toast/test-infra gate closed
+Resume file: .planning/phases/04-dosya-ekleri-ve-inline-g-rseller/04-02-PLAN.md

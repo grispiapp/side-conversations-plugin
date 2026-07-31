@@ -159,8 +159,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Editöre yapıştırılan görsel Grispi'ye yüklenip dönen `objectUrl` ile editörde inline görünür ve gönderilen mesajda inline kalır
   4. Görüşmede karşı tarafın gönderdiği ekler mesajla birlikte görünür (görsel önizleme / dosya chip'i) ve açılıp indirilebilir
 
-**Plans**: 8 plans
-- [ ] 04-01-PLAN.md — Canlı API probe (P1-P5), paket meşruiyet onayı + kurulum, toast yüzeyi ve test yetenekleri (Wave 0)
+**Plans**: 1/8 plans executed
+
+- [x] 04-01-PLAN.md — Canlı API probe (P1-P5), paket meşruiyet onayı + kurulum, toast yüzeyi ve test yetenekleri (Wave 0)
 - [ ] 04-02-PLAN.md — Multipart upload hattı: `sendMultipart`, `Attachments` istemcisi, tipler ve saf kural fonksiyonları
 - [ ] 04-03-PLAN.md — `AttachmentUploadStore` yükleme yaşam döngüsü + `AttachmentChip` bileşeni
 - [ ] 04-04-PLAN.md — THRD-06: gelen eklerin projeksiyonu ve thread'de render'ı
@@ -168,6 +169,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] 04-06-PLAN.md — `attachmentIds` gönderim bağlaması, D-18 kirli taslak ve canlı e-posta teslimi (P6a)
 - [ ] 04-07-PLAN.md — Temizleyici politika ayrımı: `sanitizeAuthoredHtml` ve çağrı yerlerinin yön bazlı bağlanması
 - [ ] 04-08-PLAN.md — COMP-08 inline yapıştırma akışı, D-16 çöp toplama devresi ve faz-sonu panel UAT'si
+
 **UI hint**: yes
 
 ### Phase 5: Zenginleştirmeler ve Dayanıklılık
@@ -196,5 +198,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5
 | 2. Yeni Yan Görüşme Başlatma | 6/6 | Complete    | 2026-07-23 |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 5/6 | In Progress|  |
 | 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
-| 4. Dosya Ekleri ve Inline Görseller | 0/TBD | Not started | - |
+| 4. Dosya Ekleri ve Inline Görseller | 1/8 | In Progress|  |
 | 5. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
