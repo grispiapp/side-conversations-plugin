@@ -116,4 +116,72 @@ describe("collectSurvivingInlineImageIds", () => {
 
     expect(ids).toEqual([1, 2]);
   });
+
+  // Regression coverage for the phase-end UAT bug (TICKET-592): the raw
+  // `objectUrl` from the upload response contains a bare `&`, but the
+  // composer's serialized HTML always entity-encodes it as `&amp;`, and the
+  // server additionally re-encodes `=` as `&#61;` on storage (04-01 N3).
+  describe("encoding-insensitive matching (TICKET-592 regression)", () => {
+    const objectUrl =
+      "https://usercontent.grispi.net/?tenant=gsocial-test&objectkey=key-abc123.grspaf";
+
+    it("(a) still matches when the body contains the raw, unencoded URL", () => {
+      const body = `<p><img src="${objectUrl}"></p>`;
+
+      const ids = collectSurvivingInlineImageIds(body, [{ id: 1, objectUrl }]);
+
+      expect(ids).toEqual([1]);
+    });
+
+    it("(b) matches when the body HTML-entity-encodes '&' as '&amp;' (composer serialization)", () => {
+      const encoded =
+        "https://usercontent.grispi.net/?tenant=gsocial-test&amp;objectkey=key-abc123.grspaf";
+      const body = `<p><img src="${encoded}"></p>`;
+
+      const ids = collectSurvivingInlineImageIds(body, [{ id: 1, objectUrl }]);
+
+      expect(ids).toEqual([1]);
+    });
+
+    it("(c) matches when the body is doubly re-encoded ('=' -> '&#61;' AND '&' -> '&amp;', N3 server round-trip)", () => {
+      const doublyEncoded =
+        "https://usercontent.grispi.net/?tenant&#61;gsocial-test&amp;objectkey&#61;key-abc123.grspaf";
+      const body = `<p><img src="${doublyEncoded}"></p>`;
+
+      const ids = collectSurvivingInlineImageIds(body, [{ id: 1, objectUrl }]);
+
+      expect(ids).toEqual([1]);
+    });
+
+    it("(d) still drops a deleted image's id even with entity-encoded bodies present for other images", () => {
+      const survivorEncoded =
+        "https://usercontent.grispi.net/?tenant=gsocial-test&amp;objectkey=key-survivor.grspaf";
+      const body = `<p><img src="${survivorEncoded}"></p>`;
+
+      const ids = collectSurvivingInlineImageIds(body, [
+        { id: 1, objectUrl: "https://usercontent.grispi.net/?tenant=gsocial-test&objectkey=key-survivor.grspaf" },
+        { id: 2, objectUrl: "https://usercontent.grispi.net/?tenant=gsocial-test&objectkey=key-deleted.grspaf" },
+      ]);
+
+      expect(ids).toEqual([1]);
+    });
+
+    it("(e) does not confuse two different uploads whose objectkeys share a common prefix", () => {
+      const bodyWithLongerKey =
+        '<p><img src="https://usercontent.grispi.net/?tenant=gsocial-test&amp;objectkey=key-abc.grspaf"></p>';
+
+      const ids = collectSurvivingInlineImageIds(bodyWithLongerKey, [
+        {
+          id: 1,
+          objectUrl: "https://usercontent.grispi.net/?tenant=gsocial-test&objectkey=key-ab.grspaf",
+        },
+        {
+          id: 2,
+          objectUrl: "https://usercontent.grispi.net/?tenant=gsocial-test&objectkey=key-abc.grspaf",
+        },
+      ]);
+
+      expect(ids).toEqual([2]);
+    });
+  });
 });
