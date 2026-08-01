@@ -1127,6 +1127,56 @@ describe("RichTextComposer two-zone drag affordance (UI-SPEC §2, D-13 rev. UAT 
     expect(dragLabel("Dosyaları buraya bırakın")).toBeNull();
   });
 
+  it("clears the drag overlay via the capture-phase document safety net even when a downstream listener stops propagation before any of this composer's own bubble-phase clears can run (round 2 fix — the exact live-verification miss)", async () => {
+    const onAttachFiles = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onAttachFiles={onAttachFiles}
+      />
+    );
+
+    const file = makeTestFile("rapor.pdf", 1024, "application/pdf");
+    await act(async () => {
+      composerRoot().dispatchEvent(makeDragEnterEvent([file]));
+      await flushPromises();
+    });
+    expect(dragLabel("Dosyaları buraya bırakın")).not.toBeNull();
+
+    // Simulates exactly what live re-verification found: a downstream
+    // consumer (a third-party extension, or in this case a hand-rolled
+    // stand-in for one) calls `stopPropagation()` on the "drop" event
+    // before it ever reaches react-dropzone's own React-delegated
+    // `onDrop` — which is how `dragActive` got cleared in round 1. A
+    // plain native listener attached directly to the composer root (NOT
+    // through React, so it always runs before React's own delegated
+    // listener further up the tree) reproduces that exact interference.
+    const stopDownstreamPropagation = (event: Event): void => {
+      event.stopPropagation();
+    };
+    composerRoot().addEventListener("drop", stopDownstreamPropagation);
+
+    try {
+      await act(async () => {
+        composerRoot().dispatchEvent(makeDropEvent([file]));
+        await flushPromises();
+      });
+    } finally {
+      composerRoot().removeEventListener("drop", stopDownstreamPropagation);
+    }
+
+    // Proves the interference actually worked: react-dropzone's own
+    // bubble-phase `onDrop` (round 1's only clearing path for the
+    // attachment route) never got a chance to fire.
+    expect(onAttachFiles).not.toHaveBeenCalled();
+    // Yet the overlay is gone anyway — the capture-phase `document`
+    // "drop" listener already ran, in full, before the bubble phase (and
+    // therefore before `stopDownstreamPropagation`) ever started.
+    expect(dragLabel("Dosyaları buraya bırakın")).toBeNull();
+  });
+
   it("clears the drag overlay after a dropzone-handled (attachment) drop", async () => {
     const onAttachFiles = jest.fn();
     render(

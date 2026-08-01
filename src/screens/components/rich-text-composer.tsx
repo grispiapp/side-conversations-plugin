@@ -302,6 +302,17 @@ export const RichTextComposer = forwardRef<
     // cleared from every terminal path explicitly (see `clearDragState`
     // below and its call sites) instead of relying on react-dropzone's own
     // bookkeeping for rendering.
+    //
+    // UAT fix round 2 (D-13 rev. 2, 2026-08-01 live re-verification) — the
+    // round 1 fix (explicit `clearDragState()` calls wired into
+    // `FileHandler.onDrop` and the dropzone's own `onDrop`) still left the
+    // overlay stranded live, even though the inline upload itself
+    // succeeded. The AUTHORITATIVE clear is now the capture-phase
+    // `document`-level "drop" listener registered further down (see its
+    // own comment) — structurally guaranteed to run regardless of what any
+    // downstream callback does or fails to do. The per-path calls below
+    // are kept as harmless, redundant defense-in-depth, not the primary
+    // mechanism.
     const [dragActive, setDragActive] = useState(false);
     // UI-SPEC §2 two-zone drag affordance: which overlay to show while
     // `dragActive`. `false` (single full-composer zone) is the safe
@@ -596,17 +607,17 @@ export const RichTextComposer = forwardRef<
               );
             },
             onDrop: (currentEditor, files, pos) => {
-              // UAT fix (Defect A): this is the ONLY place an
-              // editor-handled (inline) drop is ever observable. This
-              // plugin's OWN `handleDrop` (see `@tiptap/extension-file-
-              // handler`'s `dist/index.js`) calls `event.stopPropagation()`
-              // before calling this callback, so the native "drop" event
-              // never reaches the composer's root `<section>` —
-              // react-dropzone's own `onDrop` (and its internal
-              // `isDragActive` reset) never fires for this path, which is
-              // exactly what stranded the drag overlay forever in the
-              // live UAT report. Clearing it here, unconditionally, is
-              // what makes the composer usable again immediately after.
+              // UAT fix (Defect A) — an editor-handled (inline) drop is
+              // consumed entirely inside this plugin's OWN `handleDrop`
+              // (see `@tiptap/extension-file-handler`'s `dist/index.js`),
+              // which calls `event.stopPropagation()` before calling this
+              // callback, so react-dropzone's own `onDrop` never fires for
+              // this path. Clearing here catches it as early as possible
+              // for a snappy UI, but this call is defense-in-depth, NOT the
+              // guaranteed fix (round 1 relied on it alone and it still
+              // stranded the overlay live) — the capture-phase `document`
+              // "drop" listener registered in the layout effect further
+              // down is the authoritative clear; see its comment.
               clearDragState();
               // `pos` is FileHandler's own `posAtCoords` result — inserted
               // at the DROPPED position, never recomputed by hand (D-13
@@ -726,9 +737,9 @@ export const RichTextComposer = forwardRef<
     //  - `dragend` fires on the drag SOURCE when the gesture ends for any
     //    reason (drop, cancel). Same-page-initiated drags reach it
     //    directly; the OS-file-drag case has no in-page source to fire it
-    //    on, so this is a courtesy net for that case, not a full fix — see
-    //    the `onDrop`/`FileHandler.onDrop` clears above for the paths that
-    //    actually matter for the reported bug.
+    //    on, so this is a courtesy net for that case, not the primary
+    //    defense against the reported bug (see `handleDocumentDropCapture`
+    //    below for that).
     //  - `dragleave` with `relatedTarget === null` is the standard signal
     //    for "the pointer left the viewport" (every in-page dragleave has
     //    a `relatedTarget` element; only crossing the window boundary
@@ -738,11 +749,43 @@ export const RichTextComposer = forwardRef<
       const handleDocumentDragLeave = (event: DragEvent): void => {
         if (event.relatedTarget === null) clearDragState();
       };
+      // UAT fix round 2 (D-13 rev. 2, live re-verification, 2026-08-01) —
+      // THE primary defense against the stranded-overlay bug, registered
+      // in the CAPTURE phase. Round 1 relied on `FileHandler.onDrop` and
+      // the dropzone's own `onDrop` explicitly calling `clearDragState()`
+      // (still present below/above as defense-in-depth) — but both of
+      // those only run if and when the event actually reaches THAT
+      // specific downstream callback. Event propagation has two phases:
+      // CAPTURE (document → target, top-down) runs to completion BEFORE
+      // the BUBBLE phase (target → document) even starts, and
+      // `stopPropagation()` called by any bubble-phase or target-phase
+      // handler (FileHandler's plugin `handleDrop` calls it — see
+      // `@tiptap/extension-file-handler`'s `dist/index.js` — as does
+      // ProseMirror's own internal drop dispatch in some paths) can only
+      // suppress propagation to nodes that have NOT been visited yet in
+      // whichever phase is currently running; it has no power at all over
+      // a capture-phase listener on an ANCESTOR (here, `document`), since
+      // that listener already ran, in full, before the event ever reached
+      // the target. A listener registered here is therefore structurally
+      // guaranteed to observe every "drop" this composer's overlay could
+      // ever be showing for — regardless of which downstream extension
+      // consumes it, whether `posAtCoords` resolves, or any other
+      // third-party detail this composer doesn't control. Unconditional
+      // and side-effect-free beyond the state clear itself (never calls
+      // `preventDefault`/`stopPropagation`), so it never interferes with
+      // FileHandler's or react-dropzone's own handling of the same event —
+      // it only ever OBSERVES. Safe to fire on every "drop" anywhere in
+      // the document (not just within the composer): if this composer's
+      // own `dragActive` is already `false`, `clearDragState()` is a
+      // same-value `setState` no-op.
+      const handleDocumentDropCapture = (): void => clearDragState();
       document.addEventListener("dragend", handleDragEnd);
       document.addEventListener("dragleave", handleDocumentDragLeave);
+      document.addEventListener("drop", handleDocumentDropCapture, true);
       return () => {
         document.removeEventListener("dragend", handleDragEnd);
         document.removeEventListener("dragleave", handleDocumentDragLeave);
+        document.removeEventListener("drop", handleDocumentDropCapture, true);
       };
     }, [clearDragState]);
 
