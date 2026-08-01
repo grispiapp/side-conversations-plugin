@@ -19,6 +19,7 @@ import StarterKit from "@tiptap/starter-kit";
 import {
   ReactNode,
   forwardRef,
+  useCallback,
   useId,
   useLayoutEffect,
   useRef,
@@ -189,6 +190,18 @@ function editorClassName(mode: "compose" | "reply", disabled: boolean): string {
   );
 }
 
+// UAT fix (D-13 rev., 2026-08-01) — per-zone drag emphasis: whichever zone
+// the pointer is currently over is ACTIVE (full-strength border/text),
+// the other is DIMMED. Same two-zone visual language as before, now
+// pointer-reactive instead of static.
+function dragZoneBorderClassName(active: boolean): string {
+  return active ? "border-primary" : "border-primary/40";
+}
+
+function dragZoneTextClassName(active: boolean): string {
+  return active ? "text-primary" : "text-muted-foreground";
+}
+
 function hasMeaningfulContent(html: string): boolean {
   const parsed = new DOMParser().parseFromString(html, "text/html");
   return Boolean(parsed.body.textContent?.replace(/\u00a0/g, " ").trim());
@@ -276,11 +289,32 @@ export const RichTextComposer = forwardRef<
     // below). A leak here compounds over a long agent session
     // (RESEARCH.md "losing the local blob URL memory lifecycle" pitfall).
     const pendingInlinePreviewUrls = useRef(new Map<string, string>());
+    // UAT fix (D-13 rev., 2026-08-01) — the drag affordance is now OWNED
+    // here rather than read off react-dropzone's own `isDragActive`.
+    // Reason: an editor-handled (inline) drop is consumed by
+    // `FileHandler`'s own `handleDrop` plugin prop, which calls
+    // `event.stopPropagation()` (its documented behavior — see
+    // `@tiptap/extension-file-handler`'s `dist/index.js`) BEFORE the native
+    // "drop" event ever reaches this composer's root `<section>` — so
+    // react-dropzone's own internal `isDragActive` reset (which lives on
+    // its root-level onDrop) never runs for that path, stranding the
+    // overlay forever. `dragActive`/`dragAllImages`/`dragOverEditor` are
+    // cleared from every terminal path explicitly (see `clearDragState`
+    // below and its call sites) instead of relying on react-dropzone's own
+    // bookkeeping for rendering.
+    const [dragActive, setDragActive] = useState(false);
     // UI-SPEC §2 two-zone drag affordance: which overlay to show while
-    // `isDragActive`. `false` (single full-composer zone) is the safe
+    // `dragActive`. `false` (single full-composer zone) is the safe
     // default — used whenever the payload isn't all-images OR its type
     // can't be determined at dragenter time.
     const [dragAllImages, setDragAllImages] = useState(false);
+    // Which zone the pointer is currently over — drives the ACTIVE/DIMMED
+    // emphasis swap (UAT fix) between the editor zone and the attachment
+    // zone while both are shown. Recomputed on every `dragenter`/`dragover`
+    // against `editorZoneRef`'s own bounding box (UI-SPEC §2: "the boundary
+    // is exactly the editor's own bounding box").
+    const [dragOverEditor, setDragOverEditor] = useState(false);
+    const editorZoneRef = useRef<HTMLDivElement | null>(null);
     const sanitizeValue = valueIsTrustedAuthored
       ? sanitizeAuthoredHtml
       : sanitizeUntrustedDraftHtml;
@@ -314,6 +348,51 @@ export const RichTextComposer = forwardRef<
     onChangeRef.current = onChange;
     onSubmitRef.current = onSubmit;
     disabledRef.current = disabled;
+
+    /**
+     * Resets every own drag-tracking bit (UAT fix, D-13 rev.). Called from
+     * EVERY terminal drag outcome this composer can observe: a
+     * dropzone-handled (attachment) drop, an editor-handled (inline) drop
+     * — from inside `FileHandler`'s frozen `onDrop` closure below, which is
+     * the ONLY place that path is ever observable (see the `dragActive`
+     * state comment above) — plus the global `dragend`/leave-window safety
+     * net effect further down. `useCallback([])` gives it a stable identity
+     * so the `FileHandler` closure (frozen at mount, `useEditor`'s deps
+     * array is `[]`) can safely call it without the ref-mirror idiom: it
+     * only ever calls the three stable `useState` setters below, never
+     * reads a prop/state value itself, so there is no stale-closure risk
+     * from capturing whichever render's copy got frozen in.
+     */
+    const clearDragState = useCallback((): void => {
+      setDragActive(false);
+      setDragAllImages(false);
+      setDragOverEditor(false);
+    }, []);
+
+    /**
+     * Recomputes `dragOverEditor` from the pointer's client coordinates
+     * against `editorZoneRef`'s own bounding box (UI-SPEC §2's "the
+     * boundary is exactly the editor's own bounding box"). Called on both
+     * `dragenter` (so the very first paint already reflects where the
+     * gesture started, before any `dragover` has fired) and every
+     * subsequent `dragover` as the pointer moves.
+     */
+    const updateDragOverEditor = useCallback(
+      (position: { clientX: number; clientY: number }): void => {
+        const box = editorZoneRef.current?.getBoundingClientRect();
+        if (!box) {
+          setDragOverEditor(false);
+          return;
+        }
+        setDragOverEditor(
+          position.clientX >= box.left &&
+            position.clientX <= box.right &&
+            position.clientY >= box.top &&
+            position.clientY <= box.bottom
+        );
+      },
+      []
+    );
 
     /**
      * Shared by FileHandler's `onPaste` and `onDrop` callbacks below (D-13
@@ -369,12 +448,7 @@ export const RichTextComposer = forwardRef<
         .finally(releasePreview);
     }
 
-    const {
-      getRootProps,
-      getInputProps,
-      open: openFilePicker,
-      isDragActive,
-    } = useDropzone({
+    const { getRootProps, getInputProps, open: openFilePicker } = useDropzone({
       noClick: true,
       noKeyboard: true,
       multiple: true,
@@ -387,6 +461,12 @@ export const RichTextComposer = forwardRef<
       // undeterminable" — UI-SPEC's own fallback rule); `.every()` over an
       // empty array is vacuously `true`, so the length check guards against
       // that misclassifying an unknown payload as all-images.
+      //
+      // UAT fix: also owns `dragActive` (rendering no longer reads
+      // react-dropzone's own `isDragActive`, see the state comment above)
+      // and primes `dragOverEditor` from THIS event's own coordinates, so
+      // the very first paint is already correct even before any `dragover`
+      // fires.
       onDragEnter: (event) => {
         const items = event.dataTransfer?.items;
         setDragAllImages(
@@ -397,6 +477,28 @@ export const RichTextComposer = forwardRef<
                 INLINE_IMAGE_MIME_TYPES.includes(item.type)
             )
         );
+        setDragActive(true);
+        updateDragOverEditor(event);
+      },
+      // UAT fix: live per-zone tracking (Defect B) — every `dragover` that
+      // bubbles to the composer root recomputes which zone the pointer is
+      // over. `prosemirror-view`'s own internal `dragover`/`dragenter`
+      // handlers (`editHandlers.dragover`/`dragenter` in
+      // `prosemirror-view/dist/index.js`) only call `preventDefault()`,
+      // never `stopPropagation()`, so this fires reliably even while the
+      // pointer is over the editor's own contenteditable.
+      onDragOver: (event) => {
+        updateDragOverEditor(event);
+      },
+      // UAT fix: react-dropzone's own internal drag-target bookkeeping
+      // (`dragTargetsRef` in `react-dropzone/dist/index.js`) already
+      // guards this callback against the nested-child `dragenter`/
+      // `dragleave` churn the composer's many nested children would
+      // otherwise cause — it only invokes this once the pointer has
+      // actually left every tracked target within the root, i.e. truly
+      // left the composer. No separate depth counter is needed here.
+      onDragLeave: () => {
+        clearDragState();
       },
       // react-dropzone defaults to `file-selector`'s `fromEvent`, which reads
       // `dataTransfer.items` (real `DataTransferItem`s with `getAsFile()`).
@@ -423,6 +525,7 @@ export const RichTextComposer = forwardRef<
         return Promise.resolve([]);
       },
       onDrop: (acceptedFiles) => {
+        clearDragState();
         if (acceptedFiles.length > 0) onAttachFiles?.(acceptedFiles);
       },
     });
@@ -493,6 +596,18 @@ export const RichTextComposer = forwardRef<
               );
             },
             onDrop: (currentEditor, files, pos) => {
+              // UAT fix (Defect A): this is the ONLY place an
+              // editor-handled (inline) drop is ever observable. This
+              // plugin's OWN `handleDrop` (see `@tiptap/extension-file-
+              // handler`'s `dist/index.js`) calls `event.stopPropagation()`
+              // before calling this callback, so the native "drop" event
+              // never reaches the composer's root `<section>` —
+              // react-dropzone's own `onDrop` (and its internal
+              // `isDragActive` reset) never fires for this path, which is
+              // exactly what stranded the drag overlay forever in the
+              // live UAT report. Clearing it here, unconditionally, is
+              // what makes the composer usable again immediately after.
+              clearDragState();
               // `pos` is FileHandler's own `posAtCoords` result — inserted
               // at the DROPPED position, never recomputed by hand (D-13
               // rev.).
@@ -601,6 +716,35 @@ export const RichTextComposer = forwardRef<
         pending.clear();
       };
     }, []);
+
+    // UAT fix (Defect A safety net) — global terminal-outcome listeners for
+    // drag gestures that never produce a "drop" our own root/editor
+    // handlers can see at all: the drag is cancelled (Esc) or the pointer
+    // leaves the browser window entirely mid-drag. Registered on
+    // `document` rather than the composer root because both signals are
+    // meaningful regardless of which element they land on.
+    //  - `dragend` fires on the drag SOURCE when the gesture ends for any
+    //    reason (drop, cancel). Same-page-initiated drags reach it
+    //    directly; the OS-file-drag case has no in-page source to fire it
+    //    on, so this is a courtesy net for that case, not a full fix — see
+    //    the `onDrop`/`FileHandler.onDrop` clears above for the paths that
+    //    actually matter for the reported bug.
+    //  - `dragleave` with `relatedTarget === null` is the standard signal
+    //    for "the pointer left the viewport" (every in-page dragleave has
+    //    a `relatedTarget` element; only crossing the window boundary
+    //    leaves it `null`).
+    useLayoutEffect(() => {
+      const handleDragEnd = (): void => clearDragState();
+      const handleDocumentDragLeave = (event: DragEvent): void => {
+        if (event.relatedTarget === null) clearDragState();
+      };
+      document.addEventListener("dragend", handleDragEnd);
+      document.addEventListener("dragleave", handleDocumentDragLeave);
+      return () => {
+        document.removeEventListener("dragend", handleDragEnd);
+        document.removeEventListener("dragleave", handleDocumentDragLeave);
+      };
+    }, [clearDragState]);
 
     useLayoutEffect(() => {
       if (!editor) return;
@@ -851,7 +995,7 @@ export const RichTextComposer = forwardRef<
         {/* Non-visual drag feedback (UI-SPEC §2) — screen-reader users get
             no visual cue from the overlays below. */}
         <span aria-live="assertive" className="sr-only">
-          {isDragActive
+          {dragActive
             ? dragAllImages
               ? "Görseli mesaja gömmek için editöre bırakın, dosya olarak eklemek için dışına bırakın."
               : "Dosyaları bırakın, ek olarak eklenecek."
@@ -868,6 +1012,8 @@ export const RichTextComposer = forwardRef<
         )}
 
         <div
+          ref={editorZoneRef}
+          data-testid="editor-drop-zone"
           className={cn(
             "relative min-h-0 bg-card focus-within:bg-background",
             mode === "compose" && "flex flex-1"
@@ -894,7 +1040,7 @@ export const RichTextComposer = forwardRef<
               type can't be determined, a mixed drop routes entirely to
               attachments (D-13 rev.'s mixed rule), so the WHOLE composer is
               one honest "this becomes an attachment" zone. */}
-          {isDragActive && !dragAllImages && (
+          {dragActive && !dragAllImages && (
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-6"
@@ -912,13 +1058,24 @@ export const RichTextComposer = forwardRef<
               `posAtCoords` would resolve. The sibling attachment-zone half
               lives in the bottom panel below, over the toolbar/chip band —
               the two never overlap, matching the editor's own bounding
-              box exactly. */}
-          {isDragActive && dragAllImages && (
+              box exactly. UAT fix: emphasis now tracks `dragOverEditor`
+              live instead of always rendering "active" — this is the
+              editor half, so it's active exactly when the pointer IS over
+              the editor's own box. */}
+          {dragActive && dragAllImages && (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/5 p-6"
+              className={cn(
+                "pointer-events-none absolute inset-0 flex items-center justify-center rounded-md border-2 border-dashed bg-primary/5 p-6",
+                dragZoneBorderClassName(dragOverEditor)
+              )}
             >
-              <p className="text-center text-sm font-semibold text-primary">
+              <p
+                className={cn(
+                  "text-center text-sm font-semibold",
+                  dragZoneTextClassName(dragOverEditor)
+                )}
+              >
                 Mesaja göm
               </p>
             </div>
@@ -926,12 +1083,23 @@ export const RichTextComposer = forwardRef<
         </div>
 
         <div className="relative border-t border-border bg-card">
-          {isDragActive && dragAllImages && (
+          {/* UAT fix: attachment half of the same pair above — active
+              exactly when the pointer is OUTSIDE the editor's own box
+              (`!dragOverEditor`), the inverse of the editor zone. */}
+          {dragActive && dragAllImages && (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-primary/40 bg-primary/5 p-2"
+              className={cn(
+                "pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed bg-primary/5 p-2",
+                dragZoneBorderClassName(!dragOverEditor)
+              )}
             >
-              <p className="text-center text-xs font-medium text-muted-foreground">
+              <p
+                className={cn(
+                  "text-center text-xs font-medium",
+                  dragZoneTextClassName(!dragOverEditor)
+                )}
+              >
                 Dosya olarak ekle
               </p>
             </div>

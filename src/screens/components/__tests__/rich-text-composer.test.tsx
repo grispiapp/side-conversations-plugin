@@ -4,6 +4,10 @@ import { Root, createRoot } from "react-dom/client";
 
 import {
   makeClipboardPasteEvent,
+  makeDragEndEvent,
+  makeDragEnterEvent,
+  makeDragLeaveEvent,
+  makeDragOverEvent,
   makeDropEvent,
   makeTestFile,
 } from "@/lib/attachment-test-helpers";
@@ -76,6 +80,46 @@ function composerRoot(): HTMLElement {
   const result = container.querySelector("section");
   if (!result) throw new Error("Composer root not found");
   return result;
+}
+
+/** The wrapping div `rich-text-composer.tsx` measures the two-zone drag boundary against. */
+function editorDropZone(): HTMLElement {
+  const result = container.querySelector<HTMLElement>(
+    '[data-testid="editor-drop-zone"]'
+  );
+  if (!result) throw new Error("Editor drop zone not found");
+  return result;
+}
+
+/**
+ * jsdom's `getBoundingClientRect` always reports all-zero — the pointer-
+ * tracking two-zone assertions need a real box to compare `dragover`
+ * coordinates against. Stubs `editorDropZone()`'s own rect for the
+ * duration of the test.
+ */
+function stubEditorDropZoneRect(rect: {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}): void {
+  editorDropZone().getBoundingClientRect = () => ({
+    ...rect,
+    width: rect.right - rect.left,
+    height: rect.bottom - rect.top,
+    x: rect.left,
+    y: rect.top,
+    toJSON: () => rect,
+  });
+}
+
+/** Finds the drag-overlay `<p>` label by its exact Turkish copy (UI-SPEC §2). */
+function dragLabel(text: string): HTMLParagraphElement | null {
+  return (
+    Array.from(container.querySelectorAll("p")).find(
+      (p) => p.textContent === text
+    ) ?? null
+  );
 }
 
 /**
@@ -1047,5 +1091,191 @@ describe("RichTextComposer inline image paste/drop (COMP-08, D-13 rev.)", () => 
     expect(onInlineImagePaste).toHaveBeenCalledWith(file);
     expect(onAttachFiles).not.toHaveBeenCalled();
     expect(editor().querySelector("img")).not.toBeNull();
+  });
+});
+
+describe("RichTextComposer two-zone drag affordance (UI-SPEC §2, D-13 rev. UAT fix)", () => {
+  it("clears the drag overlay after an editor-handled (inline) drop — the exact regression the user hit", async () => {
+    const { onInlineImagePaste } = deferredInlinePaste();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onInlineImagePaste={onInlineImagePaste}
+      />
+    );
+
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    await act(async () => {
+      composerRoot().dispatchEvent(makeDragEnterEvent([file]));
+      await flushPromises();
+    });
+    expect(dragLabel("Mesaja göm")).not.toBeNull();
+    expect(dragLabel("Dosya olarak ekle")).not.toBeNull();
+
+    const restoreElementFromPoint = stubElementFromPoint(editor());
+    await act(async () => {
+      editor().dispatchEvent(makeDropEvent([file]));
+      await flushPromises();
+    });
+    restoreElementFromPoint();
+
+    expect(onInlineImagePaste).toHaveBeenCalledWith(file);
+    expect(dragLabel("Mesaja göm")).toBeNull();
+    expect(dragLabel("Dosya olarak ekle")).toBeNull();
+    expect(dragLabel("Dosyaları buraya bırakın")).toBeNull();
+  });
+
+  it("clears the drag overlay after a dropzone-handled (attachment) drop", async () => {
+    const onAttachFiles = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onAttachFiles={onAttachFiles}
+      />
+    );
+
+    const file = makeTestFile("rapor.pdf", 1024, "application/pdf");
+    await act(async () => {
+      composerRoot().dispatchEvent(makeDragEnterEvent([file]));
+      await flushPromises();
+    });
+    expect(dragLabel("Dosyaları buraya bırakın")).not.toBeNull();
+
+    await act(async () => {
+      composerRoot().dispatchEvent(makeDropEvent([file]));
+      await flushPromises();
+    });
+
+    expect(onAttachFiles).toHaveBeenCalledWith([file]);
+    expect(dragLabel("Dosyaları buraya bırakın")).toBeNull();
+  });
+
+  it("clears the drag overlay on dragend", async () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    const file = makeTestFile("rapor.pdf", 1024, "application/pdf");
+    await act(async () => {
+      composerRoot().dispatchEvent(makeDragEnterEvent([file]));
+      await flushPromises();
+    });
+    expect(dragLabel("Dosyaları buraya bırakın")).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(makeDragEndEvent());
+    });
+
+    expect(dragLabel("Dosyaları buraya bırakın")).toBeNull();
+  });
+
+  it("clears the drag overlay when the pointer leaves the browser window entirely", async () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    const file = makeTestFile("rapor.pdf", 1024, "application/pdf");
+    await act(async () => {
+      composerRoot().dispatchEvent(makeDragEnterEvent([file]));
+      await flushPromises();
+    });
+    expect(dragLabel("Dosyaları buraya bırakın")).not.toBeNull();
+
+    // `relatedTarget: null` is the standard "left the viewport" signal —
+    // an ordinary in-page dragleave to a sibling/child element always
+    // carries a real element there instead (see the sibling nested-child
+    // churn test below, which must NOT clear on that path).
+    act(() => {
+      document.dispatchEvent(makeDragLeaveEvent(null));
+    });
+
+    expect(dragLabel("Dosyaları buraya bırakın")).toBeNull();
+  });
+
+  it("does not prematurely clear the overlay on nested-child dragenter/dragleave churn", async () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    // Pointer enters the composer root, then moves onto a deeply nested
+    // child (the editor) — react-dropzone's own `dragTargetsRef` tracks
+    // both as still-open targets.
+    await act(async () => {
+      composerRoot().dispatchEvent(makeDragEnterEvent([file]));
+      await flushPromises();
+    });
+    await act(async () => {
+      editor().dispatchEvent(makeDragEnterEvent([file]));
+      await flushPromises();
+    });
+    expect(dragLabel("Mesaja göm")).not.toBeNull();
+
+    // Pointer leaves the nested child but is still within the composer —
+    // must NOT clear (the classic nested-child flicker).
+    act(() => {
+      editor().dispatchEvent(makeDragLeaveEvent(composerRoot()));
+    });
+    expect(dragLabel("Mesaja göm")).not.toBeNull();
+
+    // Pointer now leaves the composer root itself — the real end of the
+    // drag over this element — must clear.
+    act(() => {
+      composerRoot().dispatchEvent(makeDragLeaveEvent(null));
+    });
+    expect(dragLabel("Mesaja göm")).toBeNull();
+  });
+
+  it("makes the zone under the pointer active and dims the other, swapping live as the pointer crosses the editor boundary", async () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+    stubEditorDropZoneRect({ left: 0, top: 0, right: 300, bottom: 200 });
+
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    await act(async () => {
+      composerRoot().dispatchEvent(
+        makeDragEnterEvent([file], { clientX: 50, clientY: 50 })
+      );
+      await flushPromises();
+    });
+
+    expect(dragLabel("Mesaja göm")?.className).toContain("text-primary");
+    expect(dragLabel("Dosya olarak ekle")?.className).toContain(
+      "text-muted-foreground"
+    );
+
+    act(() => {
+      composerRoot().dispatchEvent(
+        makeDragOverEvent({ clientX: 500, clientY: 500 })
+      );
+    });
+
+    expect(dragLabel("Mesaja göm")?.className).toContain(
+      "text-muted-foreground"
+    );
+    expect(dragLabel("Dosya olarak ekle")?.className).toContain(
+      "text-primary"
+    );
   });
 });

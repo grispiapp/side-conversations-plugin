@@ -40,6 +40,90 @@ interface FakeFileTransfer {
    * that call doesn't throw.
    */
   getData?: (type: string) => string;
+  /**
+   * `rich-text-composer.tsx`'s own `onDragEnter` handler reads
+   * `dataTransfer.items` to decide which drag overlay to show — per spec,
+   * `dragenter`/`dragover` only ever expose `DataTransferItem`-shaped
+   * objects (`kind`/`type`), never real `File`s (those are only readable
+   * on drop). Only populated by the drag-lifecycle helpers below
+   * (`makeDragEnterEvent`); `makeDropEvent` deliberately leaves this
+   * `undefined`, matching a real drop event.
+   */
+  items?: Array<{ kind: string; type: string }>;
+}
+
+/** Pointer coordinates for the drag-lifecycle helpers below (UAT fix, D-13 rev. two-zone tracking). */
+interface DragCoordinates {
+  clientX?: number;
+  clientY?: number;
+}
+
+/**
+ * `dragenter` — carries `DataTransferItem`-shaped payload info (never real
+ * `File`s, matching real browsers) plus the pointer position, so
+ * `rich-text-composer.tsx`'s `onDragEnter` can both classify the payload
+ * (all-images vs mixed) and prime `dragOverEditor` before any `dragover`
+ * has fired.
+ */
+export function makeDragEnterEvent(
+  files: File[],
+  coords: DragCoordinates = {}
+): Event {
+  const event = new Event("dragenter", { bubbles: true, cancelable: true });
+  const dataTransfer: FakeFileTransfer = {
+    files: [],
+    types: files.length > 0 ? ["Files"] : [],
+    items: files.map((file) => ({ kind: "file", type: file.type })),
+    getData: () => "",
+  };
+  Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+  Object.defineProperty(event, "clientX", { value: coords.clientX ?? 0 });
+  Object.defineProperty(event, "clientY", { value: coords.clientY ?? 0 });
+  return event;
+}
+
+/**
+ * `dragover` — used to move the pointer during an in-progress drag (the
+ * two-zone active/dimmed emphasis swap). `types` always reports `["Files"]`
+ * while a file drag is in progress, matching real browsers and satisfying
+ * react-dropzone's own `isEvtWithFiles` gate on this callback.
+ */
+export function makeDragOverEvent(coords: DragCoordinates = {}): Event {
+  const event = new Event("dragover", { bubbles: true, cancelable: true });
+  const dataTransfer: FakeFileTransfer = {
+    files: [],
+    types: ["Files"],
+    getData: () => "",
+  };
+  Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+  Object.defineProperty(event, "clientX", { value: coords.clientX ?? 0 });
+  Object.defineProperty(event, "clientY", { value: coords.clientY ?? 0 });
+  return event;
+}
+
+/**
+ * `dragleave` — `relatedTarget` is the standard signal for "did the pointer
+ * leave the viewport entirely" (`null`) vs "moved to a sibling/child
+ * element" (an `Element`). Defaults to `null` (window-boundary case);
+ * pass an element to simulate an ordinary in-page leave.
+ */
+export function makeDragLeaveEvent(
+  relatedTarget: EventTarget | null = null
+): Event {
+  const event = new Event("dragleave", { bubbles: true, cancelable: true });
+  const dataTransfer: FakeFileTransfer = {
+    files: [],
+    types: ["Files"],
+    getData: () => "",
+  };
+  Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+  Object.defineProperty(event, "relatedTarget", { value: relatedTarget });
+  return event;
+}
+
+/** `dragend` — fires on the drag source when the gesture ends for any reason (drop or cancel). */
+export function makeDragEndEvent(): Event {
+  return new Event("dragend", { bubbles: true, cancelable: true });
 }
 
 export function makeTestFile(name: string, size: number, type: string): File {
