@@ -74,6 +74,10 @@ describe("ComposeScreen create mutation wiring", () => {
         reset: jest.fn(),
       },
       activeConversation: {},
+      attachmentUpload: {
+        collectAttachmentIds: jest.fn(() => []),
+        reset: jest.fn(),
+      },
       panelNavigation: {
         requestBack: jest.fn(() => false),
         confirmDiscardAndReturnToList: jest.fn(),
@@ -123,7 +127,8 @@ describe("ComposeScreen create mutation wiring", () => {
         "tenant-1",
         "agent@example.test",
         "PARENT-LIVE",
-        13
+        13,
+        []
       );
       const returnedEnvelope =
         await mockStore.compose.submit.mock.results[0].value;

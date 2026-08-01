@@ -109,13 +109,18 @@ export class ComposeStore {
 
   /**
    * True once the agent has entered anything beyond the untouched prefill —
-   * recipient selected, a message typed, or the subject edited away from
-   * whatever `initSubject` first set (D-02's dirty-guard reads this).
+   * recipient selected, a message typed, the subject edited away from
+   * whatever `initSubject` first set, or a file attached (D-02/D-18's
+   * dirty-guard reads this). D-18: a non-empty attachment bucket counts as
+   * dirty even when text/recipient/subject are all untouched — an agent who
+   * attached a file and then tries to navigate away must still see the
+   * discard confirmation.
    */
   get isDirty(): boolean {
     if (this.query.trim() !== "") return true;
     if (this.recipientEmail.trim() !== "") return true;
     if (this.subject !== this.initialSubject) return true;
+    if (this.rootStore.attachmentUpload.hasAttachments("compose")) return true;
     return htmlToText(sanitizeHtml(this.message)) !== "";
   }
 
@@ -148,12 +153,24 @@ export class ComposeStore {
    * navigating to the chat screen happens right after the optimistic
    * pending bubble is created, not after the POST settles (UI-SPEC "Chat
    * screen anatomy").
+   *
+   * `attachmentIds` (Phase 04 Plan 06, D-16): computed by the CALLER
+   * (ComposeScreen), BEFORE this envelope is built — the exact same
+   * "store never reads React context, caller passes it through" precedent
+   * as `agentEmail`/`parentKey` above, extended to a sibling store read.
+   * The caller derives the list from
+   * `AttachmentUploadStore.collectAttachmentIds("compose", finalBodyHtml)`,
+   * which already performs D-16's submit-time garbage collection (an
+   * inline-pasted image whose `objectUrl` no longer appears in the final
+   * authored body is dropped). Defaults to `[]` so every pre-Plan-06 caller
+   * (and test) keeps compiling without passing a fifth argument.
    */
   async submit(
     tenantId: string | null,
     agentEmail: string | null,
     parentKey: string,
-    sessionKey: number
+    sessionKey: number,
+    attachmentIds: number[] = []
   ): Promise<Extract<MutationEnvelope, { kind: "create" }> | null> {
     if (this.submitting) return null; // D-17 — before any await
     this.submitting = true;
@@ -181,6 +198,10 @@ export class ComposeStore {
         body: safeBody,
         publicVisible: true,
         creator: [{ key: "us.email", value: agentEmail ?? "" }],
+        channel: "WEB",
+        // Omit-when-empty (RESEARCH.md pitfall): never send `[]`, only a
+        // real non-empty list or no field at all.
+        ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       },
       fields: [
         { key: "ts.subject", value: this.subject },
@@ -213,6 +234,17 @@ export class ComposeStore {
    * after a successful `submit`, and externally by ComposeScreen's D-02
    * ConfirmDialog discard handler when the agent explicitly
    * discards a dirty draft (Plan 06) — hence public, not private.
+   *
+   * Also clears the compose surface's attachment bucket (Phase 04 Plan 06)
+   * so a freshly opened "+" compose session — or the very next submission
+   * cycle on this same session — never starts with a leftover chip from a
+   * prior session (mirrors D-03's message-clearing precedent, applied to
+   * attachments). Since `submit` calls this at the end of every successful
+   * send, the surface is cleared right after the frozen envelope (and the
+   * attachment ids already baked into it) is handed off — a later retry of
+   * that SAME envelope still replays its own already-bound ids, untouched
+   * by this reset (see `ActiveConversationStore`'s retry doc-comment for
+   * the equivalent reply-side reasoning).
    */
   reset(): void {
     this.query = "";
@@ -224,5 +256,6 @@ export class ComposeStore {
     this.pinnedParentKey = null;
     this.message = "";
     this.submitting = false;
+    this.rootStore.attachmentUpload.reset("compose");
   }
 }

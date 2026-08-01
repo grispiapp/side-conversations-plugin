@@ -29,6 +29,7 @@ export const ComposeScreen = observer(() => {
   const panelNav = useStore().panelNavigation;
   const compose = useStore().compose;
   const activeConversation = useStore().activeConversation;
+  const attachmentUpload = useStore().attachmentUpload;
   const createMutation = useCreateSideConversationMutation({
     activeConversation,
     getSelectedConversation: () => panelNav.selectedConversation,
@@ -62,11 +63,21 @@ export const ComposeScreen = observer(() => {
     const selected = panelNav.reservePendingConversation(
       compose.getEffectiveParentKey(ticket.key)
     );
+    // D-16: computed from the compose surface's attachment bucket against
+    // the SAME final body HTML `submit` will itself sanitize and send —
+    // `compose.message` is already the sanitized text MessageField's
+    // `setAuthoredMessage` last wrote (see ComposeStore.submit's own
+    // doc-comment for why this is the caller's job, not the store's).
+    const attachmentIds = attachmentUpload.collectAttachmentIds(
+      "compose",
+      compose.message
+    );
     const envelope = await compose.submit(
       tenantId,
       agentEmail,
       ticket.key,
-      selected.sessionKey
+      selected.sessionKey,
+      attachmentIds
     );
     if (!envelope) {
       panelNav.cancelPendingConversationReservation(selected.sessionKey);

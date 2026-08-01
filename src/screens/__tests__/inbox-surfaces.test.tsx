@@ -70,6 +70,8 @@ beforeEach(() => {
       addFiles: jest.fn(() => []),
       removeChip: jest.fn(),
       retryChip: jest.fn(),
+      collectAttachmentIds: jest.fn(() => []),
+      reset: jest.fn(),
     },
     panelNavigation: {
       selectedConversation: null,
