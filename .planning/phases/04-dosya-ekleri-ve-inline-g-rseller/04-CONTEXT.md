@@ -38,7 +38,19 @@ Kapsam dışı: talep özeti alıntılama, alıcıyla önceki görüşmeler, ses
 
 ### Inline görsel ile ek ayrımı
 
-- **D-13:** **Yapıştırma (paste) → inline**, **sürükle-bırak ve ataç butonu → ek**. Editörün yazı alanına sürüklenen görsel de **ek** olur; konuma bağlı gizli sınır yok. Tiptap FileHandler yalnızca `onPaste` için kullanılır.
+- **D-13 (rev. 2026-08-01 — canlı UAT sonrası revize edildi):** Yönlendirme **konuma göre** yapılır:
+  | Hareket | Hedef | Sonuç |
+  |---|---|---|
+  | Yapıştırma (görsel) | editör | **inline** |
+  | **Görsel** bırakma | editör yazı alanı | **inline** (bırakılan konuma) |
+  | Görsel bırakma | composer'ın geri kalanı | ek |
+  | **Görsel olmayan** bırakma | her yer | ek |
+  | Ataç butonu | — | her zaman ek |
+
+  **Karışık bırakma** (en az bir görsel-olmayan dosya içeren çoklu bırakma) → **hepsi ek olur**; tek jest tek sonuç verir (372px'te iki farklı sonuç kafa karıştırıcı olurdu).
+  Tiptap FileHandler hem `onPaste` hem `onDrop` ile kullanılır; `onDrop`, `posAtCoords` ile bırakma konumunu alır. `rich-text-composer.tsx`'teki `handleDrop` guard'ı koşulludur: bırakılan dosyaların **tamamı** gömülebilir görselse `false` döner (FileHandler devralır), aksi hâlde `true` döner (ek yoluna gider).
+
+  *Revizyon gerekçesi:* İlk sürüm ("her sürükleme ek, yalnızca yapıştırma inline") basitlik için seçilmişti, ama Faz 4 canlı UAT'sinde kullanıcı editöre görsel sürüklediğinde inline gömülmesini bekledi. Gerçek kullanım sinyali kâğıt üstündeki tahmini geçersiz kıldı; ayrıca bu, Gmail'in ve grispi-ui'ın davranışı. Görünmez sınır riski, sürükleme sırasında iki bölgenin ayrı vurgulanmasıyla karşılanır (UI-SPEC §2).
 - **D-14:** Inline görsel akışı: dosya **önce yüklenir** (`?inline=true`), dönen **`objectUrl`** ile gövdeye `<img src="…">` gömülür. Base64 data URI kullanılmaz (yalnızca yükleme sürerken geçici placeholder olarak kabul edilebilir).
 - **D-15:** Inline görseller **ek chip listesinde görünmez** (grispi-ui deseni) — ayrı kovada tutulur. Aksi halde aynı görsel iki yerde çıkar.
 - **D-16:** Gönderimde **çöp toplama**: yalnızca `objectUrl`'i son gövde HTML'inde hâlâ geçen inline görsellerin id'leri `attachmentIds`'e eklenir (kullanıcı görseli sildiyse ek de düşer). grispi-ui'dan devralınan davranış.

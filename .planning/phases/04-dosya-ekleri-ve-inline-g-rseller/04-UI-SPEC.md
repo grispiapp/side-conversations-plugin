@@ -42,11 +42,16 @@ created: 2026-07-31
 
 ### 2. Drag-and-drop (D-13)
 
-- Drop target = the **entire composer `<section>`** (editor + toolbar + everything inside `RichTextComposer`'s root), because D-13 makes every drop — including onto the editor text area — an attachment, never inline.
-- `useDropzone({ noClick: true, noKeyboard: true })` wraps the composer root; `onDragEnter`/`onDragLeave`/`onDrop` drive a boolean `dragActive` state.
-- **Drop-active visual:** absolutely-positioned overlay, `inset-0`, `pointer-events-none`, `rounded-lg border-2 border-dashed border-primary bg-primary/5`, centered content: `UploadIcon` (20px, `text-primary`) above **"Dosyaları buraya bırakın"** (Başlık role: 14px/600, `text-primary`, centered, single line — fits comfortably inside ~340px).
-- A visually-hidden `aria-live="assertive"` span announces **"Dosyaları bırakın, ek olarak eklenecek."** on `dragEnter` (screen-reader users get no visual drag feedback otherwise).
-- Overlay renders above editor content but below the toolbar/chip chrome (z-index scoped to the composer section only — must not escape into the surrounding thread/list).
+> **Revised 2026-08-01** — D-13 moved from "every drop is an attachment" to **positional routing**. The drag affordance must therefore make the boundary *visible*, since an invisible split at 372px was the original objection to this behavior.
+
+- `useDropzone({ noClick: true, noKeyboard: true })` still wraps the composer root and drives a boolean `dragActive` state via `onDragEnter`/`onDragLeave`/`onDrop`.
+- **Two zones, shown only while `dragActive` AND the drag payload is all-images** (`dataTransfer.items` all match `INLINE_IMAGE_MIME_TYPES`):
+  - **Editor text area** → *inline zone*: `rounded-md border-2 border-dashed border-primary bg-primary/5`, centered label **"Mesaja göm"** (Başlık role: 14px/600, `text-primary`).
+  - **Rest of the composer** (toolbar + chip panel band) → *attachment zone*: same border treatment at `border-primary/40` with the label **"Dosya olarak ekle"** (Meta role: 12px/500, `text-muted-foreground`).
+  The two overlays are siblings, `pointer-events-none`, and never overlap — the boundary is exactly the editor's own bounding box, so what the user sees is what `posAtCoords` will resolve.
+- **Single zone (whole composer, unchanged from the original spec)** whenever the payload contains **any** non-image file, or the payload type cannot be determined: overlay `inset-0`, label **"Dosyaları buraya bırakın"**, because a mixed drop routes entirely to attachments (D-13 mixed rule). This keeps the promise on screen honest — one gesture, one outcome.
+- A visually-hidden `aria-live="assertive"` span announces the destination on `dragEnter`: **"Görseli mesaja gömmek için editöre bırakın, dosya olarak eklemek için dışına bırakın."** for the two-zone case, and the original **"Dosyaları bırakın, ek olarak eklenecek."** for the single-zone case.
+- Overlays render above editor content but below the toolbar/chip chrome; z-index stays scoped to the composer section and must not escape into the surrounding thread/list.
 
 ### 3. Client-side validation & rejection (D-08, D-09, D-11)
 
