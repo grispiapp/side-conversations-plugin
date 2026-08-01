@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: dosya-ekleri-ve-inline-g-rseller
 status: executing
-stopped_at: Completed 04-05-PLAN.md
-last_updated: "2026-08-01T00:10:32.955Z"
+stopped_at: Completed 04-06-PLAN.md
+last_updated: "2026-08-01T04:12:05.349Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 29
-  completed_plans: 26
+  completed_plans: 27
   percent: 67
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 4 execution started
 
@@ -72,6 +72,7 @@ Progress: [██████████] 100%
 | Phase 04 P03 | 40min | 2 tasks | 6 files |
 | Phase 04 P04 | 20min | 2 tasks | 6 files |
 | Phase 04 P05 | 35min | 3 tasks | 8 files |
+| Phase 04 P06 | 40min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Recent decisions affecting current work:
 - [Phase 04]: ThreadMessage's image/file MIME split (attachmentKind === 'image', SVG excluded per D-10) computed inline per-render, not as a store-level derived field
 - [Phase ?]: COMP-05/THRD-05 composer UI'si Plan 05'te iki surface'de de canlı (attach+drag-drop+chip listesi+gönderim kilidi); attachmentIds gönderim bağlaması Plan 06'da
 - [Phase ?]: getFilesFromEvent, react-dropzone'un file-selector tabanlı varsayılan okuyucusu yerine dataTransfer.files/input.files'ı doğrudan okuyacak şekilde override edildi
+- [Phase 04-06]: Write-path split (public/v1 status-only vs /v2/tickets comment-bearing) implemented as enforced code, not just documented decision — Tickets.patchTicket narrowed to StatusTicketPatchRequest
+- [Phase 04-06]: N1 constraint (one attachment id binds to exactly one comment) means retry path replays the frozen envelope's already-bound ids unchanged — no attachment logic added to getRetryEnvelope/reconcileCanonical
+- [Phase 04-06]: P6a live delivery proven at API level (real /v2/tickets binding, publicVisible comments to real recipient) but not independently re-verified by mailbox inspection this session — approved to proceed; full mailbox check + P6b deferred to Plan 04-08 phase-end UAT
 
 ### Pending Todos
 
@@ -156,6 +160,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-01T00:10:32.949Z
-Stopped at: Completed 04-05-PLAN.md
+Last session: 2026-08-01T04:11:58.386Z
+Stopped at: Completed 04-06-PLAN.md
 Resume file: 
+None
