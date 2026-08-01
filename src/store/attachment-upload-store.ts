@@ -7,6 +7,7 @@ import { NetworkError } from "@/grispi/client/http-handler";
 import { attachmentKind } from "@/lib/attachment-format";
 import {
   AttachmentRejection,
+  MAX_ATTACHMENT_BYTES,
   collectSurvivingInlineImageIds,
   validateAttachmentBatch,
 } from "@/lib/attachment-validation";
@@ -88,6 +89,14 @@ export class AttachmentUploadStore {
   private replyChips: AttachmentChipVM[] = [];
   private composeInline: InlineImageVM[] = [];
   private replyInline: InlineImageVM[] = [];
+  /**
+   * Per-surface count of in-flight inline uploads (Plan 08's D-06 extension
+   * — see `isUploading`'s doc-comment). Plain observable numbers, NOT
+   * excluded from the observable-init call the way `fileRefs`/`generations`
+   * are, since `isUploading` reads them directly and needs the reaction.
+   */
+  private composeInlineUploading = 0;
+  private replyInlineUploading = 0;
 
   /** Raw `File` objects, keyed by chip id — never proxied (see class doc). */
   private fileRefs = new Map<string, File>();
@@ -133,6 +142,66 @@ export class AttachmentUploadStore {
    */
   registerInlineImage(surface: ComposerSurface, image: InlineImageVM): void {
     this.setInline(surface, [...this.inlineImages(surface), image]);
+  }
+
+  /**
+   * Uploads a pasted/dropped-into-editor image (D-13 rev.) and registers it
+   * into the surface's inline bucket — the FIRST and, as of this plan, ONLY
+   * caller of `registerInlineImage` above (04-03 built the bucket with zero
+   * callers). Contract (attachment-upload-contract.md §Inline görsel akışı):
+   * the file is uploaded FIRST, the caller embeds the returned `objectUrl`
+   * only after this promise resolves (D-14) — this action never returns a
+   * base64/local placeholder, that transient value lives entirely in the
+   * editor (Plan 08 Task 2), not here.
+   *
+   * Registered records NEVER enter `chips(surface)` — D-15's separate-bucket
+   * rule — so they never appear in the attachment chip list. D-16's
+   * submit-time garbage collection (only ids whose `objectUrl` still appears
+   * in the final body HTML are bound to the outgoing comment) is already
+   * implemented in `collectAttachmentIds` below and needs no changes here;
+   * this action's only job is populating the bucket that read from.
+   *
+   * The D-08 per-file size cap is enforced before the network call (the
+   * uploader is never invoked for an oversized file); D-08's count/total
+   * budget is deliberately NOT applied here — that budget belongs to the
+   * chip list's own batch validation (`addFiles`/`validateAttachmentBatch`),
+   * and D-15 keeps the inline bucket a separate, uncounted concern.
+   */
+  uploadInlineImage(surface: ComposerSurface, file: File): Promise<InlineImageVM> {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      return Promise.reject(
+        new Error(
+          `Inline image exceeds the ${MAX_ATTACHMENT_BYTES}-byte per-file cap (D-08)`
+        )
+      );
+    }
+
+    this.setInlineUploading(surface, this.inlineUploadCount(surface) + 1);
+
+    // Two-argument `.then(onFulfilled, onRejected)` — NOT a trailing
+    // `.catch()` — so a failure inside `onFulfilled` (e.g. a bug in
+    // `registerInlineImage`) is never mistaken for an upload rejection and
+    // double-decrements the counter; `onRejected` only ever fires for the
+    // uploader's own promise rejection.
+    return this.uploader(file, { inline: true }).then(
+      (response) => {
+        const image: InlineImageVM = {
+          id: response.id,
+          objectUrl: response.objectUrl,
+        };
+        runInAction(() => {
+          this.registerInlineImage(surface, image);
+          this.setInlineUploading(surface, this.inlineUploadCount(surface) - 1);
+        });
+        return image;
+      },
+      (error: unknown) => {
+        runInAction(() => {
+          this.setInlineUploading(surface, this.inlineUploadCount(surface) - 1);
+        });
+        throw error;
+      }
+    );
   }
 
   /**
@@ -214,14 +283,31 @@ export class AttachmentUploadStore {
     );
   }
 
-  /** D-06: the send button locks while any chip on this surface is uploading. */
+  /**
+   * D-06: the send button locks while any chip OR any in-flight inline
+   * upload is on this surface. The inline half of this OR is required
+   * because D-06's own text ("yükleme sürerken Gönder kilitlenir") is not
+   * chip-specific — sending while an inline placeholder is still mid-upload
+   * would ship a body with an address-less image tag, since the placeholder
+   * hasn't been swapped to its `objectUrl` yet.
+   */
   isUploading(surface: ComposerSurface): boolean {
-    return this.chips(surface).some((chip) => chip.status === "uploading");
+    return (
+      this.chips(surface).some((chip) => chip.status === "uploading") ||
+      this.inlineUploadCount(surface) > 0
+    );
   }
 
-  /** D-18: a non-empty chip list counts as a dirty draft, even with no text. */
+  /**
+   * D-18: a non-empty chip list OR a non-empty inline bucket counts as a
+   * dirty draft, even with no text. The inline half matters because
+   * `ComposeStore.isDirty` measures the body as PLAIN TEXT — a body that is
+   * only a pasted screenshot renders as empty text, so without this check a
+   * just-pasted image could be discarded with no "taslak kaybolacak"
+   * warning at all.
+   */
   hasAttachments(surface: ComposerSurface): boolean {
-    return this.chips(surface).length > 0;
+    return this.chips(surface).length > 0 || this.inlineImages(surface).length > 0;
   }
 
   /**
@@ -261,6 +347,7 @@ export class AttachmentUploadStore {
     });
     this.setChips(surface, []);
     this.setInline(surface, []);
+    this.setInlineUploading(surface, 0);
   }
 
   /**
@@ -325,5 +412,16 @@ export class AttachmentUploadStore {
   private setInline(surface: ComposerSurface, images: InlineImageVM[]): void {
     if (surface === "compose") this.composeInline = images;
     else this.replyInline = images;
+  }
+
+  private inlineUploadCount(surface: ComposerSurface): number {
+    return surface === "compose"
+      ? this.composeInlineUploading
+      : this.replyInlineUploading;
+  }
+
+  private setInlineUploading(surface: ComposerSurface, count: number): void {
+    if (surface === "compose") this.composeInlineUploading = count;
+    else this.replyInlineUploading = count;
   }
 }

@@ -5,6 +5,7 @@ import {
 import { RootStore } from "../root-store";
 
 import { NetworkError, HttpError } from "@/grispi/client/http-handler";
+import { MAX_ATTACHMENT_BYTES } from "@/lib/attachment-validation";
 import { makeTestFile } from "@/lib/attachment-test-helpers";
 import { UploadFilesResponse } from "@/types/grispi.type";
 
@@ -334,5 +335,181 @@ describe("AttachmentUploadStore", () => {
 
     const bodyHtml = '<img src="https://usercontent.grispi.net/inline-10">';
     expect(store.collectAttachmentIds("compose", bodyHtml)).toEqual([10, 200]);
+  });
+});
+
+describe("AttachmentUploadStore.uploadInlineImage (COMP-08, Plan 08 — first caller of registerInlineImage)", () => {
+  it("calls the injected uploader exactly once, with the file and inline:true (D-14)", () => {
+    const { uploader, calls } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    void store.uploadInlineImage("compose", image);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].file).toBe(image);
+    expect(calls[0].options).toEqual({ inline: true });
+  });
+
+  it("registers the resolved record (server id + objectUrl) into the surface's inline bucket, readable via inlineImages(surface)", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    const promise = store.uploadInlineImage("compose", image);
+    deferreds[0].resolve(
+      makeUploadResponse({
+        id: 77,
+        objectUrl: "https://usercontent.grispi.net/inline-77",
+      })
+    );
+    const resolved = await promise;
+
+    expect(resolved).toEqual({
+      id: 77,
+      objectUrl: "https://usercontent.grispi.net/inline-77",
+    });
+    expect(store.inlineImages("compose")).toEqual([
+      { id: 77, objectUrl: "https://usercontent.grispi.net/inline-77" },
+    ]);
+  });
+
+  it("never adds the inline record to chips(surface) — inline images never enter the chip list (D-15 regression gate)", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    const promise = store.uploadInlineImage("compose", image);
+    deferreds[0].resolve(makeUploadResponse({ id: 1 }));
+    await promise;
+
+    expect(store.chips("compose")).toHaveLength(0);
+  });
+
+  it("keeps compose/reply inline buckets independent — an image uploaded on compose never appears in reply's bucket", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    const promise = store.uploadInlineImage("compose", image);
+    deferreds[0].resolve(makeUploadResponse({ id: 1 }));
+    await promise;
+
+    expect(store.inlineImages("compose")).toHaveLength(1);
+    expect(store.inlineImages("reply")).toHaveLength(0);
+  });
+
+  it("rejects and leaves the inline bucket untouched when the upload itself fails", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    const promise = store.uploadInlineImage("compose", image);
+    deferreds[0].reject(new NetworkError(new Error("offline")));
+
+    await expect(promise).rejects.toBeInstanceOf(NetworkError);
+    expect(store.inlineImages("compose")).toHaveLength(0);
+  });
+
+  it("rejects without ever calling the uploader when the file exceeds the D-08 per-file size cap", async () => {
+    const { uploader, calls } = makeUploader();
+    const store = makeStore(uploader);
+    const oversized = makeTestFile(
+      "huge.png",
+      MAX_ATTACHMENT_BYTES + 1,
+      "image/png"
+    );
+
+    await expect(
+      store.uploadInlineImage("compose", oversized)
+    ).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+    expect(store.inlineImages("compose")).toHaveLength(0);
+  });
+
+  it("isUploading(surface) is true while the inline upload is in flight and false once it resolves — even with an empty chip list (D-06)", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    const promise = store.uploadInlineImage("compose", image);
+    expect(store.isUploading("compose")).toBe(true);
+    expect(store.chips("compose")).toHaveLength(0);
+
+    deferreds[0].resolve(makeUploadResponse({ id: 1 }));
+    await promise;
+
+    expect(store.isUploading("compose")).toBe(false);
+  });
+
+  it("isUploading(surface) returns to false after a failed inline upload — the in-flight counter never leaks", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    const promise = store.uploadInlineImage("compose", image);
+    deferreds[0].reject(new HttpError(500, null));
+    await promise.catch(() => undefined);
+
+    expect(store.isUploading("compose")).toBe(false);
+  });
+
+  it("hasAttachments(surface) is true once an inline record exists, even with zero chips (D-18)", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+    expect(store.hasAttachments("compose")).toBe(false);
+
+    const promise = store.uploadInlineImage("compose", image);
+    deferreds[0].resolve(makeUploadResponse({ id: 1 }));
+    await promise;
+
+    expect(store.hasAttachments("compose")).toBe(true);
+    expect(store.hasAttachments("reply")).toBe(false);
+  });
+
+  it("collectAttachmentIds carries a real inline upload's id when its objectUrl survives in the final body, and drops it once the image is deleted from the body (D-16 end-to-end, via a real upload)", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    const promise = store.uploadInlineImage("compose", image);
+    deferreds[0].resolve(
+      makeUploadResponse({
+        id: 321,
+        objectUrl: "https://usercontent.grispi.net/inline-321",
+      })
+    );
+    await promise;
+
+    const bodyWithImage =
+      '<p>bkz ekran görüntüsü</p><img src="https://usercontent.grispi.net/inline-321">';
+    expect(store.collectAttachmentIds("compose", bodyWithImage)).toEqual([
+      321,
+    ]);
+
+    // Agent deletes the image from the editor before sending — the final
+    // body HTML no longer contains the objectUrl.
+    const bodyWithoutImage = "<p>bkz ekran görüntüsü</p>";
+    expect(store.collectAttachmentIds("compose", bodyWithoutImage)).toEqual(
+      []
+    );
+  });
+
+  it("reset(surface) empties the inline bucket and clears the in-flight inline counter", async () => {
+    const { uploader, deferreds } = makeUploader();
+    const store = makeStore(uploader);
+    const image = makeTestFile("shot.png", 10, "image/png");
+
+    const promise = store.uploadInlineImage("compose", image);
+    deferreds[0].resolve(makeUploadResponse({ id: 1 }));
+    await promise;
+    expect(store.inlineImages("compose")).toHaveLength(1);
+
+    store.reset("compose");
+
+    expect(store.inlineImages("compose")).toHaveLength(0);
+    expect(store.isUploading("compose")).toBe(false);
+    expect(store.hasAttachments("compose")).toBe(false);
   });
 });
