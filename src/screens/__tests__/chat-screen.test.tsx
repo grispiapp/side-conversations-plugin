@@ -204,6 +204,8 @@ beforeEach(() => {
       addFiles: jest.fn(() => []),
       removeChip: jest.fn(),
       retryChip: jest.fn(),
+      collectAttachmentIds: jest.fn(() => []),
+      reset: jest.fn(),
     },
     panelNavigation: {
       selectedConversation: {
@@ -324,8 +326,10 @@ describe("ChatScreen Query-owned session wiring", () => {
       sessionKey: 8,
       agentEmail: "agent@example.test",
       solved: false,
+      attachmentIds: [],
     });
     expect(mockReplyMutation.mutate).toHaveBeenCalledWith(reply);
+    expect(mockStore.attachmentUpload.reset).toHaveBeenCalledWith("reply");
   });
 
   it("strips pasted quote history before reply submission", () => {

@@ -321,3 +321,145 @@ describe("ActiveConversationStore immutable envelope ownership", () => {
     expect(store.retryLifecycle()).toBe(solve);
   });
 });
+
+describe("ActiveConversationStore attachment-id send-binding (Phase 04 Plan 06)", () => {
+  let store: ActiveConversationStore;
+
+  beforeEach(() => {
+    store = new ActiveConversationStore({} as RootStore);
+    jest.spyOn(Date, "now").mockReturnValue(20_000);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("carries the exact caller-supplied attachment ids into the frozen reply request", () => {
+    store.activateSession(1, "SIDE-1");
+    store.setAuthoredDraftHtml("<p>Fatura ekte</p>");
+
+    const envelope = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-1",
+      sessionKey: 1,
+      agentEmail: "agent@example.test",
+      attachmentIds: [630, 631],
+    });
+
+    expect(envelope?.request.comment.attachmentIds).toEqual([630, 631]);
+  });
+
+  it("omits attachmentIds entirely (never []) when no ids are given", () => {
+    store.activateSession(2, "SIDE-2");
+    store.setAuthoredDraftHtml("<p>Ek yok</p>");
+
+    const withoutParam = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-2",
+      sessionKey: 2,
+      agentEmail: "agent@example.test",
+    });
+    expect(withoutParam?.request.comment).not.toHaveProperty("attachmentIds");
+
+    store.activateSession(3, "SIDE-3");
+    store.setAuthoredDraftHtml("<p>Ek yok</p>");
+    const withEmptyArray = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-3",
+      sessionKey: 3,
+      agentEmail: "agent@example.test",
+      attachmentIds: [],
+    });
+    expect(withEmptyArray?.request.comment).not.toHaveProperty(
+      "attachmentIds"
+    );
+  });
+
+  it("deep-freezes the reply request's comment and its attachmentIds array", () => {
+    store.activateSession(4, "SIDE-4");
+    store.setAuthoredDraftHtml("<p>Donmuş zarf</p>");
+
+    const envelope = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-4",
+      sessionKey: 4,
+      agentEmail: "agent@example.test",
+      attachmentIds: [630],
+    });
+
+    expect(Object.isFrozen(envelope?.request)).toBe(true);
+    expect(Object.isFrozen(envelope?.request.comment)).toBe(true);
+    expect(Object.isFrozen(envelope?.request.comment.attachmentIds)).toBe(
+      true
+    );
+  });
+
+  it("replays the exact same attachment ids on retry after a failed send (frozen envelope replay)", () => {
+    store.activateSession(5, "SIDE-5");
+    store.setAuthoredDraftHtml("<p>Tekrar dene</p>");
+
+    const envelope = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-5",
+      sessionKey: 5,
+      agentEmail: "agent@example.test",
+      attachmentIds: [630, 631],
+    });
+    if (!envelope) throw new Error("reply envelope was not created");
+
+    store.mutationFailed(envelope, "network");
+    const retry = store.getRetryEnvelope(envelope.clientMessageId);
+
+    expect(retry).toBe(envelope);
+    expect(retry?.request).toBe(envelope.request);
+    expect(
+      (retry as typeof envelope)?.request.comment.attachmentIds
+    ).toEqual([630, 631]);
+  });
+
+  it("reconciles an attachment-bearing overlay by body+creator only, unaffected by attachmentIds", () => {
+    store.activateSession(6, "SIDE-6");
+    store.setAuthoredDraftHtml("<p>Ekli yanıt</p>");
+    const envelope = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-6",
+      sessionKey: 6,
+      agentEmail: "agent@example.test",
+      attachmentIds: [630, 631],
+    });
+    if (!envelope) throw new Error("reply envelope was not created");
+    store.mutationAccepted(envelope);
+
+    // The canonical message carries no attachment info at all in this
+    // matching path (MessageVM's optional `attachments` is irrelevant to
+    // reconciliation) — body+creator alone is sufficient, exactly as before
+    // this plan (RESEARCH.md Integration Pitfall #4).
+    store.reconcileCanonical(6, "SIDE-6", [
+      canonical(20, "<p>Ekli yanıt</p>", 20_001),
+    ]);
+
+    expect(store.getOverlayMessages(6, "SIDE-6")).toEqual([]);
+  });
+
+  it("still rejects an empty draft even when attachment ids are given (D-03)", () => {
+    store.activateSession(7, "SIDE-7");
+    store.setAuthoredDraftHtml("");
+
+    const envelope = store.sendReply({
+      tenantId: "tenant-1",
+      parentKey: "PARENT-1",
+      sideKey: "SIDE-7",
+      sessionKey: 7,
+      agentEmail: "agent@example.test",
+      attachmentIds: [630],
+    });
+
+    expect(envelope).toBeNull();
+  });
+});

@@ -91,6 +91,13 @@ export interface ReplyParams {
   sessionKey: number;
   agentEmail: string;
   solved?: boolean;
+  /**
+   * Attachment ids to bind to this reply's comment (Phase 04 Plan 06,
+   * D-16) — computed by the CALLER (ChatScreen's `submitReply`) BEFORE
+   * this method runs, via `AttachmentUploadStore.collectAttachmentIds`.
+   * Optional/omittable so every pre-Plan-06 caller keeps compiling.
+   */
+  attachmentIds?: number[];
 }
 
 export interface LifecycleParams {
@@ -245,6 +252,30 @@ export class ActiveConversationStore {
     this.draftHtml = sanitizeHtml(html);
   }
 
+  /**
+   * `params.attachmentIds` (Phase 04 Plan 06, D-16 / RESEARCH.md
+   * Integration Pitfall #4): folded into the frozen envelope's
+   * `request.comment.attachmentIds` exactly like every other comment field
+   * below — omitted entirely when absent/empty, never sent as `[]`.
+   * DELIBERATELY no special-cased retry handling exists anywhere in this
+   * class for attachment ids: `deepFreeze`, `envelopeBody`,
+   * `envelopeCreator`, `mutationStarted`/`mutationFailed`/
+   * `mutationAccepted`, `getRetryEnvelope`, and `reconcileCanonical` are all
+   * UNTOUCHED by this plan. An uploaded attachment id is bound to the
+   * comment the moment this envelope is built, and that binding never
+   * changes for the envelope's lifetime — so a failed send that gets
+   * retried via `getRetryEnvelope` correctly replays the SAME frozen
+   * `request` (same ids) rather than recomputing a fresh list against
+   * whatever the attachment bucket looks like at retry time (which may have
+   * since been cleared or refilled by a new compose/reply session). This is
+   * intentional, not an oversight — do not add id comparison to
+   * `reconcileCanonical`'s body/creator match either; canonical reconciliation
+   * only needs to identify the SAME comment, and body+creator is already
+   * sufficient for that (an attachment-id compare would be redundant at
+   * best and a source of false negatives at worst, since the server may
+   * reorder or normalize the bound-attachment list on the canonical
+   * comment).
+   */
   sendReply(
     params: ReplyParams
   ): Extract<MutationEnvelope, { kind: "reply" }> | null {
@@ -263,11 +294,15 @@ export class ActiveConversationStore {
     const body = sanitizeHtml(this.draftHtml);
     if (htmlToText(body) === "") return null;
 
+    const attachmentIds = params.attachmentIds ?? [];
     const request: ReplyTicketPatchRequest = {
       comment: {
         body,
         publicVisible: true,
         creator: [{ key: "us.email", value: params.agentEmail }],
+        channel: "WEB",
+        // Omit-when-empty (RESEARCH.md pitfall): never send `[]`.
+        ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       },
     };
     const clientMessageId = nextMessageId();

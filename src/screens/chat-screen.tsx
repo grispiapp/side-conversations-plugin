@@ -177,6 +177,15 @@ export const ChatScreen = observer(() => {
     }
   }, [activeConversation, sessionKey, sideKey, statusMutation.status]);
 
+  // Phase 04 Plan 06 (T-04-21): the reply attachment bucket is session-scoped,
+  // the same point `ActiveConversationStore.activateSession` already clears
+  // `draftHtml` at — switching to a DIFFERENT side conversation must never
+  // carry over stale reply chips into the newly selected thread.
+  useEffect(() => {
+    attachmentUpload.reset("reply");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionKey, sideKey]);
+
   const executeEnvelope = (envelope: MutationEnvelope | null) => {
     if (!envelope) return;
     if (envelope.kind === "create") {
@@ -200,16 +209,30 @@ export const ChatScreen = observer(() => {
     }
 
     activeConversation.setAuthoredDraftHtml(html);
-    executeEnvelope(
-      activeConversation.sendReply({
-        tenantId,
-        parentKey,
-        sideKey,
-        sessionKey,
-        agentEmail,
-        solved,
-      })
+    // D-16: computed from the reply surface's attachment bucket against the
+    // SAME final body HTML `sendReply` will itself re-sanitize and send —
+    // `activeConversation.draftHtml` is exactly what `setAuthoredDraftHtml`
+    // just wrote above.
+    const attachmentIds = attachmentUpload.collectAttachmentIds(
+      "reply",
+      activeConversation.draftHtml
     );
+    const envelope = activeConversation.sendReply({
+      tenantId,
+      parentKey,
+      sideKey,
+      sessionKey,
+      agentEmail,
+      solved,
+      attachmentIds,
+    });
+    executeEnvelope(envelope);
+    // Clear the reply attachment bucket only AFTER the envelope is built —
+    // the ids are already baked into the frozen `request` by this point
+    // (ActiveConversationStore.sendReply's own doc-comment), so a later
+    // retry of THIS envelope is unaffected; the next reply on this same
+    // conversation must not start with leftover chips (Phase 04 Plan 06).
+    if (envelope) attachmentUpload.reset("reply");
   };
 
   const handleAttachFiles = (files: File[]) => {
