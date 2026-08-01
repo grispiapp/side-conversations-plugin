@@ -1,7 +1,10 @@
 import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
-import { sanitizeHtml, sanitizeUntrustedDraftHtml } from "@/lib/html-sanitizer";
+import {
+  sanitizeAuthoredHtml,
+  sanitizeUntrustedDraftHtml,
+} from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
 import { formatRequesterField, isValidEmail } from "@/lib/side-conversation";
 import { MutationEnvelope } from "@/store/active-conversation-store";
@@ -104,7 +107,7 @@ export class ComposeStore {
   }
 
   setAuthoredMessage(value: string): void {
-    this.message = sanitizeHtml(value);
+    this.message = sanitizeAuthoredHtml(value);
   }
 
   /**
@@ -121,7 +124,7 @@ export class ComposeStore {
     if (this.recipientEmail.trim() !== "") return true;
     if (this.subject !== this.initialSubject) return true;
     if (this.rootStore.attachmentUpload.hasAttachments("compose")) return true;
-    return htmlToText(sanitizeHtml(this.message)) !== "";
+    return htmlToText(sanitizeAuthoredHtml(this.message)) !== "";
   }
 
   getEffectiveParentKey(parentKey: string): string {
@@ -175,7 +178,7 @@ export class ComposeStore {
     if (this.submitting) return null; // D-17 — before any await
     this.submitting = true;
 
-    const safeBody = sanitizeHtml(this.message);
+    const safeBody = sanitizeAuthoredHtml(this.message);
     // D-10: recipient + message are required; subject may be empty (the
     // live API rejects an EMPTY VALUE, not an empty subject that was never
     // typed — `ts.subject`'s key is still always sent below, Pitfall #1).

@@ -27,7 +27,10 @@ import { useDropzone } from "react-dropzone";
 
 import { badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { sanitizeHtml, sanitizeUntrustedDraftHtml } from "@/lib/html-sanitizer";
+import {
+  sanitizeAuthoredHtml,
+  sanitizeUntrustedDraftHtml,
+} from "@/lib/html-sanitizer";
 import { cn } from "@/lib/utils";
 import { AttachmentChip } from "@/screens/components/attachment-chip";
 import type { AttachmentChipVM } from "@/store/attachment-upload-store";
@@ -244,7 +247,7 @@ export const RichTextComposer = forwardRef<
     const onSubmitRef = useRef(onSubmit);
     const disabledRef = useRef(disabled);
     const sanitizeValue = valueIsTrustedAuthored
-      ? sanitizeHtml
+      ? sanitizeAuthoredHtml
       : sanitizeUntrustedDraftHtml;
     const lastEmittedHtml = useRef(sanitizeValue(value));
     const linkTriggerRef = useRef<HTMLButtonElement>(null);
@@ -356,7 +359,7 @@ export const RichTextComposer = forwardRef<
             const currentEditor = editorRef.current;
             if (!currentEditor) return true;
 
-            const safeHtml = sanitizeHtml(currentEditor.getHTML());
+            const safeHtml = sanitizeAuthoredHtml(currentEditor.getHTML());
             if (hasMeaningfulContent(safeHtml)) {
               onSubmitRef.current(safeHtml);
             }
@@ -399,7 +402,7 @@ export const RichTextComposer = forwardRef<
         onUpdate: ({ editor: currentEditor }) => {
           if (disabledRef.current) return;
 
-          const safeHtml = sanitizeHtml(currentEditor.getHTML());
+          const safeHtml = sanitizeAuthoredHtml(currentEditor.getHTML());
           lastEmittedHtml.current = safeHtml;
           onChangeRef.current(safeHtml);
         },
@@ -616,7 +619,7 @@ export const RichTextComposer = forwardRef<
 
     const submitCurrentContent = () => {
       if (!editor || disabled || submitDisabled || submitting) return;
-      const safeHtml = sanitizeHtml(editor.getHTML());
+      const safeHtml = sanitizeAuthoredHtml(editor.getHTML());
       if (!hasMeaningfulContent(safeHtml)) return;
       onSubmitRef.current(safeHtml);
     };

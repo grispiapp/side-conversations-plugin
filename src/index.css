@@ -111,6 +111,13 @@
     @apply text-primary underline decoration-primary/40 underline-offset-2;
   }
 
+  /* UI-SPEC §8 (D-14/COMP-08): left-aligned like every other rich-text-content
+     rule (never mx-auto/centered); max-h-[240px] stops one large screenshot
+     from dominating the 372px composer/thread. */
+  .rich-text-content img {
+    @apply my-2 block max-h-[240px] w-auto max-w-full rounded-md border border-border object-contain;
+  }
+
   .rich-text-content > :first-child {
     @apply mt-0;
   }

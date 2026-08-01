@@ -2,7 +2,11 @@ import { ExclamationTriangleIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { FC, useState } from "react";
 
 import { attachmentKind } from "@/lib/attachment-format";
-import { sanitizeHtml, splitQuotedHtml } from "@/lib/html-sanitizer";
+import {
+  sanitizeAuthoredHtml,
+  sanitizeHtml,
+  splitQuotedHtml,
+} from "@/lib/html-sanitizer";
 import { cn } from "@/lib/utils";
 import { AttachmentChip } from "@/screens/components/attachment-chip";
 import { AttachmentChipVM } from "@/store/attachment-upload-store";
@@ -137,16 +141,24 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
   onRetry,
 }) => {
   const [quoteOpen, setQuoteOpen] = useState(false);
+  // This component re-sanitizes `MessageVM`'s already-sanitized HTML as a
+  // defense-in-depth second pass (doc-comment below). The second pass MUST
+  // follow the same direction rule as the first (normalizeComment) or an
+  // inline image that survived there gets stripped here (own direction) —
+  // or, worse, an incoming body image would render if this ever picked the
+  // permissive policy for the wrong direction (D-21).
+  const sanitizer =
+    message.direction === "own" ? sanitizeAuthoredHtml : sanitizeHtml;
   const legacyParts =
     message.authoredBodyHtml === undefined
-      ? splitQuotedHtml(message.body)
+      ? splitQuotedHtml(message.body, sanitizer)
       : undefined;
-  const bodyHtml = sanitizeHtml(
+  const bodyHtml = sanitizer(
     message.authoredBodyHtml ?? legacyParts?.bodyHtml ?? message.body
   );
   const quotedHtml =
     message.quotedHtml !== undefined
-      ? sanitizeHtml(message.quotedHtml)
+      ? sanitizer(message.quotedHtml)
       : legacyParts?.quotedHtml;
 
   return (

@@ -1,7 +1,10 @@
 import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
-import { sanitizeHtml, sanitizeUntrustedDraftHtml } from "@/lib/html-sanitizer";
+import {
+  sanitizeAuthoredHtml,
+  sanitizeUntrustedDraftHtml,
+} from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
 import {
   Attachment,
@@ -140,8 +143,11 @@ function hasMessage(
 }
 
 function envelopeBody(envelope: MutationEnvelope): string | null {
+  // Every envelope built here is OUR OWN outgoing comment (create/reply) —
+  // the authored policy is correct so an inline image in the optimistic
+  // overlay's own body survives comparison in reconcileCanonical below.
   return hasMessage(envelope)
-    ? sanitizeHtml(envelope.request.comment.body)
+    ? sanitizeAuthoredHtml(envelope.request.comment.body)
     : null;
 }
 
@@ -230,8 +236,8 @@ export class ActiveConversationStore {
         message: {
           id: clientMessageId,
           direction: "own",
-          body: sanitizeHtml(params.body),
-          authoredBodyHtml: sanitizeHtml(params.body),
+          body: sanitizeAuthoredHtml(params.body),
+          authoredBodyHtml: sanitizeAuthoredHtml(params.body),
           status: "pending",
           createdAt: envelope.startedAt,
           senderEmail: envelopeCreator(envelope) ?? undefined,
@@ -249,7 +255,7 @@ export class ActiveConversationStore {
   }
 
   setAuthoredDraftHtml(html: string): void {
-    this.draftHtml = sanitizeHtml(html);
+    this.draftHtml = sanitizeAuthoredHtml(html);
   }
 
   /**
@@ -283,7 +289,7 @@ export class ActiveConversationStore {
       params.solved ||
       this.activeSessionKey !== params.sessionKey ||
       this.activeSideKey !== params.sideKey ||
-      htmlToText(sanitizeHtml(this.draftHtml)) === ""
+      htmlToText(sanitizeAuthoredHtml(this.draftHtml)) === ""
     ) {
       return null;
     }
@@ -291,7 +297,7 @@ export class ActiveConversationStore {
     // Grispi adds the provider-managed conversation history. Sending it from
     // the plugin as well duplicates the thread, so the outbound comment must
     // contain only the agent-authored reply.
-    const body = sanitizeHtml(this.draftHtml);
+    const body = sanitizeAuthoredHtml(this.draftHtml);
     if (htmlToText(body) === "") return null;
 
     const attachmentIds = params.attachmentIds ?? [];
@@ -501,7 +507,12 @@ export class ActiveConversationStore {
           (message) =>
             !usedIds.has(message.id) &&
             message.createdAt >= record.envelope.startedAt &&
-            sanitizeHtml(message.body) === expectedBody &&
+            // `canonical` above is already filtered to direction === "own"
+            // (T-04-29): both sides of this comparison MUST use the same
+            // policy, or a canonical message carrying a surviving inline
+            // image would never match its optimistic overlay (double
+            // message in the thread).
+            sanitizeAuthoredHtml(message.body) === expectedBody &&
             message.senderEmail === expectedCreator
         );
         if (!match) return;

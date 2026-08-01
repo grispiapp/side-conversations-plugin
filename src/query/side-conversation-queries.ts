@@ -18,6 +18,7 @@ import {
 } from "@/lib/conversation-status";
 import {
   QuotedContextPart,
+  sanitizeAuthoredHtml,
   sanitizeHtml,
   splitGeneratedReplyHtml,
   splitQuotedHtml,
@@ -412,13 +413,20 @@ function normalizeComment(
   comment: Comment,
   publicContext: readonly QuotedContextPart[]
 ): MessageVM {
-  const sanitized = sanitizeHtml(comment.body ?? "");
+  // Direction is computed BEFORE sanitizing (D-21/UI-SPEC §8): our own
+  // messages use the authored policy (an inline image we sent survives
+  // redisplay), everything from the other party stays on the strict
+  // incoming policy (no body image ever renders, no tracking pixel ever
+  // loads). The SAME sanitizer is threaded into the quote splitters below
+  // so the quote-boundary comparison never mixes policies.
   const direction =
     comment.creator?.role?.authority === "ROLE_END_USER" ? "incoming" : "own";
+  const sanitizer = direction === "own" ? sanitizeAuthoredHtml : sanitizeHtml;
+  const sanitized = sanitizer(comment.body ?? "");
   const quoted =
     direction === "own" && comment.publicVisible
-      ? splitGeneratedReplyHtml(sanitized, publicContext)
-      : splitQuotedHtml(sanitized);
+      ? splitGeneratedReplyHtml(sanitized, publicContext, sanitizer)
+      : splitQuotedHtml(sanitized, sanitizer);
 
   return {
     id: `comment-${comment.id}`,

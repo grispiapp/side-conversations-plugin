@@ -630,6 +630,64 @@ describe("canonical detail and mutation executors", () => {
     ).toBeNull();
   });
 
+  it("sanitizes comment body by direction: own keeps an inline image, incoming strips it (D-21/UI-SPEC §8)", async () => {
+    const external = makeTicket("SIDE-1").comments[0].creator;
+    const agent = {
+      ...external,
+      id: 99,
+      email: "agent@example.test",
+      fullName: "Agent",
+      role: {
+        authority: "ROLE_ADMIN",
+        impliedAuthorities: [],
+        teamUser: true,
+      },
+    };
+    mockedGetTicket.mockResolvedValue({
+      ...makeTicket("SIDE-1"),
+      comments: [
+        {
+          ...makeTicket("SIDE-1").comments[0],
+          id: 1,
+          createdAt: 1_000,
+          creator: agent,
+          publicVisible: false,
+          body:
+            '<p>Own</p><img src="https://usercontent.grispi.net/own.png" alt="own shot">',
+        },
+        {
+          ...makeTicket("SIDE-1").comments[0],
+          id: 2,
+          createdAt: 2_000,
+          creator: external,
+          body:
+            '<p>Incoming</p><img src="https://tracker.test/pixel.png" alt="tracker">',
+        },
+      ],
+    });
+
+    const detail = await client.fetchQuery(
+      sideConversationDetailOptions("tenant-1", "SIDE-1")
+    );
+
+    expect(detail.messages[0]).toEqual(
+      expect.objectContaining({
+        id: "comment-1",
+        direction: "own",
+        body:
+          '<p>Own</p><img src="https://usercontent.grispi.net/own.png" alt="own shot">',
+      })
+    );
+    expect(detail.messages[1]).toEqual(
+      expect.objectContaining({
+        id: "comment-2",
+        direction: "incoming",
+        body: "<p>Incoming</p>",
+      })
+    );
+    expect(detail.messages[1].body).not.toMatch(/img|tracker/i);
+  });
+
   it("projects comment.attachments to MessageVM.attachments without filtering inline-flagged ones (D-22)", async () => {
     const external = makeTicket("SIDE-1").comments[0].creator;
     const fileAttachment = {
