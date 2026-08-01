@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: dosya-ekleri-ve-inline-g-rseller
 status: executing
-stopped_at: Completed 04-06-PLAN.md
-last_updated: "2026-08-01T04:12:05.349Z"
+stopped_at: Completed 04-07-PLAN.md
+last_updated: "2026-08-01T04:27:49.357Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 29
-  completed_plans: 27
+  completed_plans: 28
   percent: 67
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
-Plan: 7 of 8
+Plan: 8 of 8
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 4 execution started
 
@@ -73,6 +73,7 @@ Progress: [██████████] 100%
 | Phase 04 P04 | 20min | 2 tasks | 6 files |
 | Phase 04 P05 | 35min | 3 tasks | 8 files |
 | Phase 04 P06 | 40min | 3 tasks | 14 files |
+| Phase 04 P07 | 40min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,9 @@ Recent decisions affecting current work:
 - [Phase 04-06]: Write-path split (public/v1 status-only vs /v2/tickets comment-bearing) implemented as enforced code, not just documented decision — Tickets.patchTicket narrowed to StatusTicketPatchRequest
 - [Phase 04-06]: N1 constraint (one attachment id binds to exactly one comment) means retry path replays the frozen envelope's already-bound ids unchanged — no attachment logic added to getRetryEnvelope/reconcileCanonical
 - [Phase 04-06]: P6a live delivery proven at API level (real /v2/tickets binding, publicVisible comments to real recipient) but not independently re-verified by mailbox inspection this session — approved to proceed; full mailbox check + P6b deferred to Plan 04-08 phase-end UAT
+- [Phase ?]: [Phase 04, Plan 07]: sanitizeAuthoredHtml/sanitizeHtml share one sanitizeWithConfig helper so the incoming policy stays byte-identical while a second permissive policy permits img+src/alt for https?/mailto only (D-14/D-21)
+- [Phase ?]: [Phase 04, Plan 07]: Closed a DOMPurify-internal gap (its DATA_URI_TAGS default always includes img and cannot be narrowed via config) with a stripUnsafeImageSrc post-pass — required to satisfy T-04-26/the no-data-URI constraint
+- [Phase ?]: [Phase 04, Plan 07]: normalizeComment computes message direction before sanitizing; own-direction messages use sanitizeAuthoredHtml, incoming stays on sanitizeHtml, and reconcileCanonical uses the same policy on both sides (T-04-29)
 
 ### Pending Todos
 
@@ -160,7 +164,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-01T04:11:58.386Z
-Stopped at: Completed 04-06-PLAN.md
+Last session: 2026-08-01T04:27:26.912Z
+Stopped at: Completed 04-07-PLAN.md
 Resume file: 
 None
