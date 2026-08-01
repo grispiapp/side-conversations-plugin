@@ -12,6 +12,7 @@ import {
   RowsIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
+import FileHandler from "@tiptap/extension-file-handler";
 import Link from "@tiptap/extension-link";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -33,6 +34,13 @@ import {
 } from "@/lib/html-sanitizer";
 import { cn } from "@/lib/utils";
 import { AttachmentChip } from "@/screens/components/attachment-chip";
+import {
+  INLINE_IMAGE_MIME_TYPES,
+  InlineImage,
+  insertInlineImagePlaceholder,
+  removeInlineImagePlaceholder,
+  resolveInlineImagePlaceholder,
+} from "@/screens/components/inline-image-extension";
 import type { AttachmentChipVM } from "@/store/attachment-upload-store";
 
 export interface RichTextComposerProps {
@@ -65,6 +73,17 @@ export interface RichTextComposerProps {
   onRetryAttachment?: (chipId: string) => void;
   /** D-06 send-lock signal — true while any chip is still uploading. */
   attachmentsUploading?: boolean;
+  /**
+   * Inline-image upload adapter (D-14/COMP-08). Called with the pasted or
+   * editor-dropped `File`; resolves to the uploaded `objectUrl` on success,
+   * or `undefined` on failure (never expected to throw, but a rejection is
+   * treated the same as an `undefined` result — see the placeholder-flow
+   * catch below). The composer stays store-independent — same
+   * prop-driven architecture as `onAttachFiles` — `MessageField`/
+   * `chat-screen` own the real `AttachmentUploadStore.uploadInlineImage`
+   * call and the failure toast (UI-SPEC §7).
+   */
+  onInlineImagePaste?: (file: File) => Promise<string | undefined>;
 }
 
 type ToolbarCommand =
@@ -239,6 +258,7 @@ export const RichTextComposer = forwardRef<
       onRemoveAttachment,
       onRetryAttachment,
       attachmentsUploading = false,
+      onInlineImagePaste,
     },
     forwardedRef
   ) => {
@@ -246,6 +266,21 @@ export const RichTextComposer = forwardRef<
     const onChangeRef = useRef(onChange);
     const onSubmitRef = useRef(onSubmit);
     const disabledRef = useRef(disabled);
+    // Ref-mirror idiom (Pitfall #5) — `useEditor`'s deps array is `[]`, so
+    // the FileHandler extension's onPaste/onDrop closures below are frozen
+    // at mount; they must read `.current` to ever see a fresh prop value.
+    const onInlineImagePasteRef = useRef(onInlineImagePaste);
+    onInlineImagePasteRef.current = onInlineImagePaste;
+    // Local preview blob URLs keyed by placeholder upload id — released on
+    // BOTH the success and failure paths, plus on unmount (cleanup effect
+    // below). A leak here compounds over a long agent session
+    // (RESEARCH.md "losing the local blob URL memory lifecycle" pitfall).
+    const pendingInlinePreviewUrls = useRef(new Map<string, string>());
+    // UI-SPEC §2 two-zone drag affordance: which overlay to show while
+    // `isDragActive`. `false` (single full-composer zone) is the safe
+    // default — used whenever the payload isn't all-images OR its type
+    // can't be determined at dragenter time.
+    const [dragAllImages, setDragAllImages] = useState(false);
     const sanitizeValue = valueIsTrustedAuthored
       ? sanitizeAuthoredHtml
       : sanitizeUntrustedDraftHtml;
@@ -280,6 +315,60 @@ export const RichTextComposer = forwardRef<
     onSubmitRef.current = onSubmit;
     disabledRef.current = disabled;
 
+    /**
+     * Shared by FileHandler's `onPaste` and `onDrop` callbacks below (D-13
+     * rev. — both paths insert a placeholder then upload). `pos` is only
+     * ever supplied by the drop path (FileHandler's own `posAtCoords`
+     * result); the paste path always inserts at the current selection.
+     * Only reads the two stable refs above plus the pure lifecycle helpers
+     * — safe to call from a closure frozen at mount (`useEditor`'s deps
+     * array is `[]`, Pitfall #5).
+     */
+    function startInlineImageUpload(
+      currentEditor: Editor,
+      file: File,
+      pos?: number
+    ): void {
+      const localPreviewUrl = URL.createObjectURL(file);
+      const uploadId = insertInlineImagePlaceholder(currentEditor, {
+        src: localPreviewUrl,
+        alt: file.name,
+        pos,
+      });
+
+      if (!uploadId) {
+        URL.revokeObjectURL(localPreviewUrl);
+        return;
+      }
+
+      pendingInlinePreviewUrls.current.set(uploadId, localPreviewUrl);
+      const releasePreview = () => {
+        const url = pendingInlinePreviewUrls.current.get(uploadId);
+        if (url) URL.revokeObjectURL(url);
+        pendingInlinePreviewUrls.current.delete(uploadId);
+      };
+
+      const uploader = onInlineImagePasteRef.current;
+      if (!uploader) {
+        removeInlineImagePlaceholder(currentEditor, uploadId);
+        releasePreview();
+        return;
+      }
+
+      uploader(file)
+        .then((objectUrl) => {
+          if (objectUrl) {
+            resolveInlineImagePlaceholder(currentEditor, uploadId, objectUrl);
+          } else {
+            removeInlineImagePlaceholder(currentEditor, uploadId);
+          }
+        })
+        .catch(() => {
+          removeInlineImagePlaceholder(currentEditor, uploadId);
+        })
+        .finally(releasePreview);
+    }
+
     const {
       getRootProps,
       getInputProps,
@@ -290,6 +379,25 @@ export const RichTextComposer = forwardRef<
       noKeyboard: true,
       multiple: true,
       disabled,
+      // UI-SPEC §2 (D-13 rev.): during `dragenter`/`dragover` the browser
+      // only exposes `DataTransferItem`s (kind/type), never the `File`
+      // objects themselves (those are only readable on drop) — enough to
+      // decide which drag overlay to show. Falls back to the single-zone
+      // default whenever `items` is empty/unavailable ("payload type
+      // undeterminable" — UI-SPEC's own fallback rule); `.every()` over an
+      // empty array is vacuously `true`, so the length check guards against
+      // that misclassifying an unknown payload as all-images.
+      onDragEnter: (event) => {
+        const items = event.dataTransfer?.items;
+        setDragAllImages(
+          Boolean(items?.length) &&
+            Array.from(items ?? []).every(
+              (item) =>
+                item.kind === "file" &&
+                INLINE_IMAGE_MIME_TYPES.includes(item.type)
+            )
+        );
+      },
       // react-dropzone defaults to `file-selector`'s `fromEvent`, which reads
       // `dataTransfer.items` (real `DataTransferItem`s with `getAsFile()`).
       // This repo's jsdom has no working `DataTransfer`
@@ -342,6 +450,44 @@ export const RichTextComposer = forwardRef<
             },
             isAllowedUri: (url) => isAllowedLink(url),
           }),
+          // D-14: never persist base64 beyond the transient local preview
+          // placeholder — `allowBase64: false` means only the local blob
+          // URL (uploading) or the returned `objectUrl` (resolved) ever
+          // become a real `src`. The shared class matches UI-SPEC §8's
+          // `.rich-text-content img` CSS rule.
+          InlineImage.configure({
+            allowBase64: false,
+            HTMLAttributes: { class: "rich-text-content-image" },
+          }),
+          // D-13 rev. (2026-08-01, live UAT): paste AND drop-into-editor
+          // both go through FileHandler now — see the `handleDrop` guard
+          // below for the drop-routing half of this decision.
+          FileHandler.configure({
+            allowedMimeTypes: INLINE_IMAGE_MIME_TYPES,
+            onPaste: (currentEditor, files, htmlContent) => {
+              // FileHandler's own documented fallthrough (RESEARCH.md
+              // Integration Pitfall #6, last paragraph): some GIF/WEBM
+              // clipboard payloads carry both a file AND html. FileHandler
+              // already returns `false` in that case so "other extensions
+              // handle the incoming html via their inputRules" — deferring
+              // here (not starting an upload) avoids a guaranteed double
+              // insert; the narrow remaining GIF/WEBM double-insert edge
+              // case (file WITHOUT accompanying html, which most OS "copy
+              // image" actions produce) is accepted as a known MVP limit.
+              if (htmlContent) return;
+              files.forEach((file) =>
+                startInlineImageUpload(currentEditor, file)
+              );
+            },
+            onDrop: (currentEditor, files, pos) => {
+              // `pos` is FileHandler's own `posAtCoords` result — inserted
+              // at the DROPPED position, never recomputed by hand (D-13
+              // rev.).
+              files.forEach((file) =>
+                startInlineImageUpload(currentEditor, file, pos)
+              );
+            },
+          }),
         ],
         editorProps: {
           attributes: {
@@ -368,6 +514,17 @@ export const RichTextComposer = forwardRef<
           handlePaste: (_view, event) => {
             if (disabledRef.current) return true;
 
+            // RESEARCH.md Integration Pitfall #1: ProseMirror consults
+            // `editorProps` (this function) BEFORE any registered plugin's
+            // own `handlePaste` — an unconditional `true` here would make
+            // FileHandler's paste-image plugin prop UNREACHABLE regardless
+            // of how it's configured. Releasing control (`return false`)
+            // whenever the clipboard carries files lets FileHandler's own
+            // `handlePaste` run next; the untrusted-HTML sanitize path
+            // below is otherwise UNCHANGED (04-07's call-site routing here
+            // stays exactly as it was).
+            if (event.clipboardData?.files?.length) return false;
+
             const clipboardHtml = event.clipboardData?.getData("text/html");
             const clipboardText =
               event.clipboardData?.getData("text/plain") || "";
@@ -379,24 +536,31 @@ export const RichTextComposer = forwardRef<
             editorRef.current?.chain().focus().insertContent(safePaste).run();
             return true;
           },
-          // D-13 / RESEARCH.md Integration Pitfall #6: the FileHandler
-          // extension's own drop plugin prop is a silent no-op (no
-          // `preventDefault`) whenever its `onDrop` option is left
-          // unconfigured — which it deliberately is here, since
-          // drag-and-drop is always an attachment, never inline (D-13).
-          // Without this guard, nothing else would stop a
-          // browser/ProseMirror default from inserting a dropped file
-          // straight into the document. Every file-carrying drop is treated
-          // as "handled" here (never inserted) — the same native event still
-          // bubbles to react-dropzone's own listener bound to the composer's
-          // root section, which is what actually turns it into an
-          // attachment chip via `onAttachFiles`. This is the structural
-          // mirror of the paste fix above: there, control had to be RELEASED
-          // to a plugin; here, control must be RETAINED so nothing else can
-          // act on a file drop.
+          // D-13 rev. (2026-08-01, RESEARCH.md Integration Pitfall #6) —
+          // this guard now decides EDITOR-INTERIOR drop routing, not just
+          // "always attachment": every dropped file's MIME must be an
+          // inline-embeddable image for the drop to become inline. When
+          // ALL dropped files qualify, control is RELEASED (`return
+          // false`) so FileHandler's own `handleDrop` plugin prop can take
+          // over — it inserts at the exact `posAtCoords` position it
+          // computed. Otherwise (any non-image file present, or no files —
+          // an internal text drag) control is RETAINED (`return true`), so
+          // neither ProseMirror's default insertion nor FileHandler can
+          // ever touch the drop — the same native event still bubbles to
+          // react-dropzone's own listener, which turns it into an
+          // attachment via `onAttachFiles`. The mixed-drop-is-all-attachment
+          // rule (D-13 rev.) falls out of the `.every()` check below: ONE
+          // non-image file anywhere in the batch fails it. This guard only
+          // governs drops landing INSIDE the editor's own contenteditable —
+          // drops elsewhere on the composer never reach it at all and are
+          // always attachments (react-dropzone's root listener).
           handleDrop: (_view, event) => {
-            if (event.dataTransfer?.files.length) return true;
-            return false;
+            const files = event.dataTransfer?.files;
+            if (!files || files.length === 0) return false;
+            const allInlineImages = Array.from(files).every((file) =>
+              INLINE_IMAGE_MIME_TYPES.includes(file.type)
+            );
+            return !allInlineImages;
           },
         },
         onUpdate: ({ editor: currentEditor }) => {
@@ -411,6 +575,19 @@ export const RichTextComposer = forwardRef<
     );
 
     editorRef.current = editor;
+
+    // Releases every local preview blob URL still pending when the
+    // composer unmounts (RESEARCH.md "losing the local blob URL memory
+    // lifecycle" pitfall) — the success/failure paths inside
+    // `startInlineImageUpload` already release their own on settle, this
+    // only catches whatever is still in flight at teardown time.
+    useLayoutEffect(() => {
+      const pending = pendingInlinePreviewUrls.current;
+      return () => {
+        pending.forEach((url) => URL.revokeObjectURL(url));
+        pending.clear();
+      };
+    }, []);
 
     useLayoutEffect(() => {
       if (!editor) return;
@@ -659,9 +836,13 @@ export const RichTextComposer = forwardRef<
         />
 
         {/* Non-visual drag feedback (UI-SPEC §2) — screen-reader users get
-            no visual cue from the overlay below. */}
+            no visual cue from the overlays below. */}
         <span aria-live="assertive" className="sr-only">
-          {isDragActive ? "Dosyaları bırakın, ek olarak eklenecek." : ""}
+          {isDragActive
+            ? dragAllImages
+              ? "Görseli mesaja gömmek için editöre bırakın, dosya olarak eklemek için dışına bırakın."
+              : "Dosyaları bırakın, ek olarak eklenecek."
+            : ""}
         </span>
 
         {recipientLabel && (
@@ -695,7 +876,12 @@ export const RichTextComposer = forwardRef<
             )}
           />
 
-          {isDragActive && (
+          {/* Single zone (UI-SPEC §2, unchanged from the original spec) —
+              whenever the drag payload contains any non-image file, or its
+              type can't be determined, a mixed drop routes entirely to
+              attachments (D-13 rev.'s mixed rule), so the WHOLE composer is
+              one honest "this becomes an attachment" zone. */}
+          {isDragActive && !dragAllImages && (
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-6"
@@ -706,9 +892,38 @@ export const RichTextComposer = forwardRef<
               </p>
             </div>
           )}
+
+          {/* Two-zone drag affordance (UI-SPEC §2, D-13 rev.) — shown only
+              while the drag payload is confirmed all-images. Editor-zone
+              half: dropping HERE embeds inline, at the exact position
+              `posAtCoords` would resolve. The sibling attachment-zone half
+              lives in the bottom panel below, over the toolbar/chip band —
+              the two never overlap, matching the editor's own bounding
+              box exactly. */}
+          {isDragActive && dragAllImages && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/5 p-6"
+            >
+              <p className="text-center text-sm font-semibold text-primary">
+                Mesaja göm
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="border-t border-border bg-card">
+        <div className="relative border-t border-border bg-card">
+          {isDragActive && dragAllImages && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-primary/40 bg-primary/5 p-2"
+            >
+              <p className="text-center text-xs font-medium text-muted-foreground">
+                Dosya olarak ekle
+              </p>
+            </div>
+          )}
+
           {attachments.length > 0 && (
             <div
               ref={attachmentGroupRef}

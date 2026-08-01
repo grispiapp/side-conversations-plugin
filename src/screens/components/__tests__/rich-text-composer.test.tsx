@@ -582,7 +582,7 @@ describe("RichTextComposer attachments (COMP-05/THRD-05)", () => {
     expect(onAttachFiles).toHaveBeenCalledWith([file]);
   });
 
-  it("routes a file dropped directly onto the editor to attachments, never into the document body (D-13/Pitfall #6)", async () => {
+  it("routes a NON-image file dropped directly onto the editor to attachments, never into the document body (D-13 rev./Pitfall #6 — a non-image drop is always an attachment, regardless of where it lands)", async () => {
     const onAttachFiles = jest.fn();
     const onChange = jest.fn();
     render(
@@ -594,7 +594,7 @@ describe("RichTextComposer attachments (COMP-05/THRD-05)", () => {
       />
     );
     const beforeHtml = editor().innerHTML;
-    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    const file = makeTestFile("rapor.pdf", 2048, "application/pdf");
     const restoreElementFromPoint = stubElementFromPoint(editor());
     // `editor.setEditable()` (called from this composer's own mount-time
     // layout effect) emits a spurious Tiptap "update" event with an

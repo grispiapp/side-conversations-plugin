@@ -118,6 +118,28 @@
     @apply my-2 block max-h-[240px] w-auto max-w-full rounded-md border border-border object-contain;
   }
 
+  /* UI-SPEC §8.2 — inline paste upload placeholder. The wrapper is a real
+     element (not a pseudo-element on the <img> itself) because the badge
+     below needs its OWN background/shadow independent of the image's
+     object-fit box — see inline-image-extension.ts's InlineImage.renderHTML
+     doc-comment for why this can't be done with CSS alone on the <img>. */
+  .rich-text-content .inline-image-uploading {
+    @apply relative inline-block;
+  }
+
+  .rich-text-content .inline-image-uploading img {
+    @apply opacity-70;
+  }
+
+  /* Rozet glifi — a React icon component can only be painted here via a
+     Tiptap node view, which is disproportionate cost for this slice
+     (SUMMARY documents this UI-SPEC §8.2 deviation). A CSS border-ring
+     spinner glyph reproduces the same size/animation contract instead. */
+  .rich-text-content .inline-image-uploading::after {
+    @apply absolute bottom-1 right-1 size-5 animate-spin rounded-full border-2 border-border border-t-primary bg-card/90 shadow;
+    content: "";
+  }
+
   .rich-text-content > :first-child {
     @apply mt-0;
   }
