@@ -1,5 +1,7 @@
 import {
+  ChevronDownIcon,
   CounterClockwiseClockIcon,
+  FilePlusIcon,
   FontBoldIcon,
   FontItalicIcon,
   HeadingIcon,
@@ -8,6 +10,7 @@ import {
   QuoteIcon,
   ReloadIcon,
   RowsIcon,
+  UploadIcon,
 } from "@radix-ui/react-icons";
 import Link from "@tiptap/extension-link";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
@@ -20,10 +23,14 @@ import {
   useRef,
   useState,
 } from "react";
+import { useDropzone } from "react-dropzone";
 
+import { badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { sanitizeHtml, sanitizeUntrustedDraftHtml } from "@/lib/html-sanitizer";
 import { cn } from "@/lib/utils";
+import { AttachmentChip } from "@/screens/components/attachment-chip";
+import type { AttachmentChipVM } from "@/store/attachment-upload-store";
 
 export interface RichTextComposerProps {
   value: string;
@@ -43,9 +50,22 @@ export interface RichTextComposerProps {
   disabled?: boolean;
   autoFocus?: boolean;
   className?: string;
+  /**
+   * Attachment chip list (D-01/COMP-05/THRD-05). Store-independent — the
+   * composer stays prop-driven; `MessageField` (compose) and `chat-screen`
+   * (reply) read `AttachmentUploadStore` and pass its view models down.
+   */
+  attachments?: readonly AttachmentChipVM[];
+  /** Fired for every accepted drop/file-picker batch (D-13). */
+  onAttachFiles?: (files: File[]) => void;
+  onRemoveAttachment?: (chipId: string) => void;
+  onRetryAttachment?: (chipId: string) => void;
+  /** D-06 send-lock signal — true while any chip is still uploading. */
+  attachmentsUploading?: boolean;
 }
 
 type ToolbarCommand =
+  | "attach"
   | "bold"
   | "italic"
   | "heading"
@@ -65,6 +85,12 @@ interface ToolbarAction {
 }
 
 const TOOLBAR_ACTIONS: ToolbarAction[] = [
+  {
+    label: "Dosya ekle",
+    icon: <FilePlusIcon />,
+    command: "attach",
+    groupEnd: true,
+  },
   {
     label: "Kalın",
     icon: <FontBoldIcon />,
@@ -128,6 +154,10 @@ const HEADING_OPTIONS: Array<{
   { label: "Başlık 2", level: 2 },
   { label: "Başlık 3", level: 3 },
 ];
+
+// Threshold above which the chip list collapses behind a summary pill
+// (UI-SPEC §4, D-02).
+const ATTACHMENT_SUMMARY_THRESHOLD = 3;
 
 function editorClassName(mode: "compose" | "reply", disabled: boolean): string {
   return cn(
@@ -201,6 +231,11 @@ export const RichTextComposer = forwardRef<
       disabled = false,
       autoFocus = false,
       className,
+      attachments = [],
+      onAttachFiles,
+      onRemoveAttachment,
+      onRetryAttachment,
+      attachmentsUploading = false,
     },
     forwardedRef
   ) => {
@@ -216,17 +251,70 @@ export const RichTextComposer = forwardRef<
     const linkInputRef = useRef<HTMLInputElement>(null);
     const headingTriggerRef = useRef<HTMLButtonElement>(null);
     const headingFirstOptionRef = useRef<HTMLButtonElement>(null);
+    const attachTriggerRef = useRef<HTMLButtonElement>(null);
+    const attachmentGroupRef = useRef<HTMLDivElement | null>(null);
+    const attachmentPendingFocusIndexRef = useRef<number | null>(null);
+    const previousAttachmentCountRef = useRef(attachments.length);
     const linkPanelId = useId();
     const headingPanelId = useId();
+    const attachmentChipListId = useId();
+    const sendLockDescriptionId = useId();
     const [linkEditorOpen, setLinkEditorOpen] = useState(false);
     const [headingMenuOpen, setHeadingMenuOpen] = useState(false);
     const [linkHref, setLinkHref] = useState("https://");
     const [linkError, setLinkError] = useState("");
     const [editingExistingLink, setEditingExistingLink] = useState(false);
+    // D-02 default-state rule: only auto-collapse when the composer session
+    // is ENTERED with 3+ files already present. A live 2→3 transition while
+    // the agent watches must stay expanded (never hide a file they just
+    // watched upload) — this initializer only runs once at mount, capturing
+    // whichever case applies then.
+    const [attachmentListExpanded, setAttachmentListExpanded] = useState(
+      () => attachments.length < ATTACHMENT_SUMMARY_THRESHOLD
+    );
 
     onChangeRef.current = onChange;
     onSubmitRef.current = onSubmit;
     disabledRef.current = disabled;
+
+    const {
+      getRootProps,
+      getInputProps,
+      open: openFilePicker,
+      isDragActive,
+    } = useDropzone({
+      noClick: true,
+      noKeyboard: true,
+      multiple: true,
+      disabled,
+      // react-dropzone defaults to `file-selector`'s `fromEvent`, which reads
+      // `dataTransfer.items` (real `DataTransferItem`s with `getAsFile()`).
+      // This repo's jsdom has no working `DataTransfer`
+      // (`hasNativeDataTransfer === false`, recorded in 04-01-SUMMARY.md), so
+      // both a real browser drop AND this project's own
+      // `attachment-test-helpers.ts` stub are read directly off
+      // `dataTransfer.files`/`input.files` instead — simpler, and this
+      // plugin never needs folder-drop support (D-09: no type/shape
+      // restriction beyond size/count, enforced separately by the store).
+      getFilesFromEvent: (event) => {
+        const dragEvent = event as { dataTransfer?: DataTransfer | null };
+        const dataTransferFiles = dragEvent.dataTransfer?.files;
+        if (dataTransferFiles && dataTransferFiles.length > 0) {
+          return Promise.resolve(Array.from(dataTransferFiles));
+        }
+        const changeEvent = event as {
+          target?: { files?: FileList | null } | null;
+        };
+        const inputFiles = changeEvent.target?.files;
+        if (inputFiles && inputFiles.length > 0) {
+          return Promise.resolve(Array.from(inputFiles));
+        }
+        return Promise.resolve([]);
+      },
+      onDrop: (acceptedFiles) => {
+        if (acceptedFiles.length > 0) onAttachFiles?.(acceptedFiles);
+      },
+    });
 
     const editor = useEditor(
       {
@@ -287,6 +375,25 @@ export const RichTextComposer = forwardRef<
 
             editorRef.current?.chain().focus().insertContent(safePaste).run();
             return true;
+          },
+          // D-13 / RESEARCH.md Integration Pitfall #6: the FileHandler
+          // extension's own drop plugin prop is a silent no-op (no
+          // `preventDefault`) whenever its `onDrop` option is left
+          // unconfigured — which it deliberately is here, since
+          // drag-and-drop is always an attachment, never inline (D-13).
+          // Without this guard, nothing else would stop a
+          // browser/ProseMirror default from inserting a dropped file
+          // straight into the document. Every file-carrying drop is treated
+          // as "handled" here (never inserted) — the same native event still
+          // bubbles to react-dropzone's own listener bound to the composer's
+          // root section, which is what actually turns it into an
+          // attachment chip via `onAttachFiles`. This is the structural
+          // mirror of the paste fix above: there, control had to be RELEASED
+          // to a plugin; here, control must be RETAINED so nothing else can
+          // act on a file drop.
+          handleDrop: (_view, event) => {
+            if (event.dataTransfer?.files.length) return true;
+            return false;
           },
         },
         onUpdate: ({ editor: currentEditor }) => {
@@ -357,6 +464,46 @@ export const RichTextComposer = forwardRef<
       if (headingMenuOpen) setHeadingMenuOpen(false);
     }, [disabled, headingMenuOpen, linkEditorOpen]);
 
+    // D-02: once the count drops back below the summary threshold, no
+    // residual "collapsed" memory survives — the next time it climbs back to
+    // 3+ within the same session is treated as a fresh live transition
+    // (stays expanded), never silently re-collapsing.
+    useLayoutEffect(() => {
+      const count = attachments.length;
+      if (
+        count < ATTACHMENT_SUMMARY_THRESHOLD &&
+        previousAttachmentCountRef.current >= ATTACHMENT_SUMMARY_THRESHOLD
+      ) {
+        setAttachmentListExpanded(true);
+      }
+      previousAttachmentCountRef.current = count;
+    }, [attachments]);
+
+    // Accessibility focus-restoration after chip removal (UI-SPEC
+    // Accessibility): next chip's remove button, else previous chip's, else
+    // the attach toolbar button — focus is never left on a removed node.
+    useLayoutEffect(() => {
+      const pendingIndex = attachmentPendingFocusIndexRef.current;
+      if (pendingIndex === null) return;
+      attachmentPendingFocusIndexRef.current = null;
+
+      const removeButtons = attachmentGroupRef.current
+        ? Array.from(
+            attachmentGroupRef.current.querySelectorAll<HTMLButtonElement>(
+              'button[aria-label$="dosyasını kaldır"]'
+            )
+          )
+        : [];
+
+      if (removeButtons.length === 0) {
+        attachTriggerRef.current?.focus();
+        return;
+      }
+
+      const nextIndex = Math.min(pendingIndex, removeButtons.length - 1);
+      removeButtons[nextIndex]?.focus();
+    }, [attachments]);
+
     const closeLinkEditor = () => {
       setLinkEditorOpen(false);
       setLinkError("");
@@ -395,10 +542,19 @@ export const RichTextComposer = forwardRef<
       closeLinkEditor();
     };
 
+    const handleRemoveAttachment = (chipId: string) => {
+      const index = attachments.findIndex((chip) => chip.id === chipId);
+      attachmentPendingFocusIndexRef.current = index === -1 ? null : index;
+      onRemoveAttachment?.(chipId);
+    };
+
     const runToolbarAction = (action: ToolbarAction) => {
       if (!editor || disabled) return;
 
       switch (action.command) {
+        case "attach":
+          openFilePicker();
+          break;
         case "bold":
           editor.chain().focus().toggleBold().run();
           break;
@@ -469,17 +625,42 @@ export const RichTextComposer = forwardRef<
       sanitizeValue(editor?.getHTML() ?? value)
     );
 
+    const attachmentSummaryVisible =
+      attachments.length >= ATTACHMENT_SUMMARY_THRESHOLD;
+    const attachmentChipsVisible =
+      !attachmentSummaryVisible || attachmentListExpanded;
+
     return (
       <section
-        className={cn(
-          "min-w-0 bg-card",
-          mode === "compose"
-            ? "flex min-h-0 flex-1 flex-col"
-            : "shrink-0 border-t border-border",
-          className
-        )}
-        aria-label={sectionLabel}
+        {...getRootProps({
+          className: cn(
+            "min-w-0 bg-card",
+            mode === "compose"
+              ? "flex min-h-0 flex-1 flex-col"
+              : "shrink-0 border-t border-border",
+            className
+          ),
+          "aria-label": sectionLabel,
+        })}
       >
+        {/* react-dropzone's own default `aria-label="file upload"` is
+            dropped (`aria-hidden` instead) — this element is never a
+            meaningful AT target on its own (it's opened programmatically by
+            the labelled "Dosya ekle" toolbar button, which is the real
+            accessible entry point), and leaving the default label present
+            would make this the FIRST `input[aria-label]` in DOM order,
+            ahead of the link-editor's own labelled url input. */}
+        <input
+          {...getInputProps({ "aria-label": undefined })}
+          aria-hidden="true"
+        />
+
+        {/* Non-visual drag feedback (UI-SPEC §2) — screen-reader users get
+            no visual cue from the overlay below. */}
+        <span aria-live="assertive" className="sr-only">
+          {isDragActive ? "Dosyaları bırakın, ek olarak eklenecek." : ""}
+        </span>
+
         {recipientLabel && (
           <p className="flex min-h-9 min-w-0 items-center gap-1 border-b border-border px-4 py-2 text-xs text-muted-foreground">
             <span className="shrink-0 font-medium text-foreground">
@@ -510,9 +691,74 @@ export const RichTextComposer = forwardRef<
               mode === "compose" && "flex min-h-0"
             )}
           />
+
+          {isDragActive && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-6"
+            >
+              <UploadIcon className="size-5 text-primary" aria-hidden="true" />
+              <p className="text-center text-sm font-semibold text-primary">
+                Dosyaları buraya bırakın
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-border bg-card">
+          {attachments.length > 0 && (
+            <div
+              ref={attachmentGroupRef}
+              role="group"
+              aria-label={`Ekler (${attachments.length})`}
+              className="flex flex-wrap items-center gap-1.5 border-b border-border bg-muted/20 px-2 py-2"
+            >
+              {attachmentSummaryVisible && (
+                <button
+                  type="button"
+                  aria-expanded={attachmentListExpanded}
+                  aria-controls={
+                    attachmentListExpanded ? attachmentChipListId : undefined
+                  }
+                  aria-label={
+                    attachmentListExpanded
+                      ? `${attachments.length} dosya, listeyi daralt`
+                      : `${attachments.length} dosya, listeyi genişlet`
+                  }
+                  className={cn(
+                    badgeVariants({ variant: "file" }),
+                    "h-8 shrink-0 items-center gap-1.5 px-2 py-0 font-normal"
+                  )}
+                  onClick={() =>
+                    setAttachmentListExpanded((expanded) => !expanded)
+                  }
+                >
+                  <span>{attachments.length} dosya</span>
+                  <ChevronDownIcon
+                    aria-hidden="true"
+                    className={cn(
+                      "size-3 transition-transform",
+                      attachmentListExpanded && "rotate-180"
+                    )}
+                  />
+                </button>
+              )}
+
+              {attachmentChipsVisible && (
+                <div id={attachmentChipListId} className="contents">
+                  {attachments.map((chip) => (
+                    <AttachmentChip
+                      key={chip.id}
+                      chip={chip}
+                      onRemove={handleRemoveAttachment}
+                      onRetry={onRetryAttachment}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {headingMenuOpen && (
             <div
               id={headingPanelId}
@@ -656,7 +902,9 @@ export const RichTextComposer = forwardRef<
                           ? linkTriggerRef
                           : action.command === "heading"
                             ? headingTriggerRef
-                            : undefined
+                            : action.command === "attach"
+                              ? attachTriggerRef
+                              : undefined
                       }
                       type="button"
                       variant="ghost"
@@ -703,18 +951,28 @@ export const RichTextComposer = forwardRef<
               type="button"
               size="sm"
               aria-label={`${editorLabel} gönder`}
+              aria-describedby={
+                attachmentsUploading ? sendLockDescriptionId : undefined
+              }
+              title={attachmentsUploading ? "Ekler yükleniyor…" : undefined}
               className="shrink-0 px-4"
               disabled={
                 disabled ||
                 submitDisabled ||
                 submitting ||
                 !editor ||
-                !hasContent
+                !hasContent ||
+                attachmentsUploading
               }
               onClick={submitCurrentContent}
             >
               {submitting ? "Gönderiliyor…" : submitLabel}
             </Button>
+            {attachmentsUploading && (
+              <span id={sendLockDescriptionId} className="sr-only">
+                Ekler yükleniyor, gönderim şu anda kilitli.
+              </span>
+            )}
           </div>
         </div>
       </section>
