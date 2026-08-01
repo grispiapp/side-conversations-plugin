@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Yeni Yan Görüşme Başlatma** - Temsilci alıcı/konu/mesaj ile yeni görüşme açar; side ticket oluşur ve alıcıya gerçek e-posta gider (completed 2026-07-23)
 - [ ] **Phase 3: Görüşme Detayı ve Yaşam Döngüsü** - Temsilci mesajları yön ayrımıyla görür, yanıtlar, kapatır/yeniden açar ve okundu işaretler
 - [x] **Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu** - Tiptap/DOMPurify, tenant-scoped React Query, senkron thread navigasyonu ve ortak 372px inbox kabuğuyla Phase 3 deneyimini güvenli ve tutarlı hâle getirir (completed 2026-07-29)
-- [ ] **Phase 4: Dosya Ekleri ve Inline Görseller** - Temsilci çoklu dosya ekler (sürükle-bırak/ataç), editöre yapıştırdığı görsel inline gömülür, gelen ekler thread'de görünür
+- [x] **Phase 4: Dosya Ekleri ve Inline Görseller** - Temsilci çoklu dosya ekler (sürükle-bırak/ataç), editöre yapıştırdığı görsel inline gömülür, gelen ekler thread'de görünür (completed 2026-08-01)
 - [ ] **Phase 5: Zenginleştirmeler ve Dayanıklılık** - Talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
 
 ## Phase Details
@@ -159,7 +159,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Editöre yapıştırılan görsel Grispi'ye yüklenip dönen `objectUrl` ile editörde inline görünür ve gönderilen mesajda inline kalır
   4. Görüşmede karşı tarafın gönderdiği ekler mesajla birlikte görünür (görsel önizleme / dosya chip'i) ve açılıp indirilebilir
 
-**Plans**: 7/8 plans executed
+**Plans**: 8/8 plans complete
 
 - [x] 04-01-PLAN.md — Canlı API probe (P1-P5), paket meşruiyet onayı + kurulum, toast yüzeyi ve test yetenekleri (Wave 0)
 - [x] 04-02-PLAN.md — Multipart upload hattı: `sendMultipart`, `Attachments` istemcisi, tipler ve saf kural fonksiyonları
@@ -168,7 +168,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 04-05-PLAN.md — Composer yüzeyi: ataç, sürükle-bırak, chip listesi paneli, gönderim kilidi, ret toast'ı
 - [x] 04-06-PLAN.md — `attachmentIds` gönderim bağlaması, D-18 kirli taslak ve canlı e-posta teslimi (P6a)
 - [x] 04-07-PLAN.md — Temizleyici politika ayrımı: `sanitizeAuthoredHtml` ve çağrı yerlerinin yön bazlı bağlanması
-- [ ] 04-08-PLAN.md — COMP-08 inline yapıştırma akışı, D-16 çöp toplama devresi ve faz-sonu panel UAT'si
+- [x] 04-08-PLAN.md — COMP-08 inline yapıştırma akışı, D-16 çöp toplama devresi ve faz-sonu panel UAT'si
 
 **UI hint**: yes
 
@@ -198,5 +198,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5
 | 2. Yeni Yan Görüşme Başlatma | 6/6 | Complete    | 2026-07-23 |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 5/6 | In Progress|  |
 | 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
-| 4. Dosya Ekleri ve Inline Görseller | 7/8 | In Progress|  |
+| 4. Dosya Ekleri ve Inline Görseller | 8/8 | Complete   | 2026-08-01 |
 | 5. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |

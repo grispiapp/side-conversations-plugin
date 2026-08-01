@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 4
 current_phase_name: dosya-ekleri-ve-inline-g-rseller
-status: executing
-stopped_at: Completed 04-07-PLAN.md
-last_updated: "2026-08-01T04:27:49.357Z"
+status: verifying
+stopped_at: Completed 04-08-PLAN.md — Phase 4 sealed
+last_updated: "2026-08-01T05:23:21.186Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 29
-  completed_plans: 28
-  percent: 67
+  completed_plans: 29
+  percent: 83
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-31 — Phase 4 execution started
 
 Progress: [██████████] 100%
@@ -74,6 +74,7 @@ Progress: [██████████] 100%
 | Phase 04 P05 | 35min | 3 tasks | 8 files |
 | Phase 04 P06 | 40min | 3 tasks | 14 files |
 | Phase 04 P07 | 40min | 2 tasks | 9 files |
+| Phase 04 P08 | 48min | 4 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04, Plan 07]: sanitizeAuthoredHtml/sanitizeHtml share one sanitizeWithConfig helper so the incoming policy stays byte-identical while a second permissive policy permits img+src/alt for https?/mailto only (D-14/D-21)
 - [Phase ?]: [Phase 04, Plan 07]: Closed a DOMPurify-internal gap (its DATA_URI_TAGS default always includes img and cannot be narrowed via config) with a stripUnsafeImageSrc post-pass — required to satisfy T-04-26/the no-data-URI constraint
 - [Phase ?]: [Phase 04, Plan 07]: normalizeComment computes message direction before sanitizing; own-direction messages use sanitizeAuthoredHtml, incoming stays on sanitizeHtml, and reconcileCanonical uses the same policy on both sides (T-04-29)
+- [Phase 04]: D-13 revised to positional drop routing: an all-image drop landing inside the editor text area embeds inline; everything else is an attachment
+- [Phase 04]: D-16 GC matches on the upload's objectkey query token after HTML-entity decoding, not whole-URL substring, so it survives both client serialization and server N3 re-encoding
 
 ### Pending Todos
 
@@ -148,6 +151,7 @@ None yet.
 - Faz 1 öncesi: custom field key'leri (örn. `tu.sc_parent_key`) tenant'ta Grispi admin'de tanımlanmalı (dış bağımlılık); kod settings'ten okur
 - Faz 2 başında: requester set mekanizması (field değer formatı + kayıtsız alıcıda `POST /customers` ihtiyacı) canlı tenant'ta tek API denemesiyle doğrulanmalı
 - Faz 4: "alıcıyla önceki görüşmeler" v2 preview endpoint'ine (`GET /public/v2/tickets`) dayanır — değişebilir, izole/bayraklı kullanılmalı
+- Faz 4 kapanışı: P6b (alıcının posta istemcisinde inline görsel render'ı) ve P5 (plugin-mode bundle token) 04-08 UAT'sinde doğrulanamadı — kullanıcı tarafından teyit bekliyor, fazı bloklamıyor
 
 ### Roadmap Evolution
 
@@ -164,7 +168,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-01T04:27:26.912Z
-Stopped at: Completed 04-07-PLAN.md
+Last session: 2026-08-01T05:21:56.308Z
+Stopped at: Completed 04-08-PLAN.md — Phase 4 sealed
 Resume file: 
 None
