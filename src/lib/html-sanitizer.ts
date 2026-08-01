@@ -52,6 +52,28 @@ const SANITIZE_CONFIG: Config = {
   FORBID_CONTENTS: DROP_WITH_CONTENT,
 };
 
+// Authored-content policy (D-14/COMP-08): permits `img`+`src`/`alt` for
+// content THIS plugin composes and is about to send (composer body, draft
+// restore of our own authored value, outgoing envelope). Every other flag —
+// the protocol allowlist, `svg` staying forbidden, aria/data attribute
+// stripping — is copied verbatim from `SANITIZE_CONFIG`. `img` is the ONLY
+// tag removed from the forbid lists; `svg` MUST remain forbidden in both
+// policies (D-10 — this plugin never embeds SVG, only shows it as a file
+// chip, because an `<object>`/`<iframe>`-embedded SVG can run script).
+// `ALLOWED_URI_REGEXP` already restricts `src`/`href` to `https?://`/
+// `mailto:` — no `data:` allowance is added or needed (Grispi's returned
+// `objectUrl` is always `https://`; opening `data:` here would widen the
+// attack surface for zero benefit).
+const AUTHORED_ALLOWED_TAGS = [...ALLOWED_TAGS, "img"];
+const AUTHORED_FORBID_LIST = DROP_WITH_CONTENT.filter((tag) => tag !== "img");
+const AUTHORED_SANITIZE_CONFIG: Config = {
+  ...SANITIZE_CONFIG,
+  ALLOWED_TAGS: AUTHORED_ALLOWED_TAGS,
+  ALLOWED_ATTR: ["href", "src", "alt"],
+  FORBID_TAGS: AUTHORED_FORBID_LIST,
+  FORBID_CONTENTS: AUTHORED_FORBID_LIST,
+};
+
 export interface QuotedHtmlParts {
   bodyHtml: string;
   quotedHtml?: string;
@@ -81,10 +103,10 @@ function parseBody(html: string): HTMLElement | null {
   }
 }
 
-function canonicalizeHref(rawHref: string): string | undefined {
+function canonicalizeUri(rawValue: string): string | undefined {
   // Browsers ignore ASCII whitespace/control characters while resolving a
   // scheme. Remove them for the policy check so `java\nscript:` cannot pass.
-  const canonical = Array.from(rawHref.trim())
+  const canonical = Array.from(rawValue.trim())
     .filter((character) => {
       const codePoint = character.codePointAt(0) ?? 0;
       return codePoint > 0x20 && codePoint !== 0x7f;
@@ -106,7 +128,7 @@ function canonicalizeHref(rawHref: string): string | undefined {
 }
 
 function normalizeAnchor(anchor: HTMLAnchorElement): void {
-  const safeHref = canonicalizeHref(anchor.getAttribute("href") || "");
+  const safeHref = canonicalizeUri(anchor.getAttribute("href") || "");
 
   for (const attribute of Array.from(anchor.attributes)) {
     anchor.removeAttribute(attribute.name);
@@ -122,36 +144,100 @@ function normalizeAnchor(anchor: HTMLAnchorElement): void {
 }
 
 /**
- * Sanitizes both remote message HTML and locally-created editor HTML with one
- * explicit DOMPurify policy. No caller-specific exception is permitted.
- *
- * If DOM parsing is unavailable, the original value is escaped. That fallback
- * is safe at an HTML sink and displays as plain text instead of attempting to
- * interpret partially-sanitized markup.
+ * DOMPurify has a built-in exception (its `DATA_URI_TAGS` default set, which
+ * always includes `img`) that lets a `data:` URI through on `<img src>`
+ * REGARDLESS of `ALLOWED_URI_REGEXP` — and that default cannot be narrowed
+ * via config (`ADD_DATA_URI_TAGS` only ever adds to it, never removes from
+ * it). Since `img` is only unforbidden in the authored policy, this
+ * DOMPurify-internal bypass is otherwise silently reachable there. This
+ * post-pass re-applies the SAME protocol canonicalization already used for
+ * anchors to every `<img src>`, closing that gap without touching
+ * `ALLOWED_URI_REGEXP` itself (no caller relies on this loop finding an
+ * `<img>` under the incoming policy, since `img` stays forbidden there).
  */
-export function sanitizeHtml(input: string): string {
+function stripUnsafeImageSrc(root: HTMLElement): void {
+  for (const image of Array.from(root.querySelectorAll("img"))) {
+    const safeSrc = canonicalizeUri(image.getAttribute("src") || "");
+    if (safeSrc) {
+      image.setAttribute("src", safeSrc);
+    } else {
+      image.removeAttribute("src");
+    }
+  }
+}
+
+function sanitizeWithConfig(input: string, config: Config): string {
   if (!input) return "";
 
   const body = parseBody(input);
   if (!body) return escapeHtml(input);
 
-  const sanitized = DOMPurify.sanitize(input, SANITIZE_CONFIG);
+  const sanitized = DOMPurify.sanitize(input, config);
   const sanitizedBody = parseBody(sanitized);
   if (!sanitizedBody) return escapeHtml(input);
 
   for (const anchor of Array.from(sanitizedBody.querySelectorAll("a"))) {
     normalizeAnchor(anchor);
   }
+  stripUnsafeImageSrc(sanitizedBody);
 
   return sanitizedBody.innerHTML;
 }
 
 /**
+ * Sanitizes remote/untrusted message HTML with one explicit DOMPurify
+ * policy. Used for EVERY incoming/remote HTML boundary: fetched message
+ * bodies, quoted history, pasted clipboard HTML, and restored drafts
+ * (`sanitizeUntrustedDraftHtml`). No caller-specific exception is permitted
+ * — `img` stays forbidden here so a remote sender can never smuggle a
+ * tracking-pixel `<img>` into the panel (D-21).
+ *
+ * If DOM parsing is unavailable, the original value is escaped. That fallback
+ * is safe at an HTML sink and displays as plain text instead of attempting to
+ * interpret partially-sanitized markup.
+ */
+export function sanitizeHtml(input: string): string {
+  return sanitizeWithConfig(input, SANITIZE_CONFIG);
+}
+
+/**
+ * Sanitizes content THIS plugin authored and is about to send or has already
+ * sent: composer body, draft restore of our own authored value, and the
+ * outgoing envelope. This is the ONLY sanitizer that permits `<img src>` —
+ * required so a pasted screenshot (uploaded to Grispi, referenced by its
+ * `https://` `objectUrl`, D-14/COMP-08) survives sanitization and is still
+ * visible when our own sent message round-trips back into the thread.
+ *
+ * Does NOT apply to: incoming/remote message HTML, quoted/forwarded history,
+ * pasted clipboard HTML, or any restored-from-storage untrusted draft — all
+ * of those stay on `sanitizeHtml`/`sanitizeUntrustedDraftHtml` (D-21). Never
+ * route content whose author/origin is not "this agent, this session" here.
+ *
+ * `svg` stays forbidden in both policies (D-10) — SVG is never embedded
+ * inline anywhere in this plugin (shown only as a file chip that opens in a
+ * new tab), because an `<img>`-referenced or `<object>`/`<iframe>`-embedded
+ * SVG can execute script.
+ */
+export function sanitizeAuthoredHtml(input: string): string {
+  return sanitizeWithConfig(input, AUTHORED_SANITIZE_CONFIG);
+}
+
+/**
  * The live tenant probe established the first plain blockquote as the only
  * stable quote boundary. Provider class names are intentionally ignored.
+ *
+ * `sanitizer` defaults to the strict incoming policy — every pre-existing
+ * caller (and its tests) keeps today's exact behavior unchanged. The
+ * authored-content call site (`normalizeComment`, own-direction messages)
+ * passes `sanitizeAuthoredHtml` explicitly so an inline image survives the
+ * split; a call site that forgets to pass anything automatically falls back
+ * to the SAFE (strict) side, never the permissive one (D-21).
  */
-export function splitQuotedHtml(input: string): QuotedHtmlParts {
-  const sanitized = sanitizeHtml(input);
+export function splitQuotedHtml(
+  input: string,
+  sanitizer: (html: string) => string = sanitizeHtml
+): QuotedHtmlParts {
+  const sanitized = sanitizer(input);
   const body = parseBody(sanitized);
   if (!body) return { bodyHtml: sanitized };
 
@@ -180,10 +266,13 @@ export function sanitizeUntrustedDraftHtml(input: string): string {
   return splitQuotedHtml(input).bodyHtml;
 }
 
-function buildPublicHistoryHtml(context: readonly QuotedContextPart[]): string {
+function buildPublicHistoryHtml(
+  context: readonly QuotedContextPart[],
+  sanitizer: (html: string) => string
+): string {
   return context
     .filter((part) => part.publicVisible)
-    .map((part) => sanitizeHtml(part.authoredBodyHtml))
+    .map((part) => sanitizer(part.authoredBodyHtml))
     .filter(Boolean)
     .join("");
 }
@@ -192,13 +281,21 @@ function buildPublicHistoryHtml(context: readonly QuotedContextPart[]): string {
  * Recognizes only the history shape generated by this plugin: the final
  * top-level blockquote must exactly equal the structured public context.
  * Authored blockquotes elsewhere remain part of the visible authored body.
+ *
+ * `sanitizer` defaults to the strict incoming policy, same rationale as
+ * `splitQuotedHtml`. The SAME sanitizer instance is used for both the
+ * `input`/`historyHtml` sides of the comparison below — comparing under two
+ * different policies would make a blockquote whose body carries a
+ * (permitted-under-authored-only) `<img>` fail to match, corrupting the
+ * quote boundary for a message that has an inline image.
  */
 export function splitGeneratedReplyHtml(
   input: string,
-  context: readonly QuotedContextPart[]
+  context: readonly QuotedContextPart[],
+  sanitizer: (html: string) => string = sanitizeHtml
 ): QuotedHtmlParts {
-  const sanitized = sanitizeHtml(input);
-  const historyHtml = buildPublicHistoryHtml(context);
+  const sanitized = sanitizer(input);
+  const historyHtml = buildPublicHistoryHtml(context, sanitizer);
   const body = parseBody(sanitized);
   if (!body || !historyHtml) return { bodyHtml: sanitized };
 
@@ -216,7 +313,7 @@ export function splitGeneratedReplyHtml(
   if (
     candidateElement?.nodeType !== 1 ||
     candidateElement.tagName.toLowerCase() !== "blockquote" ||
-    sanitizeHtml(candidateElement.innerHTML) !== historyHtml
+    sanitizer(candidateElement.innerHTML) !== historyHtml
   ) {
     return { bodyHtml: sanitized };
   }
