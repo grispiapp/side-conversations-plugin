@@ -455,7 +455,20 @@ export const RichTextComposer = forwardRef<
           // URL (uploading) or the returned `objectUrl` (resolved) ever
           // become a real `src`. The shared class matches UI-SPEC §8's
           // `.rich-text-content img` CSS rule.
+          //
+          // `inline: true` is required, not cosmetic: the base extension's
+          // default (`inline: false`) makes every image a BLOCK atom, and
+          // inserting a block atom leaves the editor's selection as a
+          // `NodeSelection` wrapping that exact node. A second placeholder
+          // inserted right after (two pastes in quick succession, before
+          // the first resolves) would then REPLACE that selection —
+          // silently deleting the first placeholder instead of adding a
+          // second one. `inline: true` joins the paragraph's own inline
+          // content group instead, so insertion leaves an ordinary cursor
+          // position right after the new node, and CSS alone (`.rich-text-
+          // content img`'s `block`) still controls its own-line rendering.
           InlineImage.configure({
+            inline: true,
             allowBase64: false,
             HTMLAttributes: { class: "rich-text-content-image" },
           }),

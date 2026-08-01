@@ -250,6 +250,22 @@ export const ChatScreen = observer(() => {
     });
   };
 
+  const handleInlineImagePaste = async (
+    file: File
+  ): Promise<string | undefined> => {
+    try {
+      const image = await attachmentUpload.uploadInlineImage("reply", file);
+      return image.objectUrl;
+    } catch {
+      // UI-SPEC §7/§8.4 — inline paste failure is a TOAST, never inline (no
+      // retry affordance exists for this path, D-14).
+      toast.error("Görsel yüklenemedi, editöre eklenemedi.", {
+        duration: 4000,
+      });
+      return undefined;
+    }
+  };
+
   const lifecycleParams =
     tenantId && sideKey && parentKey && sessionKey !== null
       ? {
@@ -533,6 +549,7 @@ export const ChatScreen = observer(() => {
             onRetryAttachment={(chipId) =>
               attachmentUpload.retryChip("reply", chipId)
             }
+            onInlineImagePaste={handleInlineImagePaste}
           />
         )}
       </ScreenContent>

@@ -66,6 +66,25 @@ export const MessageField = observer(
           onRetryAttachment={(chipId) =>
             attachmentUpload.retryChip("compose", chipId)
           }
+          onInlineImagePaste={async (file) => {
+            try {
+              const image = await attachmentUpload.uploadInlineImage(
+                "compose",
+                file
+              );
+              return image.objectUrl;
+            } catch {
+              // UI-SPEC §7/§8.4 — inline paste failure is a TOAST, never
+              // inline (no retry affordance exists for this path, D-14).
+              // The composer already removed its placeholder before this
+              // promise settled (rich-text-composer.tsx's
+              // `startInlineImageUpload` catch branch).
+              toast.error("Görsel yüklenemedi, editöre eklenemedi.", {
+                duration: 4000,
+              });
+              return undefined;
+            }
+          }}
         />
       </div>
     );

@@ -2,16 +2,47 @@ import { RichTextComposer } from "../rich-text-composer";
 import { ReactElement, RefObject, act, createRef, useState } from "react";
 import { Root, createRoot } from "react-dom/client";
 
-import { makeDropEvent, makeTestFile } from "@/lib/attachment-test-helpers";
+import {
+  makeClipboardPasteEvent,
+  makeDropEvent,
+  makeTestFile,
+} from "@/lib/attachment-test-helpers";
 import type { AttachmentChipVM } from "@/store/attachment-upload-store";
 
 let container: HTMLDivElement;
 let root: Root;
 
+let objectUrlCounter = 0;
+const createObjectURLMock = jest.fn();
+const revokeObjectURLMock = jest.fn();
+
 beforeAll(() => {
   (
     globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
+
+  // jsdom has no `URL.createObjectURL`/`revokeObjectURL` — only the inline
+  // paste/drop tests below exercise these (04-01-SUMMARY's recorded jsdom
+  // gap; same mock shape as `attachment-upload-store.test.ts`'s).
+  Object.defineProperty(global.URL, "createObjectURL", {
+    value: createObjectURLMock,
+    writable: true,
+  });
+  Object.defineProperty(global.URL, "revokeObjectURL", {
+    value: revokeObjectURLMock,
+    writable: true,
+  });
+});
+
+// react-scripts' Jest preset defaults `resetMocks: true` — the mock
+// implementation must be (re)installed in `beforeEach`, not at module scope
+// (04-03-SUMMARY's documented gotcha).
+beforeEach(() => {
+  objectUrlCounter = 0;
+  createObjectURLMock.mockImplementation(
+    (): string => `blob:mock-${++objectUrlCounter}`
+  );
+  revokeObjectURLMock.mockImplementation(() => undefined);
 });
 
 function render(ui: ReactElement): void {
@@ -792,5 +823,229 @@ describe("RichTextComposer attachments (COMP-05/THRD-05)", () => {
         ?.click()
     );
     expect(document.activeElement).toBe(button("Dosya ekle"));
+  });
+});
+
+/**
+ * Deferred promise helper (04-03's test convention) — lets a test control
+ * exactly when the injected `onInlineImagePaste` adapter settles, so the
+ * uploading-placeholder state can be asserted mid-flight.
+ */
+function deferredInlinePaste(): {
+  onInlineImagePaste: jest.Mock<Promise<string | undefined>, [File]>;
+  resolve: (objectUrl: string | undefined) => void;
+  reject: (error: unknown) => void;
+} {
+  let resolve!: (objectUrl: string | undefined) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<string | undefined>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  const onInlineImagePaste: jest.Mock<Promise<string | undefined>, [File]> =
+    jest.fn((_file: File) => promise);
+  return { onInlineImagePaste, resolve, reject };
+}
+
+describe("RichTextComposer inline image paste/drop (COMP-08, D-13 rev.)", () => {
+  it("uploads a file pasted into the editor and shows an uploading placeholder immediately", async () => {
+    const { onInlineImagePaste } = deferredInlinePaste();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onInlineImagePaste={onInlineImagePaste}
+      />
+    );
+
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    await act(async () => {
+      editor().dispatchEvent(makeClipboardPasteEvent([file]));
+      await flushPromises();
+    });
+
+    expect(onInlineImagePaste).toHaveBeenCalledWith(file);
+    expect(editor().querySelector("img")).not.toBeNull();
+    expect(
+      editor().querySelector(".inline-image-uploading")
+    ).not.toBeNull();
+  });
+
+  it("swaps the placeholder's src to the resolved objectUrl and clears the uploading marker once the adapter resolves", async () => {
+    const { onInlineImagePaste, resolve } = deferredInlinePaste();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onInlineImagePaste={onInlineImagePaste}
+      />
+    );
+
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    await act(async () => {
+      editor().dispatchEvent(makeClipboardPasteEvent([file]));
+      await flushPromises();
+    });
+
+    await act(async () => {
+      resolve("https://usercontent.grispi.net/final-1");
+      await flushPromises();
+    });
+
+    expect(
+      editor().querySelector<HTMLImageElement>("img")?.src
+    ).toBe("https://usercontent.grispi.net/final-1");
+    expect(
+      editor().querySelector(".inline-image-uploading")
+    ).toBeNull();
+  });
+
+  it("removes the placeholder entirely and never shows a toast itself when the adapter resolves empty (UI-SPEC §8.4)", async () => {
+    const { onInlineImagePaste, resolve } = deferredInlinePaste();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onInlineImagePaste={onInlineImagePaste}
+      />
+    );
+
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    await act(async () => {
+      editor().dispatchEvent(makeClipboardPasteEvent([file]));
+      await flushPromises();
+    });
+    expect(editor().querySelector("img")).not.toBeNull();
+
+    await act(async () => {
+      resolve(undefined);
+      await flushPromises();
+    });
+
+    expect(editor().querySelector("img")).toBeNull();
+    // The composer never renders/dispatches a toast itself (UI-SPEC §7's
+    // toast lives in message-field.tsx/chat-screen.tsx, not here) — the
+    // absence of any `role="status"`/sonner markup is the closest in-tree
+    // signal this component stays silent on failure.
+    expect(container.querySelector('[data-sonner-toast]')).toBeNull();
+  });
+
+  it("never calls the inline callback when the clipboard carries no files — existing HTML-paste cleaning still runs (Pitfall #1 regression gate)", async () => {
+    const onInlineImagePaste = jest.fn();
+    const onChange = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={onChange}
+        onSubmit={jest.fn()}
+        onInlineImagePaste={onInlineImagePaste}
+      />
+    );
+
+    const paste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, "clipboardData", {
+      value: {
+        getData: (type: string) =>
+          type === "text/html" ? "<p>Yapıştırılan</p>" : "Yapıştırılan",
+      },
+    });
+    act(() => editor().dispatchEvent(paste));
+
+    expect(onInlineImagePaste).not.toHaveBeenCalled();
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain("Yapıştırılan");
+  });
+
+  it("never calls the inline callback while the composer is disabled (disabled check runs first)", async () => {
+    const onInlineImagePaste = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onInlineImagePaste={onInlineImagePaste}
+        disabled
+      />
+    );
+
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    await act(async () => {
+      editor().dispatchEvent(makeClipboardPasteEvent([file]));
+      await flushPromises();
+    });
+
+    expect(onInlineImagePaste).not.toHaveBeenCalled();
+  });
+
+  it("never calls the inline callback when the clipboard carries BOTH a file and html (FileHandler's documented fallthrough — accepted MVP limit)", async () => {
+    const onInlineImagePaste = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onInlineImagePaste={onInlineImagePaste}
+      />
+    );
+
+    const file = makeTestFile("shot.gif", 2048, "image/gif");
+    await act(async () => {
+      editor().dispatchEvent(
+        makeClipboardPasteEvent([file], "<p>gif html fallback</p>")
+      );
+      await flushPromises();
+    });
+
+    expect(onInlineImagePaste).not.toHaveBeenCalled();
+  });
+
+  it("never calls the inline callback for a vector-graphic MIME paste (D-10)", async () => {
+    const onInlineImagePaste = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onInlineImagePaste={onInlineImagePaste}
+      />
+    );
+
+    const file = makeTestFile("icon.svg", 512, "image/svg+xml");
+    await act(async () => {
+      editor().dispatchEvent(makeClipboardPasteEvent([file]));
+      await flushPromises();
+    });
+
+    expect(onInlineImagePaste).not.toHaveBeenCalled();
+    expect(editor().querySelector("img")).toBeNull();
+  });
+
+  it("drops an all-image file directly onto the editor and it becomes INLINE, not an attachment (D-13 rev.)", async () => {
+    const onAttachFiles = jest.fn();
+    const { onInlineImagePaste } = deferredInlinePaste();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onAttachFiles={onAttachFiles}
+        onInlineImagePaste={onInlineImagePaste}
+      />
+    );
+
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    const restoreElementFromPoint = stubElementFromPoint(editor());
+
+    await act(async () => {
+      editor().dispatchEvent(makeDropEvent([file]));
+      await flushPromises();
+    });
+    restoreElementFromPoint();
+
+    expect(onInlineImagePaste).toHaveBeenCalledWith(file);
+    expect(onAttachFiles).not.toHaveBeenCalled();
+    expect(editor().querySelector("img")).not.toBeNull();
   });
 });
