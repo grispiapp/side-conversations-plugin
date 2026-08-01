@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: dosya-ekleri-ve-inline-g-rseller
 status: executing
-stopped_at: Phase 4 Plan 02 complete — attachment upload client, types, and pure validation/format rules landed
-last_updated: "2026-07-31T23:31:32.585Z"
+stopped_at: Completed 04-05-PLAN.md
+last_updated: "2026-08-01T00:10:32.955Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 29
-  completed_plans: 25
+  completed_plans: 26
   percent: 67
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 4 execution started
 
@@ -71,6 +71,7 @@ Progress: [██████████] 100%
 | Phase 04 P02 | ~20min | 3 tasks | 10 files |
 | Phase 04 P03 | 40min | 2 tasks | 6 files |
 | Phase 04 P04 | 20min | 2 tasks | 6 files |
+| Phase 04 P05 | 35min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,8 @@ Recent decisions affecting current work:
 - [Phase 04-03]: collectAttachmentIds always merges inline ids before chip ids (fixed order); downstream Plan 05/06/08 callers must not re-sort
 - [Phase 04]: D-22 mirrors 'empty→undefined' idiom: normalizeComment carries comment.attachments through with zero filtering — inline:true attachments are never dropped since this plugin never renders incoming body images (D-21)
 - [Phase 04]: ThreadMessage's image/file MIME split (attachmentKind === 'image', SVG excluded per D-10) computed inline per-render, not as a store-level derived field
+- [Phase ?]: COMP-05/THRD-05 composer UI'si Plan 05'te iki surface'de de canlı (attach+drag-drop+chip listesi+gönderim kilidi); attachmentIds gönderim bağlaması Plan 06'da
+- [Phase ?]: getFilesFromEvent, react-dropzone'un file-selector tabanlı varsayılan okuyucusu yerine dataTransfer.files/input.files'ı doğrudan okuyacak şekilde override edildi
 
 ### Pending Todos
 
@@ -153,6 +156,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T23:28:19.695Z
-Stopped at: Phase 4 Plan 02 complete — attachment upload client, types, and pure validation/format rules landed
-Resume file: .planning/phases/04-dosya-ekleri-ve-inline-g-rseller/04-03-PLAN.md
+Last session: 2026-08-01T00:10:32.949Z
+Stopped at: Completed 04-05-PLAN.md
+Resume file: 
