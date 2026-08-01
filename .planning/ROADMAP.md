@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Yeni Yan Görüşme Başlatma** - Temsilci alıcı/konu/mesaj ile yeni görüşme açar; side ticket oluşur ve alıcıya gerçek e-posta gider (completed 2026-07-23)
 - [ ] **Phase 3: Görüşme Detayı ve Yaşam Döngüsü** - Temsilci mesajları yön ayrımıyla görür, yanıtlar, kapatır/yeniden açar ve okundu işaretler
 - [x] **Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu** - Tiptap/DOMPurify, tenant-scoped React Query, senkron thread navigasyonu ve ortak 372px inbox kabuğuyla Phase 3 deneyimini güvenli ve tutarlı hâle getirir (completed 2026-07-29)
-- [x] **Phase 4: Dosya Ekleri ve Inline Görseller** - Temsilci çoklu dosya ekler (sürükle-bırak/ataç), editöre yapıştırdığı görsel inline gömülür, gelen ekler thread'de görünür (completed 2026-08-01)
+- [ ] **Phase 4: Dosya Ekleri ve Inline Görseller** - Temsilci çoklu dosya ekler (sürükle-bırak/ataç), editöre yapıştırdığı görsel inline gömülür, gelen ekler thread'de görünür *(8/8 plan yürütüldü; doğrulama `human_needed` — 04-UAT.md'deki 4 madde insan onayı bekliyor)*
 - [ ] **Phase 5: Zenginleştirmeler ve Dayanıklılık** - Talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
 
 ## Phase Details
@@ -198,5 +198,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 5
 | 2. Yeni Yan Görüşme Başlatma | 6/6 | Complete    | 2026-07-23 |
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 5/6 | In Progress|  |
 | 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
-| 4. Dosya Ekleri ve Inline Görseller | 8/8 | Complete   | 2026-08-01 |
+| 4. Dosya Ekleri ve Inline Görseller | 8/8 | Executed (UAT bekliyor) | - |
 | 5. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
