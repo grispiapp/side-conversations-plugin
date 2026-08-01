@@ -32,6 +32,7 @@ jest.mock("@/grispi/client/api", () => ({
       createTicket: jest.fn(),
       getTicket: jest.fn(),
       patchTicket: jest.fn(),
+      replyTicket: jest.fn(),
     },
     customers: {
       search: jest.fn(),
@@ -46,6 +47,7 @@ const mockedAdvancedSearch = grispiAPI.tickets.advancedSearch as jest.Mock;
 const mockedCreateTicket = grispiAPI.tickets.createTicket as jest.Mock;
 const mockedGetTicket = grispiAPI.tickets.getTicket as jest.Mock;
 const mockedPatchTicket = grispiAPI.tickets.patchTicket as jest.Mock;
+const mockedReplyTicket = grispiAPI.tickets.replyTicket as jest.Mock;
 const mockedCustomerSearch = grispiAPI.customers.search as jest.Mock;
 const mockedGetUser = grispiAPI.users.getUser as jest.Mock;
 
@@ -968,7 +970,7 @@ describe("canonical detail and mutation executors", () => {
     const envelope = replyEnvelope();
     const listRefresh = deferred<void>();
     const detailRefresh = deferred<void>();
-    mockedPatchTicket.mockResolvedValue({ key: "SIDE-1" });
+    mockedReplyTicket.mockResolvedValue({ key: "SIDE-1" });
     client.setQueryData(["side-conversation", "tenant-1", "SIDE-1"], {
       sideKey: "SIDE-1",
       recipientLabel: "Vendor",
@@ -998,8 +1000,8 @@ describe("canonical detail and mutation executors", () => {
     for (let index = 0; index < 10; index += 1) {
       await Promise.resolve();
     }
-    expect(mockedPatchTicket).toHaveBeenCalledWith("SIDE-1", envelope.request);
-    expect(mockedPatchTicket.mock.calls[0][1]).toBe(envelope.request);
+    expect(mockedReplyTicket).toHaveBeenCalledWith("SIDE-1", envelope.request);
+    expect(mockedReplyTicket.mock.calls[0][1]).toBe(envelope.request);
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: ["side-conversations", "tenant-1", "PARENT-1"],
       exact: true,
@@ -1027,7 +1029,7 @@ describe("canonical detail and mutation executors", () => {
 
   it("performs zero invalidation or refetch on failure and keeps the retry envelope", async () => {
     const envelope = replyEnvelope();
-    mockedPatchTicket.mockRejectedValue(new NetworkError(new Error("offline")));
+    mockedReplyTicket.mockRejectedValue(new NetworkError(new Error("offline")));
     const invalidate = jest.spyOn(client, "invalidateQueries");
     const refetch = jest.spyOn(client, "refetchQueries");
 
@@ -1046,7 +1048,7 @@ describe("canonical detail and mutation executors", () => {
 
   it("never converts an accepted reply into a resendable failure when canonical refresh fails", async () => {
     const envelope = replyEnvelope();
-    mockedPatchTicket.mockResolvedValue({ key: "SIDE-1" });
+    mockedReplyTicket.mockResolvedValue({ key: "SIDE-1" });
     jest.spyOn(client, "invalidateQueries").mockResolvedValue();
     jest
       .spyOn(client, "refetchQueries")
@@ -1056,7 +1058,7 @@ describe("canonical detail and mutation executors", () => {
       executeReplyMutation(client, boundary(), envelope)
     ).resolves.toBeUndefined();
 
-    expect(mockedPatchTicket).toHaveBeenCalledTimes(1);
+    expect(mockedReplyTicket).toHaveBeenCalledTimes(1);
     expect(store.getOverlayMessages(1, "SIDE-1")[0]).toMatchObject({
       status: "sent",
       errorKind: undefined,

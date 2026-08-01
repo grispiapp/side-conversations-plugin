@@ -625,7 +625,10 @@ export async function executeReplyMutation(
   boundary.activeConversation.mutationStarted(envelope);
 
   try {
-    await grispiAPI.tickets.patchTicket(envelope.sideKey, envelope.request);
+    // MUST be replyTicket (/v2/tickets), never patchTicket (public/v1) —
+    // public/v1 silently ignores comment.attachmentIds (Phase 04 Plan 01
+    // probe A2, see 04-01-SUMMARY.md "Architecture Decision").
+    await grispiAPI.tickets.replyTicket(envelope.sideKey, envelope.request);
   } catch (error) {
     boundary.activeConversation.mutationFailed(envelope, errorKind(error));
     throw error;

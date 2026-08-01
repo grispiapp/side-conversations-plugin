@@ -240,49 +240,64 @@ export interface GrispiUserProfile {
 }
 
 /**
- * `POST /public/v1/tickets` request body — CONFIRMED live against the
- * gsocial-test tenant (Phase 02 Plan 01 Task 1 checkpoint probe, human-run
- * 2026-07-23; see `02-01-SUMMARY.md` "Probe Findings" A1/A5, Pitfall #1).
- * `ts.subject`'s `value` MUST be a real non-empty string — the live API
- * returns 422 ("Subject is required when creating a ticket.") when the key
- * is present but the value is `""`; the key itself must never be omitted.
- * `publicVisible` is deliberately narrowed to the `true` literal (never
- * `boolean`) because this is the one field that turns the side ticket into
- * a real outbound email (D-13) — a caller cannot accidentally construct a
- * silent/internal-only side ticket.
+ * `POST /v2/tickets` request body — CONFIRMED live against the gsocial-test
+ * tenant (Phase 02 Plan 01 Task 1 checkpoint probe, human-run 2026-07-23,
+ * A1/A5/Pitfall #1; endpoint moved off `public/v1/tickets` onto `/v2/tickets`
+ * in Phase 04 Plan 01/06 — see `04-01-SUMMARY.md` "Architecture Decision":
+ * `public/v1` silently ignores `comment.attachmentIds`, only `/v2/tickets`
+ * binds attachments). `ts.subject`'s `value` MUST be a real non-empty
+ * string — the live API returns 422 ("Subject is required when creating a
+ * ticket.") when the key is present but the value is `""`; the key itself
+ * must never be omitted. `publicVisible` is deliberately narrowed to the
+ * `true` literal (never `boolean`) because this is the one field that turns
+ * the side ticket into a real outbound email (D-13) — a caller cannot
+ * accidentally construct a silent/internal-only side ticket.
+ *
+ * `comment.channel` is always the literal `"WEB"` on this path (Phase 04
+ * Plan 06 — `/v2/tickets` produced `INTEGRATION` without it in the probe).
  *
  * `comment.attachmentIds` (Phase 04 Plan 01 checkpoint probe A2/N2, see
  * `04-01-SUMMARY.md` "Probe Findings" and "Architecture Decision" — only
  * `/v2/tickets` binds attachments; `public/v1` silently ignores this field)
  * — MUST be omitted entirely when there are zero attachment ids, never sent
  * as an empty array (RESEARCH.md "Assuming attachmentIds field must always
- * be present" pitfall).
+ * be present" pitfall). Optional (not required) so pre-existing literal test
+ * fixtures that predate Phase 04 Plan 06 keep compiling without edits; the
+ * real store-built request always sets it (see `ComposeStore.submit`).
  */
 export interface CreateTicketRequest {
   comment: {
     body: string;
     publicVisible: true;
     creator: [{ key: "us.email"; value: string }];
+    channel?: "WEB";
     attachmentIds?: number[];
   };
   fields: Array<{ key: string; value: string }>;
 }
 
 /**
- * `PATCH /public/v1/tickets/{key}` public-reply body — CONFIRMED live
- * (Phase 03 Plan 01). It is deliberately separate from
- * `CreateTicketRequest`: PATCH callers cannot resend subject, requester, or
- * parent-link fields.
+ * `PATCH /v2/tickets/{key}` public-reply body — CONFIRMED live (Phase 03
+ * Plan 01 for the reply contract; endpoint moved off `public/v1/tickets/
+ * {key}` onto `/v2/tickets/{key}` in Phase 04 Plan 01/06 for the exact same
+ * attachment-binding reason as `CreateTicketRequest` above — see
+ * `04-01-SUMMARY.md` "Architecture Decision"). It is deliberately separate
+ * from `CreateTicketRequest`: PATCH callers cannot resend subject,
+ * requester, or parent-link fields. `Tickets.replyTicket` is the ONLY
+ * client method that sends this shape — `Tickets.patchTicket` (status-only
+ * lifecycle) uses `StatusTicketPatchRequest` instead and stays on
+ * `public/v1`, per D-15 (see that type's own doc-comment).
  *
- * `comment.attachmentIds` — same probe-backed contract and same
- * omit-when-empty rule as `CreateTicketRequest.comment.attachmentIds`
- * (see that doc-comment for the full rationale).
+ * `comment.channel` / `comment.attachmentIds` — same contract and same
+ * omit-when-empty rule as `CreateTicketRequest.comment` (see that
+ * doc-comment for the full rationale).
  */
 export interface ReplyTicketPatchRequest {
   comment: {
     body: string;
     publicVisible: true;
     creator: [{ key: "us.email"; value: string }];
+    channel?: "WEB";
     attachmentIds?: number[];
   };
 }
@@ -293,6 +308,13 @@ export type TicketLifecycleStatusId = "2" | "4";
  * Status transitions are status-only by product decisions D-14/D-15/D-17:
  * `"4"` solves and `"2"` reopens. Keeping this as a one-element tuple makes
  * it impossible to attach a comment or append create-only fields.
+ *
+ * `Tickets.patchTicket` sends this shape to `public/v1/tickets/{key}`,
+ * DELIBERATELY never `/v2/tickets` (Phase 04 Plan 01/06 write-path split,
+ * `04-01-SUMMARY.md` "Architecture Decision"): `/v2/tickets` PATCH requires
+ * a `comment` in the body (probe finding N2) and returns 500 without one —
+ * adding a comment here just to satisfy that would itself violate D-15
+ * (solve/reopen must produce NO comment and send NO email).
  */
 export interface StatusTicketPatchRequest {
   fields: [

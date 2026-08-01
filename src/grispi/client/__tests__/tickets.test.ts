@@ -3,6 +3,7 @@ import { HttpHandler } from "../http-handler";
 import { Tickets } from "../tickets";
 
 import {
+  CreateTicketRequest,
   PatchTicketRequest,
   PatchTicketResponse,
   ReplyTicketPatchRequest,
@@ -74,6 +75,109 @@ describe("ticket PATCH request contracts", () => {
   });
 });
 
+describe("Tickets.createTicket", () => {
+  let http: HttpHandler;
+  let auth: Authentication;
+  let tickets: Tickets;
+  let send: jest.SpyInstance;
+
+  beforeEach(() => {
+    http = new HttpHandler();
+    auth = new Authentication(http);
+    auth.setToken("test-token");
+    auth.setTenantId("test-tenant");
+    tickets = new Tickets(http, auth);
+    send = jest.spyOn(http, "send").mockResolvedValue({ key: "SIDE-1" });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("POSTs to /v2/tickets, never public/v1/tickets (Phase 04 Plan 01 A2/N2 write-path split)", async () => {
+    const body: CreateTicketRequest = {
+      comment: {
+        body: "<p>Merhaba</p>",
+        publicVisible: true,
+        creator: [{ key: "us.email", value: "agent@example.com" }],
+        channel: "WEB",
+        attachmentIds: [630],
+      },
+      fields: [{ key: "ts.subject", value: "Konu" }],
+    };
+
+    await tickets.createTicket(body);
+
+    expect(send).toHaveBeenCalledWith("v2/tickets", {
+      method: "POST",
+      cache: "no-cache",
+      headers: {
+        Authorization: "Bearer test-token",
+        tenantId: "test-tenant",
+      },
+      body: JSON.stringify(body),
+    });
+  });
+});
+
+describe("Tickets.replyTicket", () => {
+  let http: HttpHandler;
+  let auth: Authentication;
+  let tickets: Tickets;
+  let send: jest.SpyInstance;
+
+  const response: PatchTicketResponse = {
+    key: "SIDE/1",
+    comments: [],
+    fieldMap: {
+      "ts.status": {
+        key: "ts.status",
+        value: { id: 2, name: "Open" },
+      },
+    },
+  };
+
+  beforeEach(() => {
+    http = new HttpHandler();
+    auth = new Authentication(http);
+    auth.setToken("test-token");
+    auth.setTenantId("test-tenant");
+    tickets = new Tickets(http, auth);
+    send = jest.spyOn(http, "send").mockResolvedValue(response);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("PATCHes an encoded ticket key on /v2/tickets, never public/v1/tickets (Phase 04 Plan 01 A2/N2 write-path split)", async () => {
+    const body: ReplyTicketPatchRequest = {
+      comment: {
+        body: "<p>Current reply</p><blockquote><p>Prior reply</p></blockquote>",
+        publicVisible: true,
+        creator: [{ key: "us.email", value: "agent@example.com" }],
+        channel: "WEB",
+      },
+    };
+
+    const result: PatchTicketResponse = await tickets.replyTicket(
+      "SIDE/1 ?#",
+      body
+    );
+
+    expect(result).toBe(response);
+    expect(send).toHaveBeenCalledWith("v2/tickets/SIDE%2F1%20%3F%23", {
+      method: "PATCH",
+      cache: "no-cache",
+      headers: {
+        Authorization: "Bearer test-token",
+        tenantId: "test-tenant",
+      },
+      body: JSON.stringify(body),
+    });
+  });
+});
+
 describe("Tickets.patchTicket", () => {
   let http: HttpHandler;
   let auth: Authentication;
@@ -104,37 +208,11 @@ describe("Tickets.patchTicket", () => {
     jest.restoreAllMocks();
   });
 
-  it("PATCHes an encoded ticket key with auth, JSON, and no-cache", async () => {
-    const body: ReplyTicketPatchRequest = {
-      comment: {
-        body: "<p>Current reply</p><blockquote><p>Prior reply</p></blockquote>",
-        publicVisible: true,
-        creator: [{ key: "us.email", value: "agent@example.com" }],
-      },
-    };
-
-    const result: PatchTicketResponse = await tickets.patchTicket(
-      "SIDE/1 ?#",
-      body
-    );
-
-    expect(result).toBe(response);
-    expect(send).toHaveBeenCalledWith("public/v1/tickets/SIDE%2F1%20%3F%23", {
-      method: "PATCH",
-      cache: "no-cache",
-      headers: {
-        Authorization: "Bearer test-token",
-        tenantId: "test-tenant",
-      },
-      body: JSON.stringify(body),
-    });
-  });
-
   it.each([
     ["SOLVED", "4"],
     ["OPEN", "2"],
   ] as const)(
-    "passes the exact %s status-only body through",
+    "passes the exact %s status-only body through to public/v1/tickets, never /v2/tickets (D-15)",
     async (_name, value) => {
       const body: StatusTicketPatchRequest = {
         fields: [{ key: "ts.status", value }],
