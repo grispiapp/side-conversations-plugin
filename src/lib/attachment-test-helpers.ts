@@ -20,6 +20,25 @@
 /** Minimal shape drop/paste handlers read off `event.dataTransfer` / `event.clipboardData`. */
 interface FakeFileTransfer {
   files: File[];
+  /**
+   * `react-dropzone`'s internal `isEvtWithFiles` check reads
+   * `dataTransfer.types` BEFORE ever touching `.files` (04-05-PLAN.md's
+   * drop-routing test coverage) — a real browser always populates `types`
+   * for a file drag, but this stub's non-native fallback path (the only
+   * path this repo's jsdom exercises, `hasNativeDataTransfer === false`)
+   * left it `undefined`, which throws inside `Array.prototype.some.call`.
+   * Always present on the fallback branch so `makeDropEvent`-driven drops
+   * work with `useDropzone` the same way a real drag would.
+   */
+  types?: string[];
+  /**
+   * ProseMirror's OWN native drop handling (which runs before our
+   * `editorProps.handleDrop` guard is ever consulted, see
+   * `rich-text-composer.test.tsx`'s `stubElementFromPoint`) calls
+   * `dataTransfer.getData(...)` unconditionally while building a fallback
+   * text slice — always present (empty string) on the fallback branch so
+   * that call doesn't throw.
+   */
   getData?: (type: string) => string;
 }
 
@@ -64,7 +83,11 @@ export function makeDropEvent(files: File[]): Event {
     files.forEach((file) => dt.items.add(file));
     dataTransfer = dt;
   } else {
-    dataTransfer = { files };
+    dataTransfer = {
+      files,
+      types: files.length > 0 ? ["Files"] : [],
+      getData: () => "",
+    };
   }
   Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
   return event;

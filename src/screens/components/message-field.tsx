@@ -1,6 +1,8 @@
 import { observer } from "mobx-react-lite";
+import { toast } from "sonner";
 
 import { useStore } from "@/contexts/store-context";
+import { rejectionToastLines } from "@/lib/attachment-format";
 import { RichTextComposer } from "@/screens/components/rich-text-composer";
 
 /**
@@ -20,7 +22,9 @@ export interface MessageFieldProps {
 
 export const MessageField = observer(
   ({ onSubmit, submitDisabled = false }: MessageFieldProps) => {
-    const compose = useStore().compose;
+    const store = useStore();
+    const compose = store.compose;
+    const attachmentUpload = store.attachmentUpload;
 
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -40,6 +44,28 @@ export const MessageField = observer(
             onSubmit();
           }}
           disabled={compose.submitting}
+          attachments={attachmentUpload.chips("compose")}
+          attachmentsUploading={attachmentUpload.isUploading("compose")}
+          onAttachFiles={(files) => {
+            const rejections = attachmentUpload.addFiles("compose", files);
+            if (rejections.length === 0) return;
+            // D-11/UI-SPEC §3 — one summary toast per batch, never one per
+            // rejected file (avoids pile-up when many files are dropped).
+            toast.error("Bazı dosyalar eklenmedi", {
+              description: (
+                <div className="whitespace-pre-line">
+                  {rejectionToastLines(rejections).join("\n")}
+                </div>
+              ),
+              duration: 5000,
+            });
+          }}
+          onRemoveAttachment={(chipId) =>
+            attachmentUpload.removeChip("compose", chipId)
+          }
+          onRetryAttachment={(chipId) =>
+            attachmentUpload.retryChip("compose", chipId)
+          }
         />
       </div>
     );

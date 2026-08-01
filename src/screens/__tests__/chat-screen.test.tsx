@@ -195,6 +195,16 @@ beforeEach(() => {
   mockStatusMutation = { mutate: jest.fn(), status: "idle" };
   mockStore = {
     activeConversation: makeActive(),
+    // COMP-05/THRD-05 (Plan 05): RichTextComposer's reply usage reads
+    // attachment chip state through this store — the mock must expose the
+    // same shape as the real AttachmentUploadStore.
+    attachmentUpload: {
+      chips: jest.fn(() => []),
+      isUploading: jest.fn(() => false),
+      addFiles: jest.fn(() => []),
+      removeChip: jest.fn(),
+      retryChip: jest.fn(),
+    },
     panelNavigation: {
       selectedConversation: {
         ticketKey: "SC-42",

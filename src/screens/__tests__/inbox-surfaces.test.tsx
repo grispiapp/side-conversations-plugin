@@ -60,6 +60,17 @@ beforeEach(() => {
       reset: jest.fn(),
     },
     activeConversation: {},
+    // COMP-05/THRD-05 (Plan 05): RichTextComposer reads attachment chip
+    // state through this store for both surfaces — MessageField (this
+    // screen's compose surface) now depends on it, so the mock must expose
+    // the same shape as the real AttachmentUploadStore.
+    attachmentUpload: {
+      chips: jest.fn(() => []),
+      isUploading: jest.fn(() => false),
+      addFiles: jest.fn(() => []),
+      removeChip: jest.fn(),
+      retryChip: jest.fn(),
+    },
     panelNavigation: {
       selectedConversation: null,
       bindCreatedTicket: jest.fn(),

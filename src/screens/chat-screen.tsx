@@ -9,6 +9,7 @@ import {
 } from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
+import { rejectionToastLines } from "@/lib/attachment-format";
 import {
   MutationBoundary,
   useCreateSideConversationMutation,
@@ -48,6 +50,7 @@ function messagePresentation(
 export const ChatScreen = observer(() => {
   const store = useStore();
   const activeConversation = store.activeConversation;
+  const attachmentUpload = store.attachmentUpload;
   const panelNavigation = store.panelNavigation;
   const selected = panelNavigation.selectedConversation;
   const { tenantId, agentEmail } = useGrispi();
@@ -207,6 +210,21 @@ export const ChatScreen = observer(() => {
         solved,
       })
     );
+  };
+
+  const handleAttachFiles = (files: File[]) => {
+    const rejections = attachmentUpload.addFiles("reply", files);
+    if (rejections.length === 0) return;
+    // D-11/UI-SPEC §3 — one summary toast per batch, never one per rejected
+    // file (avoids pile-up when many files are dropped at once).
+    toast.error("Bazı dosyalar eklenmedi", {
+      description: (
+        <div className="whitespace-pre-line">
+          {rejectionToastLines(rejections).join("\n")}
+        </div>
+      ),
+      duration: 5000,
+    });
   };
 
   const lifecycleParams =
@@ -483,6 +501,15 @@ export const ChatScreen = observer(() => {
             onChange={(html) => activeConversation.setAuthoredDraftHtml(html)}
             onSubmit={submitReply}
             className="shrink-0"
+            attachments={attachmentUpload.chips("reply")}
+            attachmentsUploading={attachmentUpload.isUploading("reply")}
+            onAttachFiles={handleAttachFiles}
+            onRemoveAttachment={(chipId) =>
+              attachmentUpload.removeChip("reply", chipId)
+            }
+            onRetryAttachment={(chipId) =>
+              attachmentUpload.retryChip("reply", chipId)
+            }
           />
         )}
       </ScreenContent>

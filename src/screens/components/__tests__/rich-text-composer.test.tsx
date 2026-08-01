@@ -2,6 +2,9 @@ import { RichTextComposer } from "../rich-text-composer";
 import { ReactElement, RefObject, act, createRef, useState } from "react";
 import { Root, createRoot } from "react-dom/client";
 
+import { makeDropEvent, makeTestFile } from "@/lib/attachment-test-helpers";
+import type { AttachmentChipVM } from "@/store/attachment-upload-store";
+
 let container: HTMLDivElement;
 let root: Root;
 
@@ -36,6 +39,63 @@ function button(label: string): HTMLButtonElement {
 function latestHtml(mock: jest.Mock): string {
   const call = mock.mock.calls[mock.mock.calls.length - 1];
   return call?.[0] || "";
+}
+
+function composerRoot(): HTMLElement {
+  const result = container.querySelector("section");
+  if (!result) throw new Error("Composer root not found");
+  return result;
+}
+
+/**
+ * `react-dropzone`'s `onDrop` pipeline reads dropped files through an async
+ * `getFilesFromEvent` (a `Promise`, even for the synchronous case this
+ * composer configures — see rich-text-composer.tsx's `getFilesFromEvent`
+ * doc-comment) — a plain `act(() => dispatchEvent(...))` does not wait for
+ * that chain to settle. `setTimeout(resolve, 0)` schedules a macrotask,
+ * which only runs after the microtask queue (every chained `.then()`) is
+ * fully drained, so it reliably flushes the whole chain regardless of how
+ * many `.then()` hops it takes.
+ */
+function flushPromises(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/**
+ * ProseMirror's OWN native "drop" listener (registered directly on
+ * `view.dom`, firing at the TARGET phase — before any ancestor's `onDrop`,
+ * including react-dropzone's) calls `view.posAtCoords(...)` unconditionally
+ * BEFORE ever consulting our plugin's `handleDrop` prop
+ * (`prosemirror-view/dist/index.cjs`'s internal `handleDrop`). That call
+ * reads `document.elementFromPoint`, which this repo's jsdom does not
+ * implement at all — calling it throws, short-circuiting before our guard
+ * ever runs. Stubbing it to resolve to a real element inside the editor
+ * (removed again by the caller) is what lets ProseMirror's own dispatch
+ * reach `view.someProp("handleDrop", ...)`, i.e. actually exercises the
+ * Pitfall #6 guard rather than merely observing jsdom's unrelated crash.
+ */
+function stubElementFromPoint(target: Element): () => void {
+  const doc = document as unknown as {
+    elementFromPoint?: (x: number, y: number) => Element | null;
+  };
+  doc.elementFromPoint = () => target;
+  return () => {
+    delete doc.elementFromPoint;
+  };
+}
+
+function makeChip(
+  id: string,
+  overrides: Partial<AttachmentChipVM> = {}
+): AttachmentChipVM {
+  return {
+    id,
+    filename: `${id}.pdf`,
+    size: 1024,
+    mimeType: "application/pdf",
+    status: "done",
+    ...overrides,
+  };
 }
 
 function dispatchKey(
@@ -486,5 +546,251 @@ describe("RichTextComposer Tiptap contract", () => {
 
     expect(ref.current).toBe(editor());
     expect(document.activeElement).toBe(editor());
+  });
+});
+
+describe("RichTextComposer attachments (COMP-05/THRD-05)", () => {
+  it("offers an attach toolbar button as the first toolbar action", () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    expect(button("Dosya ekle")).toBeTruthy();
+  });
+
+  it("forwards dropped files on the composer root to onAttachFiles", async () => {
+    const onAttachFiles = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        onAttachFiles={onAttachFiles}
+      />
+    );
+
+    const file = makeTestFile("rapor.pdf", 1024, "application/pdf");
+    await act(async () => {
+      composerRoot().dispatchEvent(makeDropEvent([file]));
+      await flushPromises();
+    });
+
+    expect(onAttachFiles).toHaveBeenCalledWith([file]);
+  });
+
+  it("routes a file dropped directly onto the editor to attachments, never into the document body (D-13/Pitfall #6)", async () => {
+    const onAttachFiles = jest.fn();
+    const onChange = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={onChange}
+        onSubmit={jest.fn()}
+        onAttachFiles={onAttachFiles}
+      />
+    );
+    const beforeHtml = editor().innerHTML;
+    const file = makeTestFile("ekran-goruntusu.png", 2048, "image/png");
+    const restoreElementFromPoint = stubElementFromPoint(editor());
+    // `editor.setEditable()` (called from this composer's own mount-time
+    // layout effect) emits a spurious Tiptap "update" event with an
+    // unchanged, empty transaction — pre-existing behavior, unrelated to
+    // this guard. Isolate the drop's effect by clearing that initial call.
+    onChange.mockClear();
+
+    await act(async () => {
+      editor().dispatchEvent(makeDropEvent([file]));
+      await flushPromises();
+    });
+    restoreElementFromPoint();
+
+    expect(editor().innerHTML).toBe(beforeHtml);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onAttachFiles).toHaveBeenCalledWith([file]);
+  });
+
+  it("lets a non-file drop fall through harmlessly, without forwarding it or touching editor content", async () => {
+    const onAttachFiles = jest.fn();
+    const onChange = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={onChange}
+        onSubmit={jest.fn()}
+        onAttachFiles={onAttachFiles}
+      />
+    );
+    const beforeHtml = editor().innerHTML;
+    const restoreElementFromPoint = stubElementFromPoint(editor());
+    // See the sibling test above — clears the mount-time spurious update.
+    onChange.mockClear();
+
+    // Empty `files` (e.g. an internal text drag carries no File objects) —
+    // the `handleDrop` guard only intercepts file-carrying drops (Pitfall
+    // #6); `event.defaultPrevented` isn't a reliable signal here since
+    // react-dropzone's own root `onDrop` unconditionally calls
+    // `preventDefault()` regardless of whether files are present.
+    await act(async () => {
+      editor().dispatchEvent(makeDropEvent([]));
+      await flushPromises();
+    });
+    restoreElementFromPoint();
+
+    expect(onAttachFiles).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(editor().innerHTML).toBe(beforeHtml);
+  });
+
+  it("renders each attachment chip with its filename and a working remove callback", () => {
+    const onRemoveAttachment = jest.fn();
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        attachments={[makeChip("a", { filename: "rapor.pdf" })]}
+        onRemoveAttachment={onRemoveAttachment}
+      />
+    );
+
+    expect(container.textContent).toContain("rapor.pdf");
+    const removeButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="rapor.pdf dosyasını kaldır"]'
+    );
+    expect(removeButton).not.toBeNull();
+
+    act(() => removeButton?.click());
+    expect(onRemoveAttachment).toHaveBeenCalledWith("a");
+  });
+
+  it("collapses 3+ attachments behind a summary pill that expands on click", () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        attachments={[makeChip("a"), makeChip("b"), makeChip("c")]}
+      />
+    );
+
+    const summary = button("3 dosya, listeyi genişlet");
+    expect(summary.getAttribute("aria-expanded")).toBe("false");
+    expect(container.textContent).not.toContain("a.pdf");
+
+    act(() => summary.click());
+
+    const expanded = button("3 dosya, listeyi daralt");
+    expect(expanded.getAttribute("aria-expanded")).toBe("true");
+    expect(container.textContent).toContain("a.pdf");
+    expect(container.textContent).toContain("b.pdf");
+    expect(container.textContent).toContain("c.pdf");
+  });
+
+  it("shows 1-2 attachments directly, with no summary pill", () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        attachments={[makeChip("a"), makeChip("b")]}
+      />
+    );
+
+    expect(container.textContent).toContain("a.pdf");
+    expect(container.textContent).toContain("b.pdf");
+    expect(container.querySelector('button[aria-label^="2 dosya"]')).toBeNull();
+  });
+
+  it("locks Gönder while an attachment is uploading and describes why via aria-describedby", () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        attachmentsUploading
+      />
+    );
+
+    const sendButton = button("Yanıt gönder");
+    expect(sendButton.disabled).toBe(true);
+    const describedBy = sendButton.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy ?? "")?.textContent).toBe(
+      "Ekler yükleniyor, gönderim şu anda kilitli."
+    );
+
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        attachmentsUploading={false}
+      />
+    );
+
+    const unlockedButton = button("Yanıt gönder");
+    expect(unlockedButton.disabled).toBe(false);
+    expect(unlockedButton.getAttribute("aria-describedby")).toBeNull();
+  });
+
+  it("moves focus to the next remove button after removing a chip, never leaving it stranded", () => {
+    function Wrapper(): ReactElement {
+      const [attachments, setAttachments] = useState<AttachmentChipVM[]>([
+        makeChip("a"),
+        makeChip("b"),
+        makeChip("c"),
+      ]);
+      return (
+        <RichTextComposer
+          value="<p>Metin</p>"
+          onChange={jest.fn()}
+          onSubmit={jest.fn()}
+          attachments={attachments}
+          onRemoveAttachment={(chipId) =>
+            setAttachments((prev) => prev.filter((chip) => chip.id !== chipId))
+          }
+        />
+      );
+    }
+    render(<Wrapper />);
+
+    // Starts collapsed (3 files already present at mount, D-02) — expand
+    // first so every chip's remove button is actually in the DOM.
+    act(() => button("3 dosya, listeyi genişlet").click());
+
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="a.pdf dosyasını kaldır"]'
+        )
+        ?.click()
+    );
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(
+      "b.pdf dosyasını kaldır"
+    );
+
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="b.pdf dosyasını kaldır"]'
+        )
+        ?.click()
+    );
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(
+      "c.pdf dosyasını kaldır"
+    );
+
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="c.pdf dosyasını kaldır"]'
+        )
+        ?.click()
+    );
+    expect(document.activeElement).toBe(button("Dosya ekle"));
   });
 });
