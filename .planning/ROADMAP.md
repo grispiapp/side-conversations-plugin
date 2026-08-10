@@ -187,6 +187,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. `_grispi_env`'in ne zaman zorunlu olduğu README'de belgelenir: TR kurulumlarında **elle set edilmek zorundadır**, çünkü `dev` claim'i `.com` ile `.com.tr`'yi ayırt edemez (backend: `dev = !(PROD || PROD_TR)`)
 
 **Canonical refs:**
+
 - `vivollo-chat-side-plugin` feature branch'i (`.claude/worktrees/grispi-api-domain-param-ca0ee0/src/grispi/client/environment.ts` + `contexts/grispi-context.tsx`) — çalışan referans implementasyon; birebir kopyalanabilir
 - `grispi-api` `GrispiUrlGenerator.java` + `Environment.java` — beş ortamın (local/dev/net/com/com.tr) otoriter eşlemesi
 - **Tuzak:** backend kendi içinde `prod-tr` (tire) kullanır; ayar anahtarı `prod_tr` (alt çizgi). Strict eşleşme olduğu için tire sessizce `prod`'a düşer.
@@ -194,8 +195,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 2 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 04.1-01-PLAN.md — Ortam çözümleyicisi (`environment.ts` + `grispi-environment.ts`) ve plugin modunun uçtan uca bağlanması: `switchTicket`'tan önce base URL, varsayılan güvenli tarafta (SC1, SC2, SC4)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 04.1-02-PLAN.md — Standalone dev ortam override'ı (`REACT_APP_DEV_GRISPI_ENV`, varsayılan preprod) ve `_grispi_env` kurulum dokümantasyonu + faz kapanış gate'leri (SC3, SC5)
 
 ### Phase 5: Zenginleştirmeler ve Dayanıklılık
