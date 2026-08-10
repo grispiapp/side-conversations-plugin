@@ -13,7 +13,7 @@ The definition Grispi needs in order to register the plugin. This file does **no
 ```json
 {
   "title": "Yan Görüşmeler",
-  "src": "https://<your-hosted-plugin-url>/",
+  "src": "https://grispi.app/side-conversations-plugin/public/",
   "uiDefinition": {
     "height": 900
   },
@@ -21,6 +21,8 @@ The definition Grispi needs in order to register the plugin. This file does **no
   "lazy": true
 }
 ```
+
+The plugin ID registered for this plugin is `com.grispi.side_conversations`.
 
 > **Careful:** `public/manifest.json` in this repo is *not* that file. It is Create React App's PWA manifest (`short_name`, `icons`, `theme_color`, …) and has nothing to do with Grispi. Do not put the Grispi manifest above into it.
 
@@ -75,11 +77,13 @@ This field is **hardcoded, never read from settings**, and is **provisioned auto
    npm run build
    ```
 
-   Output lands in `build/`; any static host works (Vercel, Netlify, S3, …).
+   Output lands in `build/`, ready to serve from `https://grispi.app/side-conversations-plugin/public/`.
+
+   `package.json` sets `"homepage": "."`, so the build emits **relative** asset paths and works from any sub-path. Without it CRA emits root-absolute paths (`/static/js/…`), which 404 when the plugin is not served from the domain root.
 
 2. Fill in the [Grispi request form](https://help.grispi.com/requests/user-forms/2) with:
    - **Tenant ID**
-   - **Plugin ID** — unique within the tenant, domain-like: `com.yourcompany.sideconversations`
+   - **Plugin ID** — `com.grispi.side_conversations`
    - **manifest.json** (see [Manifest](#1-manifest))
    - **settings** — for TR tenants this **must** include `_grispi_env: "prod_tr"`
 
@@ -89,32 +93,21 @@ This field is **hardcoded, never read from settings**, and is **provisioned auto
 
 ## 5. Local development
 
-The plugin normally runs inside the Grispi panel iframe and needs the `window.GrispiClient` bridge. To open `http://localhost:3000` directly there is a **standalone dev mode** — you do not need to comment out any code.
-
-Standalone mode activates only when **both** conditions hold:
-
-1. `NODE_ENV === "development"` (never in a production build), **and**
-2. `REACT_APP_DEV_TOKEN` is non-empty
-
-Create `.env.development.local` in the project root (it is in `.gitignore` and is never committed):
+The plugin normally runs inside the Grispi panel iframe and needs the `window.GrispiClient` bridge. To open `http://localhost:3000` directly, create `.env.development.local` in the project root (git-ignored):
 
 ```bash
 REACT_APP_DEV_TOKEN=<a-valid-grispi-token>
-REACT_APP_DEV_TENANT_ID=gsocial-test
 ```
 
-| Variable                    | Required | Default              |
-| --------------------------- | -------- | -------------------- |
-| `REACT_APP_DEV_TOKEN`       | **Yes**  | —                    |
-| `REACT_APP_DEV_TENANT_ID`   | No       | `gsocial-test`       |
-| `REACT_APP_DEV_TICKET_KEY`  | No       | `TICKET-563`         |
-| `REACT_APP_DEV_AGENT_EMAIL` | No       | defined in code      |
-| `REACT_APP_DEV_GRISPI_ENV`  | No       | `preprod`            |
+That is the only required variable — it switches the app into **standalone dev mode**, which bypasses the bridge and talks to `preprod` with a seeded test tenant. Then:
 
-Notes:
+```bash
+npm start
+```
 
-- Standalone mode bypasses the bundle, so it cannot read `settings` (and therefore not `_grispi_env`). You set the environment with `REACT_APP_DEV_GRISPI_ENV` instead; it accepts the same three values and defaults to `preprod`.
-- You can switch the ticket from the URL: `http://localhost:3000/?ticket=TICKET-123`. Precedence: `?ticket=` → `REACT_APP_DEV_TICKET_KEY` → default.
+To open a different ticket: `http://localhost:3000/?ticket=TICKET-123`.
+
+Standalone mode never activates in a production build (it also requires `NODE_ENV === "development"`). The remaining overrides — tenant, default ticket, agent email, environment — are optional; see `src/lib/standalone-dev.ts` for their names and defaults.
 
 ---
 
