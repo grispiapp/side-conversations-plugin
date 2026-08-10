@@ -172,7 +172,7 @@ None yet.
 | 260810-j2w | WR-01: gate SDK ticket-update events on bootstrap completion + add grispi-context render test | 2026-08-10 | 37cf6fd | [260810-j2w-wr-01-gate-sdk-ticket-update-events-on-b](./quick/260810-j2w-wr-01-gate-sdk-ticket-update-events-on-b/) |
 | 260810-jiw | WR-02: behavioral tests proving setEnvironment reaches fetch() host (CORE-04 terminal link) | 2026-08-10 | 4c92b33 | [260810-jiw-wr-02-behavioral-tests-proving-setenviro](./quick/260810-jiw-wr-02-behavioral-tests-proving-setenviro/) |
 | 260810-fst | Rewrite README for this plugin (manifest + settings sections); drop starter-kit leftovers | 2026-08-10 | 8bf0a6b | — (gsd-fast, inline) |
-| 260810-l0t | Rename UI vocabulary görüşme → yazışma (product name "Yan Görüşmeler" → "Yan Yazışmalar") | 2026-08-10 | 5cb5cec | [260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan](./quick/260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan/) |
+| 260810-l0t | Rename UI vocabulary görüşme → konuşma (product name "Yan Görüşmeler" → "Yan Konuşmalar"; yazışma was an intermediate step, superseded) | 2026-08-10 | cf3b68d | [260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan](./quick/260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan/) |
 
 ### Roadmap Evolution
 
