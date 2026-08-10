@@ -198,3 +198,123 @@ describe("HttpHandler.sendMultipart", () => {
     expect((thrown as HttpError).body).toBeNull();
   });
 });
+
+/**
+ * WR-02 / CORE-04 — the terminal link of the environment-routing chain
+ * (environment key -> `baseUrl` mutation -> actual `fetch` host) had no
+ * behavioral test anywhere in the repo. Every expected host below is a
+ * HARDCODED LITERAL, never `GRISPI_BASE_URLS[env]` — looking the expectation
+ * up from the same constant the implementation reads would be circular, and
+ * a swapped constant (e.g. `prod_tr` silently pointed at the `.com` host)
+ * would sail straight through such an assertion. Duplication here is the
+ * point: these three host strings are pinned as literals nowhere else in the
+ * repo.
+ */
+const ENVIRONMENT_HOSTS = [
+  ["preprod", "https://api.grispi.net"],
+  ["prod", "https://api.grispi.com"],
+  ["prod_tr", "https://api.grispi.com.tr"],
+] as const;
+
+describe("HttpHandler.setEnvironment -> fetch host (CORE-04 terminal link, WR-02)", () => {
+  let handler: HttpHandler;
+
+  beforeEach(() => {
+    handler = new HttpHandler();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("a fresh handler's baseUrl is already the literal prod host, before setEnvironment is ever called", () => {
+    // This is the single most important fact for interpreting the `prod`
+    // rows below: a fresh HttpHandler is already on the prod host, so a
+    // standalone `setEnvironment("prod")` assertion alone would pass even
+    // against a completely no-op setEnvironment. It also is the only place
+    // in the repo that pins the default host to a literal instead of the
+    // GRISPI_BASE_URLS[DEFAULT_ENVIRONMENT] lookup.
+    expect(handler.baseUrl).toBe("https://api.grispi.com");
+  });
+
+  it.each(ENVIRONMENT_HOSTS)(
+    "send() fetches against the %s host after setEnvironment(%s)",
+    async (env, host) => {
+      const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+      } as unknown as Response);
+
+      handler.setEnvironment(env);
+      await handler.send("public/v1/tickets/DESTEK-1", { method: "GET" });
+
+      expect(fetchSpy.mock.calls[0][0]).toBe(
+        `${host}/public/v1/tickets/DESTEK-1`
+      );
+    }
+  );
+
+  it.each(ENVIRONMENT_HOSTS)(
+    "sendMultipart() fetches against the %s host after setEnvironment(%s) — independent read site from send()",
+    async (env, host) => {
+      // Not redundant with the send() rows above: sendMultipart() reads
+      // this.baseUrl through its OWN separate template literal, so a
+      // regression could break one path and leave the other intact.
+      const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve([]),
+      } as unknown as Response);
+
+      handler.setEnvironment(env);
+      await handler.sendMultipart("attachments/upload", new FormData(), {});
+
+      expect(fetchSpy.mock.calls[0][0]).toBe(`${host}/attachments/upload`);
+    }
+  );
+
+  it("switch-back: setEnvironment(prod) then setEnvironment(preprod) ends on the preprod host — the mutation killer", async () => {
+    // THE test that goes red against an emptied setEnvironment body. A
+    // single setEnvironment("prod") assertion cannot do that job, because a
+    // fresh handler is already on prod (see the control test above) — that
+    // row proves nothing on its own. This one requires the handler to
+    // actually travel from prod to preprod.
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({}),
+    } as unknown as Response);
+
+    handler.setEnvironment("prod");
+    handler.setEnvironment("preprod");
+    await handler.send("public/v1/tickets/DESTEK-1", { method: "GET" });
+
+    expect(fetchSpy.mock.calls[0][0]).toBe(
+      "https://api.grispi.net/public/v1/tickets/DESTEK-1"
+    );
+  });
+
+  it("switch-back: setEnvironment(preprod) then setEnvironment(prod) ends on the prod host", async () => {
+    // Proves the `prod` branch of the lookup is genuinely consumed — the
+    // handler had to travel back from a non-default host, which the
+    // standalone `prod` row cannot show. This direction alone does NOT kill
+    // the no-op mutant on its own (a no-op handler never leaves prod, so it
+    // would "pass" this assertion for the wrong reason) — that is the
+    // previous test's job. Neither test may be deleted as "redundant" with
+    // the other; each proves something the other cannot.
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({}),
+    } as unknown as Response);
+
+    handler.setEnvironment("preprod");
+    handler.setEnvironment("prod");
+    await handler.send("public/v1/tickets/DESTEK-1", { method: "GET" });
+
+    expect(fetchSpy.mock.calls[0][0]).toBe(
+      "https://api.grispi.com/public/v1/tickets/DESTEK-1"
+    );
+  });
+});
