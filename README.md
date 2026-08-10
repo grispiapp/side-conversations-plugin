@@ -13,7 +13,7 @@ The definition Grispi needs in order to register the plugin. This file does **no
 ```json
 {
   "title": "Yan Konuşmalar",
-  "src": "https://grispi.app/side-conversations-plugin/public/",
+  "src": "https://grispi.app/side-conversations-plugin/build/",
   "uiDefinition": {
     "height": 900
   },
@@ -71,15 +71,26 @@ This field is **hardcoded, never read from settings**, and is **provisioned auto
 
 ## 4. Installing on a tenant
 
-1. Build the plugin and host it somewhere:
+1. Build, commit and push — this repository **is** the host. `grispi.app` serves
+   its contents directly, so there is no upload and no separate hosting step:
 
    ```bash
-   npm run build
+   CI=true npm run build
+   git add build
+   git commit -m "chore: rebuild plugin bundle"
+   git push
    ```
 
-   Output lands in `build/`, ready to serve from `https://grispi.app/side-conversations-plugin/public/`.
+   Once pushed, the output is live at
+   `https://grispi.app/side-conversations-plugin/build/`.
 
    `package.json` sets `"homepage": "."`, so the build emits **relative** asset paths and works from any sub-path. Without it CRA emits root-absolute paths (`/static/js/…`), which 404 when the plugin is not served from the domain root.
+
+   > **Rebuild-on-change rule:** `build/` is generated output committed to this
+   > repo. Any change to `src/` (or build config) must ship with a matching
+   > rebuild in the same commit or PR — otherwise the live plugin silently
+   > keeps serving the old bundle. Source maps are off via `.env.production`
+   > to keep the committed output small.
 
 2. Fill in the [Grispi request form](https://help.grispi.com/requests/user-forms/2) with:
    - **Tenant ID**
