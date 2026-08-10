@@ -1,3 +1,5 @@
+import { GrispiEnvironment } from "@/grispi/client/environment";
+import { resolveGrispiEnvironment } from "@/lib/grispi-environment";
 import { GrispiBundle, Settings } from "@/types/grispi.type";
 
 /**
@@ -40,6 +42,12 @@ export interface BootstrapPluginInitDeps {
   setAgentEmail(email: string | null): void;
   /** React Query's explicit cache-isolation tenant source. */
   setTenantId(tenantId: string | null): void;
+  /**
+   * CORE-04 — MUST be called before `switchTicket` (the first real fetch).
+   * Required (not optional): an omitted call site would silently leave the
+   * plugin talking to the class-default host instead of the resolved one.
+   */
+  setEnvironment(environment: GrispiEnvironment): void;
   switchTicket(ticketKey: string): void;
 }
 
@@ -48,6 +56,14 @@ export async function bootstrapPluginInit(
 ): Promise<void> {
   try {
     const bundle = await deps.plugin._init();
+
+    // CORE-04: resolve and apply the base URL FIRST, in the same synchronous
+    // block as _init()'s resolution — no `await` between here and
+    // `switchTicket` may be introduced, or the first fetch could race ahead
+    // of the environment switch.
+    deps.setEnvironment(
+      resolveGrispiEnvironment(bundle.settings, bundle.context.token)
+    );
 
     deps.authentication.setTenantId(bundle.context.tenantId);
     deps.authentication.setToken(bundle.context.token);

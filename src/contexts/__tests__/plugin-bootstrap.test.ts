@@ -23,10 +23,11 @@ jest.mock("@/grispi/client/api", () => ({
 const mockedAdvancedSearch = grispiAPI.tickets.advancedSearch as jest.Mock;
 
 function makeBundle(
-  overrides: Partial<GrispiBundle["context"]> = {}
+  overrides: Partial<GrispiBundle["context"]> = {},
+  settingsOverride: GrispiBundle["settings"] = { foo: "bar" }
 ): GrispiBundle {
   return {
-    settings: { foo: "bar" },
+    settings: settingsOverride,
     context: {
       username: "agent1",
       tenantId: "tenant-1",
@@ -64,6 +65,7 @@ describe("bootstrapPluginInit", () => {
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
+    const setEnvironment = jest.fn();
     const switchTicket = jest.fn();
 
     await bootstrapPluginInit({
@@ -73,6 +75,7 @@ describe("bootstrapPluginInit", () => {
       setLoading,
       setAgentEmail,
       setTenantId,
+      setEnvironment,
       switchTicket,
     });
 
@@ -94,6 +97,65 @@ describe("bootstrapPluginInit", () => {
     expect(setTenantId.mock.invocationCallOrder[0]).toBeLessThan(
       switchTicket.mock.invocationCallOrder[0]
     );
+
+    // CORE-04 SC2 — env resolution must be wired and must complete before
+    // the first real fetch (switchTicket).
+    expect(setEnvironment).toHaveBeenCalledTimes(1);
+    expect(setEnvironment.mock.invocationCallOrder[0]).toBeLessThan(
+      switchTicket.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("resolve branch: setEnvironment is called with the bundle's own _grispi_env setting (proves it is wired to resolveGrispiEnvironment, not a stub)", async () => {
+    const bundle = makeBundle({}, { _grispi_env: "prod_tr" });
+    const plugin = { _init: jest.fn().mockResolvedValue(bundle) };
+    const authentication = { setTenantId: jest.fn(), setToken: jest.fn() };
+    const setSettings = jest.fn();
+    const setLoading = jest.fn();
+    const setAgentEmail = jest.fn();
+    const setTenantId = jest.fn();
+    const setEnvironment = jest.fn();
+    const switchTicket = jest.fn();
+
+    await bootstrapPluginInit({
+      plugin,
+      authentication,
+      setSettings,
+      setLoading,
+      setAgentEmail,
+      setTenantId,
+      setEnvironment,
+      switchTicket,
+    });
+
+    expect(setEnvironment).toHaveBeenCalledWith("prod_tr");
+  });
+
+  it("resolve branch: setEnvironment resolves to 'prod' for the default makeBundle() fixture's non-JWT token, and does not throw (Pitfall 2 regression guard)", async () => {
+    const bundle = makeBundle();
+    const plugin = { _init: jest.fn().mockResolvedValue(bundle) };
+    const authentication = { setTenantId: jest.fn(), setToken: jest.fn() };
+    const setSettings = jest.fn();
+    const setLoading = jest.fn();
+    const setAgentEmail = jest.fn();
+    const setTenantId = jest.fn();
+    const setEnvironment = jest.fn();
+    const switchTicket = jest.fn();
+
+    await expect(
+      bootstrapPluginInit({
+        plugin,
+        authentication,
+        setSettings,
+        setLoading,
+        setAgentEmail,
+        setTenantId,
+        setEnvironment,
+        switchTicket,
+      })
+    ).resolves.toBeUndefined();
+
+    expect(setEnvironment).toHaveBeenCalledWith("prod");
   });
 
   it("resolve branch: calls setAgentEmail with null when the bundle carries no agent", async () => {
@@ -106,6 +168,7 @@ describe("bootstrapPluginInit", () => {
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
+    const setEnvironment = jest.fn();
     const switchTicket = jest.fn();
 
     await bootstrapPluginInit({
@@ -115,13 +178,14 @@ describe("bootstrapPluginInit", () => {
       setLoading,
       setAgentEmail,
       setTenantId,
+      setEnvironment,
       switchTicket,
     });
 
     expect(setAgentEmail).toHaveBeenCalledWith(null);
   });
 
-  it("reject branch: resolves without throwing, clears loading, and never calls switchTicket/setSettings (no infinite rocket, no unhandled rejection)", async () => {
+  it("reject branch: resolves without throwing, clears loading, and never calls switchTicket/setSettings/setEnvironment (no infinite rocket, no unhandled rejection)", async () => {
     jest.spyOn(console, "error").mockImplementation(() => {});
 
     const plugin = {
@@ -132,6 +196,7 @@ describe("bootstrapPluginInit", () => {
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
+    const setEnvironment = jest.fn();
     const switchTicket = jest.fn();
 
     await expect(
@@ -142,6 +207,7 @@ describe("bootstrapPluginInit", () => {
         setLoading,
         setAgentEmail,
         setTenantId,
+        setEnvironment,
         switchTicket,
       })
     ).resolves.toBeUndefined();
@@ -149,6 +215,7 @@ describe("bootstrapPluginInit", () => {
     expect(setLoading).toHaveBeenCalledWith(false);
     expect(switchTicket).not.toHaveBeenCalled();
     expect(setSettings).not.toHaveBeenCalled();
+    expect(setEnvironment).not.toHaveBeenCalled();
     expect(setTenantId).toHaveBeenCalledTimes(1);
     expect(setTenantId).toHaveBeenCalledWith(null);
   });
@@ -161,6 +228,7 @@ describe("bootstrapPluginInit", () => {
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
+    const setEnvironment = jest.fn();
 
     const client = createTestQueryClient();
 
@@ -180,6 +248,7 @@ describe("bootstrapPluginInit", () => {
       setLoading,
       setAgentEmail,
       setTenantId,
+      setEnvironment,
       switchTicket,
     });
     await expect(pending).rejects.toBeInstanceOf(HttpError);

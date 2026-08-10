@@ -187,6 +187,7 @@ export const GrispiProvider: React.FC<{
       setLoading,
       setAgentEmail,
       setTenantId,
+      setEnvironment: grispiAPI.setEnvironment.bind(grispiAPI),
       switchTicket,
     });
 

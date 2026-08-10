@@ -1,3 +1,4 @@
+import { DEFAULT_ENVIRONMENT, GRISPI_BASE_URLS } from "../environment";
 import { HttpError, HttpHandler, NetworkError } from "../http-handler";
 
 describe("HttpHandler.send", () => {
@@ -118,7 +119,9 @@ describe("HttpHandler.sendMultipart", () => {
     await handler.sendMultipart("attachments/upload", formData, {});
 
     const [url, options] = fetchSpy.mock.calls[0];
-    expect(url).toBe("https://api.grispi.net/attachments/upload");
+    expect(url).toBe(
+      `${GRISPI_BASE_URLS[DEFAULT_ENVIRONMENT]}/attachments/upload`
+    );
     expect(options?.method).toBe("POST");
     expect(options?.cache).toBe("no-cache");
     expect(options?.body).toBe(formData);
