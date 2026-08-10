@@ -1,40 +1,19 @@
-# Grispi Right-Panel Plugin Starter Kit
+# Yan Görüşmeler — Grispi Side Conversations Plugin
 
-This repository is a **starter kit for building plugins that appear in the right-hand "App" panel on Grispi ticket pages**.  
-It ships with **React + Vite**, **Tailwind CSS**, and **shadcn/ui** out of the box, plus a few pre-styled components that match Grispi's look-and-feel.
+A plugin that runs in the right-hand panel (~372px iframe) of a Grispi ticket page. It lets an agent start, run and track separate email threads with third parties — a supplier, a courier, another team — in the context of a ticket, **without ever involving the ticket requester**.
 
----
-
-## 1 · Quick Start
-
-```bash
-# 1. Clone
-git clone https://github.com/grispiapp/right-panel-react-starter-app.git
-cd right-panel-react-starter-app
-
-# 2. Install deps (Node ≥ 18 recommended)
-yarn install     # or: npm ci
-
-# 3. Develop inside Grispi
-yarn start       # runs dev-server on http://localhost:3000
-```
+Each side conversation is created as its own Grispi **side ticket** and linked back to the parent ticket through the `tu.side_conversation_parent` custom field. The requester never sees these threads.
 
 ---
 
-## 2 · How the Plugin Integrates with Grispi
+## 1. Manifest
 
-| Artifact                      | Purpose                                                                                                                     | Best Practice                                                                                           |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **`manifest.json`**           | Registers the plugin (title, hosted URL, iframe height, etc.). Grispi reads this once when the plugin is added to a tenant. | Keep the defaults for `height`, `singleton`, and `lazy` unless you have a strong reason to change them. |
-| **`settings` object**         | Arbitrary key–value data Grispi passes to the plugin on load.                                                               | Perfect place for tenant-specific API keys, feature flags, or theme settings.                           |
-| **`GrispiClient.instance()`** | JS bridge that exposes context (`ticket`, `user`, etc.) and events (`activeTicketChanged`).                                 | Only initialise it when the plugin is running **inside** Grispi.                                        |
-
-### Example `manifest.json`
+The definition Grispi needs in order to register the plugin. This file does **not** live in the repo — you hand it to the Grispi team during installation (see [Installing on a tenant](#4-installing-on-a-tenant)).
 
 ```json
 {
-  "title": "Showcase",
-  "src": "https://my-plugin-url.com/",
+  "title": "Yan Görüşmeler",
+  "src": "https://<your-hosted-plugin-url>/",
   "uiDefinition": {
     "height": 900
   },
@@ -43,133 +22,115 @@ yarn start       # runs dev-server on http://localhost:3000
 }
 ```
 
-### Example `settings`
+> **Careful:** `public/manifest.json` in this repo is *not* that file. It is Create React App's PWA manifest (`short_name`, `icons`, `theme_color`, …) and has nothing to do with Grispi. Do not put the Grispi manifest above into it.
+
+---
+
+## 2. Settings
+
+Grispi passes a `settings` object to the plugin on load. This plugin reads **exactly one key** from it:
 
 ```json
 {
-  "bg-color": "orange",
-  "text-color": "white",
   "_grispi_env": "prod_tr"
 }
 ```
 
-### Required setting: `_grispi_env`
+### `_grispi_env` — which API host to talk to
 
-This setting determines which Grispi API host the plugin talks to at runtime. Resolution happens before the plugin fires its first request, so a wrong or missing value sends every subsequent request to the wrong backend.
+Resolved **before** the plugin issues its first request. A wrong or missing value means every subsequent request goes to the wrong backend.
 
-There are exactly three valid values, matching the `GRISPI_BASE_URLS` keys in `src/grispi/client/environment.ts` (the single source of truth for host mapping — if you ever need to duplicate a host elsewhere, copy it from there):
+| Value     | API host                    |
+| --------- | --------------------------- |
+| `preprod` | `https://api.grispi.net`    |
+| `prod`    | `https://api.grispi.com`    |
+| `prod_tr` | `https://api.grispi.com.tr` |
 
-| Value      | API host                    |
-| ---------- | ---------------------------- |
-| `preprod`  | `https://api.grispi.net`     |
-| `prod`     | `https://api.grispi.com`     |
-| `prod_tr`  | `https://api.grispi.com.tr`  |
+**If it is not set**, the plugin falls back in order: the bundle token's JWT `dev` claim (`dev: true` → `preprod`), and if that is absent too, the safe-side default `prod`. So an unconfigured install never lands on TR prod by accident.
 
-If `_grispi_env` is not set, the plugin falls back to inspecting the bundle token's `dev` claim (`dev: true` → `preprod`), and if that is also absent, to the safe-side default, `prod`. An unconfigured install therefore never falls into TR prod by accident.
+> **`_grispi_env` is MANDATORY for TR installs.**
+> The backend computes the JWT `dev` claim as `dev = !(PROD || PROD_TR)` — so it is `false` for regular prod and TR prod alike. The claim **cannot tell them apart**. If a TR tenant does not explicitly set `_grispi_env` to `prod_tr`, the plugin silently talks to the non-TR prod host. There is no code-side fix for this; it is solved only by setting the value correctly in that tenant's settings.
 
-> **Important — `_grispi_env` is MANDATORY for TR installs.** The backend computes the JWT's `dev` claim as `dev = !(PROD || PROD_TR)`, so it is `false` for both regular prod and TR prod alike — the claim cannot tell them apart. If a TR tenant does not explicitly set `_grispi_env` to `prod_tr`, the plugin silently talks to the non-TR prod host instead. There is no code-side fix for this; it can only be solved by setting the value correctly in this tenant's `settings`.
+> **Hyphen trap:** the match is strict. Grispi's own backend spells this environment with a hyphen internally (`prod-tr`), but the valid value here is the underscored `prod_tr`. An unrecognized value is **not** auto-corrected — it silently falls through the chain above. When that happens you will see a `grispi-environment`-tagged warning in the browser console.
 
-**Hyphen trap:** the match against `_grispi_env` is strict. Grispi's own backend internally spells this environment with a hyphen (`prod-tr`); that spelling is **not** a valid value here and silently falls back to the default instead of being auto-corrected. The correct value is the underscored `prod_tr`. If you enter an unrecognized value, look for a `grispi-environment`-tagged warning in the browser console — that's the diagnostic signal that the fallback kicked in.
-
----
-
-## 3 · Local Testing Outside of Grispi
-
-The plugin normally fails if Grispi isn't present.  
-For quick standalone testing, **comment out** the highlighted block in `src/contexts/grispi-context.tsx`:
-
-```tsx
-// ⛔ REMOVE OR COMMENT THIS WHILE TESTING LOCALLY
-// GrispiClient.instance()
-//   ._init()
-//   .then((data: GrispiBundle) => { /* ... */ })
-```
-
-Remember to restore the client before committing or deploying.
-
-Standalone dev mode bypasses the bundle entirely, so it can't read `_grispi_env` from `settings` — it uses its own override instead: `REACT_APP_DEV_GRISPI_ENV` (set in `.env.development.local`). It defaults to `preprod` and accepts the same three values as `_grispi_env` above.
+`GRISPI_BASE_URLS` in `src/grispi/client/environment.ts` is the single source of truth for host mapping; these hosts are not hardcoded anywhere else in the codebase.
 
 ---
 
-## 4 · Adding the Plugin to Your Tenant
+## 3. Custom field
 
-1. Build & host the plugin (Vercel, Netlify, AWS S3, your choice).
+| Field                         | Purpose                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| `tu.side_conversation_parent` | Marks a ticket as a side conversation and links it to its parent |
+
+This field is **hardcoded, never read from settings**, and is **provisioned automatically by Grispi** when the plugin is installed on a tenant. The code only ever reads and writes its value — it never manages the field's existence. You do not need to create it by hand.
+
+---
+
+## 4. Installing on a tenant
+
+1. Build the plugin and host it somewhere:
+
    ```bash
-   yarn build       # outputs static files to ./build
+   npm run build
    ```
-2. Fill out the request form **<https://help.grispi.com/requests/user-forms/2>** with:
+
+   Output lands in `build/`; any static host works (Vercel, Netlify, S3, …).
+
+2. Fill in the [Grispi request form](https://help.grispi.com/requests/user-forms/2) with:
    - **Tenant ID**
-   - **Desired Plugin ID** (unique identifier for your plugin within your tenant, similar to a domain name format like `com.yourcompany.pluginname`)
-   - The final **`manifest.json`**
-   - Your **`settings`** object — for TR tenants, this must include `_grispi_env: "prod_tr"` (see [Required setting: `_grispi_env`](#required-setting-_grispi_env) above)
-3. Grispi's team will review and email once the plugin is live.
+   - **Plugin ID** — unique within the tenant, domain-like: `com.yourcompany.sideconversations`
+   - **manifest.json** (see [Manifest](#1-manifest))
+   - **settings** — for TR tenants this **must** include `_grispi_env: "prod_tr"`
+
+3. The Grispi team reviews it and emails you once the plugin is live.
 
 ---
 
-## 5 · Project Structure
+## 5. Local development
 
-```
-📦 right-panel-react-starter-app
- ┣ 📂public
- ┃ ┣ 📜index.html
- ┃ ┗ 📜manifest.json
- ┣ 📂src
- ┃ ┣ 📂components      # Re-usable UI pieces
- ┃ ┃ ┣ 📂ui           # Grispi-themed base components
- ┃ ┃ ┗ 📜loading-wrapper.tsx
- ┃ ┣ 📂contexts        # React Contexts (incl. GrispiProvider)
- ┃ ┣ 📂grispi         # Grispi client and API
- ┃ ┣ 📂lib            # Utility functions
- ┃ ┣ 📂screens        # Screen components
- ┃ ┣ 📂store          # State management (MobX)
- ┃ ┣ 📂types          # TypeScript type definitions
- ┃ ┣ 📜app.tsx        # Root component
- ┃ ┣ 📜index.tsx      # Entry point
- ┃ ┗ 📜index.css      # Global styles
- ┣ 📜package.json
- ┣ 📜tailwind.config.js
- ┗ 📜README.md
+The plugin normally runs inside the Grispi panel iframe and needs the `window.GrispiClient` bridge. To open `http://localhost:3000` directly there is a **standalone dev mode** — you do not need to comment out any code.
+
+Standalone mode activates only when **both** conditions hold:
+
+1. `NODE_ENV === "development"` (never in a production build), **and**
+2. `REACT_APP_DEV_TOKEN` is non-empty
+
+Create `.env.development.local` in the project root (it is in `.gitignore` and is never committed):
+
+```bash
+REACT_APP_DEV_TOKEN=<a-valid-grispi-token>
+REACT_APP_DEV_TENANT_ID=gsocial-test
 ```
 
----
+| Variable                    | Required | Default              |
+| --------------------------- | -------- | -------------------- |
+| `REACT_APP_DEV_TOKEN`       | **Yes**  | —                    |
+| `REACT_APP_DEV_TENANT_ID`   | No       | `gsocial-test`       |
+| `REACT_APP_DEV_TICKET_KEY`  | No       | `TICKET-563`         |
+| `REACT_APP_DEV_AGENT_EMAIL` | No       | defined in code      |
+| `REACT_APP_DEV_GRISPI_ENV`  | No       | `preprod`            |
 
-## 6 · Scripts
+Notes:
 
-| Command      | Description                         |
-| ------------ | ----------------------------------- |
-| `yarn start` | Run dev-server with hot-reload      |
-| `yarn build` | Create production build in `build/` |
-| `yarn test`  | Run unit tests                      |
-| `yarn eject` | Eject from Create React App         |
-
----
-
-## 7 · Styling & UI Components
-
-- **Tailwind CSS** is pre-configured; adjust the design token section in `tailwind.config.js` to tweak Grispi branding.
-- **shadcn/ui** provides accessible primitives (Button, Input, etc.).  
-  You can generate additional components via:
-
-  ```bash
-  npx shadcn-ui@latest add <component>
-  ```
-
-- **Grispi-themed base components** (`Button`, `Input`, `Screen`, `Breadcrumb`) live in `src/components/ui/` and are safe to extend.
+- Standalone mode bypasses the bundle, so it cannot read `settings` (and therefore not `_grispi_env`). You set the environment with `REACT_APP_DEV_GRISPI_ENV` instead; it accepts the same three values and defaults to `preprod`.
+- You can switch the ticket from the URL: `http://localhost:3000/?ticket=TICKET-123`. Precedence: `?ticket=` → `REACT_APP_DEV_TICKET_KEY` → default.
 
 ---
 
-## 8 · License
+## 6. Commands
 
-This starter kit is released under the **MIT License**—see `LICENSE` for details.
+| Command                                  | Description                        |
+| ---------------------------------------- | ---------------------------------- |
+| `npm start`                              | Dev server on http://localhost:3000 |
+| `npm run build`                          | Production build into `build/`     |
+| `CI=true npm test -- --watchAll=false`   | Run the test suite once            |
+| `npx tsc --noEmit`                       | Type check                         |
+
+> A bare `npm test` starts a watch runner and holds the terminal. Use the `CI=true …` form above for a single run.
 
 ---
 
-## 9 · Acknowledgements / Sources
+## 7. Stack
 
-- [Tailwind CSS](https://tailwindcss.com/)
-- [shadcn/ui](https://ui.shadcn.com/)
-- [React](https://reactjs.org/) + [Create React App](https://create-react-app.dev/)
-- [Craco](https://github.com/gsoft-inc/craco) (for CRA compatibility)
-- [MobX](https://mobx.js.org/) (for state management)
-
-Happy coding! 🎉
+Create React App + [craco](https://github.com/dilanx/craco), React 18, TypeScript, Tailwind CSS, [shadcn/ui](https://ui.shadcn.com/), MobX (conversation state) and React Query (tenant-scoped caching).

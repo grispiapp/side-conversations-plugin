@@ -171,6 +171,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260810-j2w | WR-01: gate SDK ticket-update events on bootstrap completion + add grispi-context render test | 2026-08-10 | 37cf6fd | [260810-j2w-wr-01-gate-sdk-ticket-update-events-on-b](./quick/260810-j2w-wr-01-gate-sdk-ticket-update-events-on-b/) |
 | 260810-jiw | WR-02: behavioral tests proving setEnvironment reaches fetch() host (CORE-04 terminal link) | 2026-08-10 | 4c92b33 | [260810-jiw-wr-02-behavioral-tests-proving-setenviro](./quick/260810-jiw-wr-02-behavioral-tests-proving-setenviro/) |
+| 260810-fst | Rewrite README for this plugin (manifest + settings sections); drop starter-kit leftovers | 2026-08-10 | 8bf0a6b | — (gsd-fast, inline) |
 
 ### Roadmap Evolution
 
