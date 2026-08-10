@@ -48,6 +48,20 @@ export interface BootstrapPluginInitDeps {
    * plugin talking to the class-default host instead of the resolved one.
    */
   setEnvironment(environment: GrispiEnvironment): void;
+  /**
+   * WR-01 (04.1-REVIEW.md) / CORE-04 — opens the SDK ticket-update gate in
+   * `GrispiProvider`'s `currentTicketUpdated` handler. Called immediately
+   * after `setEnvironment`, in the same uninterrupted synchronous block as
+   * the auth-header writes below, so it becomes true only once every
+   * request the plugin can issue is bound to the resolved host AND the
+   * resolved tenant credentials. Deliberately NOT called on the reject
+   * path (see the `catch` block) — a failed handshake has no resolved
+   * environment, which is exactly why a caller-side `.finally()` flip
+   * would reopen the same race on the failure path. Required (not
+   * optional): an omitted call site would silently leave the gate shut
+   * forever, dropping every ticket switch.
+   */
+  onEnvironmentReady(): void;
   switchTicket(ticketKey: string): void;
 }
 
@@ -64,6 +78,7 @@ export async function bootstrapPluginInit(
     deps.setEnvironment(
       resolveGrispiEnvironment(bundle.settings, bundle.context.token)
     );
+    deps.onEnvironmentReady();
 
     deps.authentication.setTenantId(bundle.context.tenantId);
     deps.authentication.setToken(bundle.context.token);

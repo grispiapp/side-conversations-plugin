@@ -66,6 +66,7 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
     await bootstrapPluginInit({
@@ -76,6 +77,7 @@ describe("bootstrapPluginInit", () => {
       setAgentEmail,
       setTenantId,
       setEnvironment,
+      onEnvironmentReady,
       switchTicket,
     });
 
@@ -104,6 +106,16 @@ describe("bootstrapPluginInit", () => {
     expect(setEnvironment.mock.invocationCallOrder[0]).toBeLessThan(
       switchTicket.mock.invocationCallOrder[0]
     );
+
+    // WR-01 — onEnvironmentReady opens the SDK ticket-update gate; it must
+    // fire exactly once, after setEnvironment and before switchTicket.
+    expect(onEnvironmentReady).toHaveBeenCalledTimes(1);
+    expect(setEnvironment.mock.invocationCallOrder[0]).toBeLessThan(
+      onEnvironmentReady.mock.invocationCallOrder[0]
+    );
+    expect(onEnvironmentReady.mock.invocationCallOrder[0]).toBeLessThan(
+      switchTicket.mock.invocationCallOrder[0]
+    );
   });
 
   it("resolve branch: setEnvironment is called with the bundle's own _grispi_env setting (proves it is wired to resolveGrispiEnvironment, not a stub)", async () => {
@@ -115,6 +127,7 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
     await bootstrapPluginInit({
@@ -125,6 +138,7 @@ describe("bootstrapPluginInit", () => {
       setAgentEmail,
       setTenantId,
       setEnvironment,
+      onEnvironmentReady,
       switchTicket,
     });
 
@@ -140,6 +154,7 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
     await expect(
@@ -151,6 +166,7 @@ describe("bootstrapPluginInit", () => {
         setAgentEmail,
         setTenantId,
         setEnvironment,
+        onEnvironmentReady,
         switchTicket,
       })
     ).resolves.toBeUndefined();
@@ -169,6 +185,7 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
     await bootstrapPluginInit({
@@ -179,6 +196,7 @@ describe("bootstrapPluginInit", () => {
       setAgentEmail,
       setTenantId,
       setEnvironment,
+      onEnvironmentReady,
       switchTicket,
     });
 
@@ -197,6 +215,7 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
     await expect(
@@ -208,6 +227,7 @@ describe("bootstrapPluginInit", () => {
         setAgentEmail,
         setTenantId,
         setEnvironment,
+        onEnvironmentReady,
         switchTicket,
       })
     ).resolves.toBeUndefined();
@@ -216,6 +236,7 @@ describe("bootstrapPluginInit", () => {
     expect(switchTicket).not.toHaveBeenCalled();
     expect(setSettings).not.toHaveBeenCalled();
     expect(setEnvironment).not.toHaveBeenCalled();
+    expect(onEnvironmentReady).not.toHaveBeenCalled();
     expect(setTenantId).toHaveBeenCalledTimes(1);
     expect(setTenantId).toHaveBeenCalledWith(null);
   });
@@ -229,6 +250,7 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const onEnvironmentReady = jest.fn();
 
     const client = createTestQueryClient();
 
@@ -249,6 +271,7 @@ describe("bootstrapPluginInit", () => {
       setAgentEmail,
       setTenantId,
       setEnvironment,
+      onEnvironmentReady,
       switchTicket,
     });
     await expect(pending).rejects.toBeInstanceOf(HttpError);

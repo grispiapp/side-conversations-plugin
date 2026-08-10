@@ -84,6 +84,17 @@ export const GrispiProvider: React.FC<{
   // guard, D-15/Pitfall #6).
   const activeKeyRef = useRef<string | null>(null);
 
+  // WR-01 (04.1-REVIEW.md) / CORE-04 — true only once the shared `grispiAPI`
+  // client is bound to the resolved host AND tenant credentials. Before
+  // that, an SDK `currentTicketUpdated` event arriving mid-handshake would
+  // otherwise fetch through `switchTicket` against the class-default host —
+  // which this phase moved from preprod to prod — sending a preprod
+  // tenant's ticket key to PRODUCTION with empty auth headers (no
+  // `tenantId`, no `Authorization`). Flipped exclusively from
+  // `bootstrapPluginInit`'s success path (plugin-bootstrap.ts) via
+  // `onEnvironmentReady`; never flipped on the reject path.
+  const environmentReadyRef = useRef(false);
+
   /**
    * Shared active-ticket-change path — used by BOTH the SDK's
    * `currentTicketUpdated` event and the standalone dev switcher.
@@ -150,6 +161,10 @@ export const GrispiProvider: React.FC<{
       setTenantId(standaloneConfig.tenantId);
       grispiAPI.authentication.setToken(standaloneConfig.token);
       grispiAPI.setEnvironment(standaloneConfig.environment);
+      // Invariant parity only (WR-01) — standalone has no SDK event source,
+      // so nothing reads this ref here; behavior is unchanged
+      // (04.1-VERIFICATION.md verified truth #9).
+      environmentReadyRef.current = true;
 
       setSettings({});
       setAgentEmail(standaloneConfig.agentEmail);
@@ -189,10 +204,31 @@ export const GrispiProvider: React.FC<{
       setAgentEmail,
       setTenantId,
       setEnvironment: grispiAPI.setEnvironment.bind(grispiAPI),
+      onEnvironmentReady: () => {
+        environmentReadyRef.current = true;
+      },
       switchTicket,
     });
 
     plugin.currentTicketUpdated = async (ticket: Ticket) => {
+      // WR-01 (04.1-REVIEW.md) / CORE-04 — the handler stays registered
+      // synchronously (a handler that exists but no-ops is always safe for
+      // the SDK to invoke; registering it late would leave a window where
+      // the SDK could call an undefined member). Only the body is gated.
+      // Dropped (not queued): bootstrapPluginInit re-drives the bundle's
+      // own `ticketKey` through `switchTicket` the instant the gate opens,
+      // so a dropped early event is self-healing. Queueing would need a
+      // replay ordered AFTER that call and would entangle with
+      // `activeKeyRef`'s stale-switch guard for no real benefit over a
+      // window measured in one SDK handshake.
+      if (!environmentReadyRef.current) {
+        console.info(
+          "grispi-context",
+          "WR-01/CORE-04: currentTicketUpdated ignored — environment not yet resolved",
+          ticket.key
+        );
+        return;
+      }
       // D-14/D-15: no global-loading rocket on ticket switch — the shared
       // path clears the list to skeleton instantly via the provisional key.
       void switchTicket(ticket.key);
