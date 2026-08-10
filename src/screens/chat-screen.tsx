@@ -31,7 +31,7 @@ import {
 import { MessageVM, MutationEnvelope } from "@/store/active-conversation-store";
 
 const SOLVE_CONFIRMATION =
-  "Görüşme çözüldü olarak işaretlensin mi? Yeni bir e-posta yanıtı gelirse tekrar aktif olur.";
+  "Yazışma çözüldü olarak işaretlensin mi? Yeni bir e-posta yanıtı gelirse tekrar aktif olur.";
 
 function messagePresentation(
   messages: MessageVM[]
@@ -283,7 +283,7 @@ export const ChatScreen = observer(() => {
       <ScreenHeader
         title={
           <ScreenTitle className="text-sm">
-            {recipientLabel || "Görüşme"}
+            {recipientLabel || "Yazışma"}
           </ScreenTitle>
         }
         subtitle={`Konu: ${subject || "Konu yok"}`}
@@ -292,7 +292,7 @@ export const ChatScreen = observer(() => {
             setDraftDialogOpen(true);
           }
         }}
-        backLabel="Görüşme listesine dön"
+        backLabel="Yazışma listesine dön"
         trailing={
           <div className="relative">
             <Button
@@ -300,7 +300,7 @@ export const ChatScreen = observer(() => {
               type="button"
               size="header"
               variant="ghost"
-              aria-label="Görüşme seçenekleri"
+              aria-label="Yazışma seçenekleri"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               disabled={
@@ -318,7 +318,7 @@ export const ChatScreen = observer(() => {
               <div
                 ref={menuRef}
                 role="menu"
-                aria-label="Görüşme işlemleri"
+                aria-label="Yazışma işlemleri"
                 className="absolute right-0 top-full z-20 mt-1 min-w-56 rounded-md border border-border bg-card p-1 shadow-lg"
                 onBlur={(event) => {
                   const nextFocus = event.relatedTarget as Node | null;
@@ -412,7 +412,7 @@ export const ChatScreen = observer(() => {
               className="flex h-full items-center justify-center gap-2 p-6 text-sm text-muted-foreground"
             >
               <ReloadIcon className="size-4 animate-spin" />
-              <span>Görüşme yükleniyor</span>
+              <span>Yazışma yükleniyor</span>
             </div>
           )}
 
@@ -422,13 +422,13 @@ export const ChatScreen = observer(() => {
               className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
             >
               <p className="text-sm text-destructive">
-                Görüşme yüklenemedi. Lütfen tekrar deneyin.
+                Yazışma yüklenemedi. Lütfen tekrar deneyin.
               </p>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                aria-label="Görüşmeyi tekrar yükle"
+                aria-label="Yazışmayı tekrar yükle"
                 onClick={() => void detail.refetch()}
               >
                 Tekrar dene
@@ -447,7 +447,7 @@ export const ChatScreen = observer(() => {
             ) : (
               <div
                 role="feed"
-                aria-label="Görüşme mesajları"
+                aria-label="Yazışma mesajları"
                 className="divide-y divide-border/70 border-b border-border/70 bg-card"
               >
                 {messagePresentation(messages).map(
@@ -491,8 +491,8 @@ export const ChatScreen = observer(() => {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground">
                   {closed
-                    ? "Bu görüşme kapalı."
-                    : "Yanıt yazmak için görüşmeyi tekrar açın."}
+                    ? "Bu yazışma kapalı."
+                    : "Yanıt yazmak için yazışmayı tekrar açın."}
                 </p>
                 {!closed && (
                   <p className="mt-0.5 text-xs text-muted-foreground">

@@ -266,7 +266,7 @@ describe("ChatScreen Query-owned session wiring", () => {
     render(<ChatScreen />);
     const firstSelector = mockUseDetail.mock.calls[0][5];
 
-    click("Görüşme seçenekleri");
+    click("Yazışma seçenekleri");
 
     const latestCall = mockUseDetail.mock.calls.at(-1);
     expect(latestCall?.[5]).toBe(firstSelector);
@@ -275,7 +275,7 @@ describe("ChatScreen Query-owned session wiring", () => {
   it("renders Query loading/error and retries only the exact detail query", () => {
     mockDetail = makeDetail({ data: undefined, isPending: true });
     render(<ChatScreen />);
-    expect(container.textContent).toContain("Görüşme yükleniyor");
+    expect(container.textContent).toContain("Yazışma yükleniyor");
 
     const refetch = jest.fn();
     mockDetail = makeDetail({
@@ -286,8 +286,8 @@ describe("ChatScreen Query-owned session wiring", () => {
     });
     render(<></>);
     render(<ChatScreen />);
-    expect(container.textContent).toContain("Görüşme yüklenemedi");
-    click("Görüşmeyi tekrar yükle");
+    expect(container.textContent).toContain("Yazışma yüklenemedi");
+    click("Yazışmayı tekrar yükle");
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
@@ -439,11 +439,11 @@ describe("ChatScreen Query-owned session wiring", () => {
     render(<ChatScreen />);
 
     const trigger = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Görüşme seçenekleri"]'
+      '[aria-label="Yazışma seçenekleri"]'
     );
     expect(trigger?.getAttribute("aria-haspopup")).toBe("menu");
 
-    click("Görüşme seçenekleri");
+    click("Yazışma seçenekleri");
     const item =
       container.querySelector<HTMLButtonElement>('[role="menuitem"]');
     expect(item?.textContent).toBe("Çözüldü olarak işaretle");
@@ -462,7 +462,7 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(container.querySelector('[role="menu"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
 
-    click("Görüşme seçenekleri");
+    click("Yazışma seçenekleri");
     act(() => {
       document.body.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true })
@@ -471,7 +471,7 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(container.querySelector('[role="menu"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
 
-    click("Görüşme seçenekleri");
+    click("Yazışma seçenekleri");
     const tabItem =
       container.querySelector<HTMLButtonElement>('[role="menuitem"]');
     act(() => {
@@ -490,7 +490,7 @@ describe("ChatScreen Query-owned session wiring", () => {
     const solve = envelope("solve");
     mockStore.activeConversation.setSolved.mockReturnValue(solve);
     render(<ChatScreen />);
-    click("Görüşme seçenekleri");
+    click("Yazışma seçenekleri");
     click("Çözüldü olarak işaretle");
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.activeElement?.textContent).toBe("Vazgeç");
@@ -516,13 +516,13 @@ describe("ChatScreen Query-owned session wiring", () => {
     ).toBeNull();
     expect(container.textContent).not.toContain("Yanıt şu kişiye gidecek:");
     expect(container.textContent).toContain(
-      "Yanıt yazmak için görüşmeyi tekrar açın."
+      "Yanıt yazmak için yazışmayı tekrar açın."
     );
     click("Tekrar aç");
     expect(mockStatusMutation.mutate).toHaveBeenCalledWith(reopen);
 
     mockStatusMutation.mutate.mockClear();
-    click("Görüşme seçenekleri");
+    click("Yazışma seçenekleri");
     click("Tekrar aç");
     expect(mockStatusMutation.mutate).toHaveBeenCalledWith(reopen);
   });
@@ -542,13 +542,13 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(container.textContent).toContain("Kapalı");
     expect(
       container.querySelector<HTMLButtonElement>(
-        '[aria-label="Görüşme seçenekleri"]'
+        '[aria-label="Yazışma seçenekleri"]'
       )?.disabled
     ).toBe(true);
     expect(
       container.querySelector('[role="textbox"][aria-label="Yanıt"]')
     ).toBeNull();
-    expect(container.textContent).toContain("Bu görüşme kapalı.");
+    expect(container.textContent).toContain("Bu yazışma kapalı.");
     expect(
       Array.from(container.querySelectorAll("button")).find(
         (control) => control.textContent?.trim() === "Tekrar aç"
@@ -559,9 +559,9 @@ describe("ChatScreen Query-owned session wiring", () => {
   it("traps confirmation focus, makes the background inert, and restores focus", () => {
     render(<ChatScreen />);
     const trigger = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Görüşme seçenekleri"]'
+      '[aria-label="Yazışma seçenekleri"]'
     );
-    click("Görüşme seçenekleri");
+    click("Yazışma seçenekleri");
     click("Çözüldü olarak işaretle");
 
     const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
@@ -617,7 +617,7 @@ describe("ChatScreen Query-owned session wiring", () => {
       container.querySelector('[role="textbox"][aria-label="Yanıt"]')
     ).toBe(document.activeElement);
 
-    click("Görüşme listesine dön");
+    click("Yazışma listesine dön");
     expect(container.textContent).toContain("Taslak kaybolacak");
     click("Taslağı sil");
     expect(
