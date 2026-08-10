@@ -192,7 +192,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - `grispi-api` `GrispiUrlGenerator.java` + `Environment.java` — beş ortamın (local/dev/net/com/com.tr) otoriter eşlemesi
 - **Tuzak:** backend kendi içinde `prod-tr` (tire) kullanır; ayar anahtarı `prod_tr` (alt çizgi). Strict eşleşme olduğu için tire sessizce `prod`'a düşer.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 **Wave 1**
@@ -201,7 +201,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04.1-02-PLAN.md — Standalone dev ortam override'ı (`REACT_APP_DEV_GRISPI_ENV`, varsayılan preprod) ve `_grispi_env` kurulum dokümantasyonu + faz kapanış gate'leri (SC3, SC5)
+- [x] 04.1-02-PLAN.md — Standalone dev ortam override'ı (`REACT_APP_DEV_GRISPI_ENV`, varsayılan preprod) ve `_grispi_env` kurulum dokümantasyonu + faz kapanış gate'leri (SC3, SC5)
 
 ### Phase 5: Zenginleştirmeler ve Dayanıklılık
 
@@ -230,5 +230,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 04.1 → 5
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 6/6 | Complete    | 2026-08-01 |
 | 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
 | 4. Dosya Ekleri ve Inline Görseller | 8/8 | Executed (UAT bekliyor) | - |
-| 04.1. Ortam yönlendirmesi ve prod hazırlığı | 1/2 | In Progress|  |
+| 04.1. Ortam yönlendirmesi ve prod hazırlığı | 2/2 | Complete   | 2026-08-10 |
 | 5. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |

@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.1
 current_phase_name: ortam-y-nlendirmesi-ve-prod-haz-rl
-status: executing
-stopped_at: Completed 04.1-01-PLAN.md
-last_updated: "2026-08-10T10:09:25.570Z"
+status: verifying
+stopped_at: Completed 04.1-02-PLAN.md
+last_updated: "2026-08-10T10:15:59.337Z"
 last_activity: 2026-08-10
 last_activity_desc: Phase 04.1 execution started
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 31
-  completed_plans: 30
-  percent: 71
+  completed_plans: 31
+  percent: 86
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 Phase: 04.1 (ortam-y-nlendirmesi-ve-prod-haz-rl) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-10 — Phase 04.1 execution started
 
 Progress: [██████████] 100%
@@ -76,6 +76,7 @@ Progress: [██████████] 100%
 | Phase 04 P07 | 40min | 2 tasks | 9 files |
 | Phase 04 P08 | 48min | 4 tasks | 11 files |
 | Phase 04.1 P01 | 20min | 2 tasks | 9 files |
+| Phase 04.1 P02 | ~15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04.1, Plan 01]: parseJwt wraps its body in try/catch (deviation from reference impl) so malformed/non-JWT tokens degrade to null instead of throwing — required by existing test fixtures and real-world bad tokens
 - [Phase ?]: [Phase 04.1, Plan 01]: _grispi_env is never normalized (prod-tr does NOT auto-correct to prod_tr) — strict allowlist match only, with console.warn diagnostic
 - [Phase ?]: [Phase 04.1, Plan 01]: setEnvironment is a required (non-optional) field on BootstrapPluginInitDeps so a missing call site is a compile-time error, not a silent prod bug
+- [Phase ?]: [Phase 04.1, Plan 02]: DEFAULT_DEV_ENVIRONMENT is preprod (opposite of the real chain's safe-side prod default) — gsocial-test lives on preprod, so the standalone override must preserve existing local UAT flow — Plan 04.1-02 Task 1
+- [Phase ?]: [Phase 04.1, Plan 02]: REACT_APP_DEV_GRISPI_ENV resolved through isGrispiEnvironment allowlist, not the file's other fields' plain trim-or-default pattern — required so an unrecognized/hyphenated value can never leak into StandaloneDevConfig.environment (T-04.1-01) — Plan 04.1-02 Task 1
+- [Phase ?]: [Phase 04.1, Plan 02]: README documents the TR-mandatory _grispi_env rule and hyphen trap as explicit prose warnings, since JWT dev claim genuinely cannot distinguish prod from prod_tr — documentation is the only mitigation for T-04.1-06 — Plan 04.1-02 Task 2
 
 ### Pending Todos
 
@@ -157,6 +161,7 @@ None yet.
 - Faz 2 başında: requester set mekanizması (field değer formatı + kayıtsız alıcıda `POST /customers` ihtiyacı) canlı tenant'ta tek API denemesiyle doğrulanmalı
 - Faz 4: "alıcıyla önceki görüşmeler" v2 preview endpoint'ine (`GET /public/v2/tickets`) dayanır — değişebilir, izole/bayraklı kullanılmalı
 - Faz 4 kapanışı: P6b (alıcının posta istemcisinde inline görsel render'ı) ve P5 (plugin-mode bundle token) 04-08 UAT'sinde doğrulanamadı — kullanıcı tarafından teyit bekliyor, fazı bloklamıyor
+- Faz 04.1 kapanışı: M2 (canlı preprod ağ kontrolü — DevTools Network sekmesinde ilk XHR host'unun preprod olduğunun teyidi, hem plugin-mode hem standalone-mode için) yürütücü tarafından doğrulanamadı — kullanıcı teyidi bekliyor, fazı bloklamıyor
 
 ### Roadmap Evolution
 
@@ -174,7 +179,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-10T10:09:25.564Z
-Stopped at: Completed 04.1-01-PLAN.md
+Last session: 2026-08-10T10:15:59.331Z
+Stopped at: Completed 04.1-02-PLAN.md
 Resume file: 
-None
