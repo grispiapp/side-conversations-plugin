@@ -117,8 +117,8 @@ export const ComposeScreen = observer(() => {
   return (
     <Screen>
       <ScreenHeader
-        title={<ScreenTitle>Yeni Görüşme</ScreenTitle>}
-        backLabel="Yan görüşme listesine dön"
+        title={<ScreenTitle>Yeni Yazışma</ScreenTitle>}
+        backLabel="Yan yazışma listesine dön"
         onBack={() => {
           // D-02: `requestBack` returns `true` only when the form is dirty —
           // in that case it deliberately does NOT change screens, so the
@@ -131,7 +131,7 @@ export const ComposeScreen = observer(() => {
       <ScreenContent className="flex flex-col bg-card">
         <div
           className="flex min-h-0 flex-1 flex-col"
-          aria-label="Yeni görüşme e-postası"
+          aria-label="Yeni yazışma e-postası"
         >
           <RecipientField />
           <SubjectField />

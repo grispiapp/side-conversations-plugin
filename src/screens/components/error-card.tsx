@@ -20,13 +20,13 @@ export const ErrorCard: FC<{
 }> = ({ error, onRetry }) => {
   const message =
     error instanceof NetworkError
-      ? "Bağlantı sorunu nedeniyle yan görüşmeler yüklenemedi."
-      : "Yan görüşmeler şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.";
+      ? "Bağlantı sorunu nedeniyle yan yazışmalar yüklenemedi."
+      : "Yan yazışmalar şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.";
 
   return (
     <section
       role="alert"
-      aria-label="Yan görüşmeler yüklenemedi"
+      aria-label="Yan yazışmalar yüklenemedi"
       className="flex min-w-0 flex-col items-center gap-3 rounded-md border border-destructive/20 bg-card px-5 py-6 text-center"
     >
       <ExclamationTriangleIcon className="size-6 text-destructive" />

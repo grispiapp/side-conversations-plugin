@@ -49,7 +49,7 @@ const AppContent = observer(() => {
       {parentChangeOpen && (
         <ConfirmDialog
           title="Taslağın kaybolacak"
-          body="Yeni görüşme taslağın var; talebi değiştirirsen kaybolur."
+          body="Yeni yazışma taslağın var; talebi değiştirirsen kaybolur."
           cancelLabel="Kalsın"
           confirmLabel="Vazgeç ve devam et"
           onCancel={() => setParentChangeOpen(false)}

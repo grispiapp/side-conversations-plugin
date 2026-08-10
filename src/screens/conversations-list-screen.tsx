@@ -46,18 +46,18 @@ export const ConversationsListScreen = observer(() => {
   return (
     <Screen>
       <ScreenHeader
-        title={<ScreenTitle>Yan Görüşmeler</ScreenTitle>}
+        title={<ScreenTitle>Yan Yazışmalar</ScreenTitle>}
         trailing={
           <Button
             ref={createActionRef}
             size="sm"
             variant="ghost"
-            aria-label="Yeni görüşme başlat"
+            aria-label="Yeni yazışma başlat"
             className="gap-1 px-2 text-primary"
             onClick={() => panelNavigation.openCompose()}
           >
             <PlusIcon className="size-4" aria-hidden="true" />
-            Yeni görüşme
+            Yeni yazışma
           </Button>
         }
       />
@@ -65,10 +65,10 @@ export const ConversationsListScreen = observer(() => {
         {list.isPending && (
           <div
             role="status"
-            aria-label="Yan görüşmeler yükleniyor"
+            aria-label="Yan yazışmalar yükleniyor"
             className="border-y border-border bg-card"
           >
-            <span className="sr-only">Yan görüşmeler yükleniyor</span>
+            <span className="sr-only">Yan yazışmalar yükleniyor</span>
             <div className="divide-y divide-border">
               <SkeletonRow />
               <SkeletonRow />
@@ -81,7 +81,7 @@ export const ConversationsListScreen = observer(() => {
           <div className="flex min-h-full flex-col">
             <div
               role="list"
-              aria-label="Yan görüşmeler"
+              aria-label="Yan yazışmalar"
               className="border-y border-border bg-card"
             >
               {list.rows.map((row) => (
