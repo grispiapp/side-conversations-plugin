@@ -448,7 +448,7 @@ export const ChatScreen = observer(() => {
               <div
                 role="feed"
                 aria-label="Görüşme mesajları"
-                className="space-y-2 p-3"
+                className="divide-y divide-border/70 border-b border-border/70 bg-card"
               >
                 {messagePresentation(messages).map(
                   ({ message, showFullSender }) => (

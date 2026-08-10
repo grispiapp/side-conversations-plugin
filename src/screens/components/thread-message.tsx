@@ -90,9 +90,9 @@ function ThreadAttachments({
   );
 
   return (
-    <div className="mt-2">
+    <div className="mt-1.5">
       {images.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {images.map((attachment) => (
             <a
               key={attachment.id}
@@ -100,7 +100,7 @@ function ThreadAttachments({
               target="_blank"
               rel="noopener noreferrer"
               title={attachment.filename}
-              className="block size-[72px] shrink-0 overflow-hidden rounded-md border border-border"
+              className="block size-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted/30 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <img
                 src={attachment.objectUrl}
@@ -114,8 +114,8 @@ function ThreadAttachments({
       {files.length > 0 && (
         <div
           className={cn(
-            "flex flex-wrap items-center gap-1.5",
-            images.length > 0 && "mt-1.5"
+            "flex flex-wrap items-center gap-1",
+            images.length > 0 && "mt-1"
           )}
         >
           {files.map((attachment) => (
@@ -132,8 +132,10 @@ function ThreadAttachments({
 }
 
 /**
- * A full-width chronological email block. Every HTML sink receives only the
- * output of the shared sanitizer/quote splitter.
+ * One row in the continuous chronological email feed. Identity and message
+ * type are carried by compact metadata and subtle color, rather than a card
+ * shell around every item. Every HTML sink receives only the output of the
+ * shared sanitizer/quote splitter.
  */
 export const ThreadMessage: FC<ThreadMessageProps> = ({
   message,
@@ -165,28 +167,40 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
     <article
       data-testid={`thread-message-${message.id}`}
       className={cn(
-        "w-full min-w-0 overflow-hidden rounded-lg border border-l-[3px] border-border/90 bg-card px-3 py-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        "w-full min-w-0 overflow-hidden px-4 py-2.5 text-sm",
         message.direction === "own" &&
           !message.internal &&
-          "border-l-primary/70",
-        message.direction === "incoming" &&
-          !message.internal &&
-          "border-l-slate-300",
-        message.internal && "border-l-amber-500 bg-amber-50/60"
+          "bg-primary/[0.025]",
+        message.internal &&
+          "border-l-2 border-l-amber-500 bg-amber-50/70 pl-[14px]"
       )}
     >
-      <header className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
-        <span
-          className={cn(
-            "min-w-0 break-words font-medium text-foreground",
-            message.direction === "own" && !message.internal && "text-primary",
-            message.internal && "text-amber-800"
-          )}
-        >
-          {senderLabel(message, showFullSender)}
+      <header className="mb-1 flex items-center justify-between gap-3 text-xs">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-1.5 shrink-0 rounded-full bg-slate-400",
+              message.direction === "own" &&
+                !message.internal &&
+                "bg-primary/80",
+              message.internal && "bg-amber-500"
+            )}
+          />
+          <span
+            className={cn(
+              "min-w-0 break-words font-semibold text-foreground",
+              message.direction === "own" &&
+                !message.internal &&
+                "text-primary",
+              message.internal && "text-amber-800"
+            )}
+          >
+            {senderLabel(message, showFullSender)}
+          </span>
         </span>
         <time
-          className="shrink-0 text-muted-foreground"
+          className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
           dateTime={new Date(message.createdAt).toISOString()}
         >
           {formatTime(message.createdAt)}
@@ -194,12 +208,12 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
       </header>
 
       <div
-        className="rich-text-content break-words leading-5 text-foreground [overflow-wrap:anywhere]"
+        className="rich-text-content break-words pl-3 leading-5 text-foreground [overflow-wrap:anywhere]"
         dangerouslySetInnerHTML={{ __html: bodyHtml }}
       />
 
       {quotedHtml !== undefined && (
-        <div className="mt-3">
+        <div className="mt-2 pl-3">
           <button
             type="button"
             aria-label="Önceki e-postayı göster"
@@ -219,7 +233,9 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
       )}
 
       {message.attachments && message.attachments.length > 0 && (
-        <ThreadAttachments attachments={message.attachments} />
+        <div className="pl-3">
+          <ThreadAttachments attachments={message.attachments} />
+        </div>
       )}
 
       {message.status === "pending" && (
@@ -227,7 +243,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
           role="status"
           aria-live="polite"
           aria-label="Gönderiliyor"
-          className="mt-2 flex min-h-8 items-center gap-1 text-xs text-muted-foreground"
+          className="mt-1.5 flex min-h-8 items-center gap-1 pl-3 text-xs text-muted-foreground"
         >
           <ReloadIcon className="size-3 animate-spin" />
           <span>Gönderiliyor</span>
@@ -239,7 +255,7 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
           <button
             type="button"
             aria-label="Gönderilemedi. Tekrar dene"
-            className="mt-2 flex min-h-9 items-center gap-1 rounded-md text-xs text-destructive hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="mt-1.5 flex min-h-9 items-center gap-1 rounded-md pl-3 text-xs text-destructive hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             onClick={() => onRetry(message.id)}
           >
             <ExclamationTriangleIcon className="size-3 shrink-0" />

@@ -66,10 +66,21 @@ function KindIcon({ kind }: { kind: AttachmentKind }): JSX.Element {
  * SVG never gets the `<img>` thumbnail branch (D-10) — only `kind === "image"`
  * does, and only when a local preview URL exists (composer-uploaded files).
  */
-function LeadingSlot({ chip }: { chip: AttachmentChipVM }): JSX.Element {
+function LeadingSlot({
+  chip,
+  compact = false,
+}: {
+  chip: AttachmentChipVM;
+  compact?: boolean;
+}): JSX.Element {
+  const slotClassName = cn(
+    "flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-card",
+    compact ? "size-5" : "size-6"
+  );
+
   if (chip.status === "uploading") {
     return (
-      <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-card">
+      <span className={slotClassName}>
         <ReloadIcon className="size-3 animate-spin text-muted-foreground" />
       </span>
     );
@@ -77,7 +88,7 @@ function LeadingSlot({ chip }: { chip: AttachmentChipVM }): JSX.Element {
 
   if (chip.status === "failed") {
     return (
-      <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-destructive/10">
+      <span className={cn(slotClassName, "bg-destructive/10")}>
         <ExclamationTriangleIcon className="size-3 text-destructive" />
       </span>
     );
@@ -85,13 +96,9 @@ function LeadingSlot({ chip }: { chip: AttachmentChipVM }): JSX.Element {
 
   const kind = attachmentKind(chip.mimeType);
   return (
-    <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-card">
+    <span className={slotClassName}>
       {kind === "image" && chip.previewUrl ? (
-        <img
-          src={chip.previewUrl}
-          alt=""
-          className="size-full object-cover"
-        />
+        <img src={chip.previewUrl} alt="" className="size-full object-cover" />
       ) : (
         <KindIcon kind={kind} />
       )}
@@ -120,7 +127,9 @@ export const AttachmentChip: FC<AttachmentChipProps> = ({
 
   const containerClassName = cn(
     badgeVariants({ variant: "file" }),
-    "h-8 max-w-[180px] items-center gap-1.5 px-2 py-0 font-normal"
+    isReadOnly
+      ? "h-7 max-w-[210px] items-center gap-1.5 px-1.5 py-0 font-normal"
+      : "h-8 max-w-[180px] items-center gap-1.5 px-2 py-0 font-normal"
   );
 
   let body: ReactNode;
@@ -173,7 +182,7 @@ export const AttachmentChip: FC<AttachmentChipProps> = ({
         className={containerClassName}
         aria-label={`${chip.filename}, ${formatFileSize(chip.size)}, yeni sekmede açılır`}
       >
-        <LeadingSlot chip={chip} />
+        <LeadingSlot chip={chip} compact />
         {body}
         {trailing}
       </a>
