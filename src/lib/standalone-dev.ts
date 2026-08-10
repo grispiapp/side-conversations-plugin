@@ -15,11 +15,14 @@
  * In every other case the SDK path runs exactly as before.
  */
 
+import { GrispiEnvironment, isGrispiEnvironment } from "@/grispi/client/environment";
+
 export interface StandaloneDevConfig {
   token: string;
   tenantId: string;
   initialTicketKey: string;
   agentEmail: string;
+  environment: GrispiEnvironment;
 }
 
 export const DEFAULT_DEV_TENANT_ID = "gsocial-test";
@@ -33,6 +36,16 @@ export const DEFAULT_DEV_TICKET_KEY = "TICKET-563";
  * "Davut Kember", id 15, ROLE_ADMIN).
  */
 export const DEFAULT_DEV_AGENT_EMAIL = "davutkmbr@gmail.com";
+/**
+ * Standalone dev mode bypasses the bundle/SDK entirely, so it never enters
+ * the `_grispi_env` → JWT `dev` claim → prod resolution chain
+ * (`resolveGrispiEnvironment`, Plan 04.1-01). It needs its own override.
+ * Unlike `DEFAULT_ENVIRONMENT` (prod, the safe-side default for the real
+ * chain), this default is `preprod` — `DEFAULT_DEV_TENANT_ID`
+ * (`gsocial-test`) lives on preprod, and this is the tenant every existing
+ * local UAT flow already targets.
+ */
+export const DEFAULT_DEV_ENVIRONMENT: GrispiEnvironment = "preprod";
 
 /**
  * Pure resolver — takes `env`/`search` as inputs so the activation rule and
@@ -59,7 +72,16 @@ export function resolveStandaloneDevConfig(
   const agentEmail =
     env.REACT_APP_DEV_AGENT_EMAIL?.trim() || DEFAULT_DEV_AGENT_EMAIL;
 
-  return { token, tenantId, initialTicketKey, agentEmail };
+  // Not a plain `?.trim() || DEFAULT` fallback: an unrecognized value (the
+  // backend's hyphenated internal spelling, "staging", etc.) must never pass
+  // through untouched — it has to clear the isGrispiEnvironment allowlist
+  // first (T-04.1-01).
+  const rawEnvironment = env.REACT_APP_DEV_GRISPI_ENV?.trim();
+  const environment = isGrispiEnvironment(rawEnvironment)
+    ? rawEnvironment
+    : DEFAULT_DEV_ENVIRONMENT;
+
+  return { token, tenantId, initialTicketKey, agentEmail, environment };
 }
 
 /** Convenience wrapper reading the real environment. */

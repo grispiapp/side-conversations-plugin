@@ -149,6 +149,7 @@ export const GrispiProvider: React.FC<{
       grispiAPI.authentication.setTenantId(standaloneConfig.tenantId);
       setTenantId(standaloneConfig.tenantId);
       grispiAPI.authentication.setToken(standaloneConfig.token);
+      grispiAPI.setEnvironment(standaloneConfig.environment);
 
       setSettings({});
       setAgentEmail(standaloneConfig.agentEmail);
