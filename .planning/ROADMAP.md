@@ -192,12 +192,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 - `grispi-api` `GrispiUrlGenerator.java` + `Environment.java` — beş ortamın (local/dev/net/com/com.tr) otoriter eşlemesi
 - **Tuzak:** backend kendi içinde `prod-tr` (tire) kullanır; ayar anahtarı `prod_tr` (alt çizgi). Strict eşleşme olduğu için tire sessizce `prod`'a düşer.
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04.1-01-PLAN.md — Ortam çözümleyicisi (`environment.ts` + `grispi-environment.ts`) ve plugin modunun uçtan uca bağlanması: `switchTicket`'tan önce base URL, varsayılan güvenli tarafta (SC1, SC2, SC4)
+- [x] 04.1-01-PLAN.md — Ortam çözümleyicisi (`environment.ts` + `grispi-environment.ts`) ve plugin modunun uçtan uca bağlanması: `switchTicket`'tan önce base URL, varsayılan güvenli tarafta (SC1, SC2, SC4)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -230,5 +230,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 04.1 → 5
 | 3. Görüşme Detayı ve Yaşam Döngüsü | 6/6 | Complete    | 2026-08-01 |
 | 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
 | 4. Dosya Ekleri ve Inline Görseller | 8/8 | Executed (UAT bekliyor) | - |
-| 04.1. Ortam yönlendirmesi ve prod hazırlığı | 0/2 | Planned | - |
+| 04.1. Ortam yönlendirmesi ve prod hazırlığı | 1/2 | In Progress|  |
 | 5. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |

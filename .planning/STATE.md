@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 4
-current_phase_name: dosya-ekleri-ve-inline-g-rseller
+current_phase: 04.1
+current_phase_name: ortam-y-nlendirmesi-ve-prod-haz-rl
 status: executing
-stopped_at: Phase 4 executed (8/8); verification human_needed — 04-UAT.md pending
-last_updated: "2026-08-10T09:49:41.207Z"
-last_activity: 2026-07-31
-last_activity_desc: Phase 4 execution started
+stopped_at: Completed 04.1-01-PLAN.md
+last_updated: "2026-08-10T10:09:25.570Z"
+last_activity: 2026-08-10
+last_activity_desc: Phase 04.1 execution started
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 29
-  completed_plans: 29
+  total_plans: 31
+  completed_plans: 30
   percent: 71
 ---
 
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayrılmadan yürütebilmeli; talep sahibi bu yazışmaları asla görmemeli.
-**Current focus:** Phase 4 — dosya-ekleri-ve-inline-g-rseller
+**Current focus:** Phase 04.1 — ortam-y-nlendirmesi-ve-prod-haz-rl
 
 ## Current Position
 
-Phase: 4 (dosya-ekleri-ve-inline-g-rseller) — EXECUTING
-Plan: 8 of 8
+Phase: 04.1 (ortam-y-nlendirmesi-ve-prod-haz-rl) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-07-31 — Phase 4 execution started
+Last activity: 2026-08-10 — Phase 04.1 execution started
 
 Progress: [██████████] 100%
 
@@ -75,6 +75,7 @@ Progress: [██████████] 100%
 | Phase 04 P06 | 40min | 3 tasks | 14 files |
 | Phase 04 P07 | 40min | 2 tasks | 9 files |
 | Phase 04 P08 | 48min | 4 tasks | 11 files |
+| Phase 04.1 P01 | 20min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -137,6 +138,10 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04, Plan 07]: normalizeComment computes message direction before sanitizing; own-direction messages use sanitizeAuthoredHtml, incoming stays on sanitizeHtml, and reconcileCanonical uses the same policy on both sides (T-04-29)
 - [Phase 04]: D-13 revised to positional drop routing: an all-image drop landing inside the editor text area embeds inline; everything else is an attachment
 - [Phase 04]: D-16 GC matches on the upload's objectkey query token after HTML-entity decoding, not whole-URL substring, so it survives both client serialization and server N3 re-encoding
+- [Phase ?]: [Phase 04.1, Plan 01]: HttpHandler default baseUrl intentionally moved from preprod (.net) to prod (.com) — safe-side default per CORE-04, breaking/updating the one regression test that pinned it
+- [Phase ?]: [Phase 04.1, Plan 01]: parseJwt wraps its body in try/catch (deviation from reference impl) so malformed/non-JWT tokens degrade to null instead of throwing — required by existing test fixtures and real-world bad tokens
+- [Phase ?]: [Phase 04.1, Plan 01]: _grispi_env is never normalized (prod-tr does NOT auto-correct to prod_tr) — strict allowlist match only, with console.warn diagnostic
+- [Phase ?]: [Phase 04.1, Plan 01]: setEnvironment is a required (non-optional) field on BootstrapPluginInitDeps so a missing call site is a compile-time error, not a silent prod bug
 
 ### Pending Todos
 
@@ -169,7 +174,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-01T05:32:38.382Z
-Stopped at: Phase 4 executed (8/8); verification human_needed — 04-UAT.md pending
+Last session: 2026-08-10T10:09:25.564Z
+Stopped at: Completed 04.1-01-PLAN.md
 Resume file: 
-.planning/phases/04-dosya-ekleri-ve-inline-g-rseller/04-UAT.md
+None

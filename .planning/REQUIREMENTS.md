@@ -12,7 +12,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CORE-01**: İlişki field'ının key'i sabittir (`tu.side_conversation_parent`) ve field, plugin tenant'a kurulurken otomatik oluşturulur; kod settings'e bağımlı değildir *(rev. 2026-07-22 Faz 1 tartışması — önceki "settings'ten okunur" yaklaşımı kaldırıldı)*
 - [x] **CORE-02**: API katmanı yan görüşme operasyonlarını kapsar: advanced-search ile listeleme, ticket oluşturma, yorum/status PATCH'i, müşteri arama, yorum özeti
 - [x] **CORE-03**: API hataları kullanıcıya Türkçe, anlaşılır mesajlarla gösterilir ve yeniden deneme imkanı sunulur
-- [ ] **CORE-04**: Plugin, yüklendiği Grispi ortamının doğru API'siyle konuşur — base URL çalışma zamanında `bundle.settings._grispi_env` (`preprod`/`prod`/`prod_tr`), aksi hâlde token `dev` claim'i üzerinden çözümlenir; varsayılan güvenli tarafa (prod) düşer *(eklendi 2026-08-01 — sabit `.net` prod ve TR'de yanlış backend'e gidiyordu)*
+- [x] **CORE-04**: Plugin, yüklendiği Grispi ortamının doğru API'siyle konuşur — base URL çalışma zamanında `bundle.settings._grispi_env` (`preprod`/`prod`/`prod_tr`), aksi hâlde token `dev` claim'i üzerinden çözümlenir; varsayılan güvenli tarafa (prod) düşer *(eklendi 2026-08-01 — sabit `.net` prod ve TR'de yanlış backend'e gidiyordu)*
 
 ### Görüşme Listesi (LIST)
 
