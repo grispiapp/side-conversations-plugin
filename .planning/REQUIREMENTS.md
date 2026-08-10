@@ -80,6 +80,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-01 | Phase 1 | Complete |
 | CORE-02 | Phase 1 | Complete |
 | CORE-03 | Phase 1 | Complete |
+| CORE-04 | Phase 04.1 | Not started |
 | LIST-01 | Phase 1 | Complete |
 | LIST-02 | Phase 1 | Complete |
 | LIST-03 | Phase 1 | Complete |
