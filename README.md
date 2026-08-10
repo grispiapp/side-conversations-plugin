@@ -48,9 +48,28 @@ yarn start       # runs dev-server on http://localhost:3000
 ```json
 {
   "bg-color": "orange",
-  "text-color": "white"
+  "text-color": "white",
+  "_grispi_env": "prod_tr"
 }
 ```
+
+### Required setting: `_grispi_env`
+
+This setting determines which Grispi API host the plugin talks to at runtime. Resolution happens before the plugin fires its first request, so a wrong or missing value sends every subsequent request to the wrong backend.
+
+There are exactly three valid values, matching the `GRISPI_BASE_URLS` keys in `src/grispi/client/environment.ts` (the single source of truth for host mapping — if you ever need to duplicate a host elsewhere, copy it from there):
+
+| Value      | API host                    |
+| ---------- | ---------------------------- |
+| `preprod`  | `https://api.grispi.net`     |
+| `prod`     | `https://api.grispi.com`     |
+| `prod_tr`  | `https://api.grispi.com.tr`  |
+
+If `_grispi_env` is not set, the plugin falls back to inspecting the bundle token's `dev` claim (`dev: true` → `preprod`), and if that is also absent, to the safe-side default, `prod`. An unconfigured install therefore never falls into TR prod by accident.
+
+> **Important — `_grispi_env` is MANDATORY for TR installs.** The backend computes the JWT's `dev` claim as `dev = !(PROD || PROD_TR)`, so it is `false` for both regular prod and TR prod alike — the claim cannot tell them apart. If a TR tenant does not explicitly set `_grispi_env` to `prod_tr`, the plugin silently talks to the non-TR prod host instead. There is no code-side fix for this; it can only be solved by setting the value correctly in this tenant's `settings`.
+
+**Hyphen trap:** the match against `_grispi_env` is strict. Grispi's own backend internally spells this environment with a hyphen (`prod-tr`); that spelling is **not** a valid value here and silently falls back to the default instead of being auto-corrected. The correct value is the underscored `prod_tr`. If you enter an unrecognized value, look for a `grispi-environment`-tagged warning in the browser console — that's the diagnostic signal that the fallback kicked in.
 
 ---
 
@@ -68,6 +87,8 @@ For quick standalone testing, **comment out** the highlighted block in `src/cont
 
 Remember to restore the client before committing or deploying.
 
+Standalone dev mode bypasses the bundle entirely, so it can't read `_grispi_env` from `settings` — it uses its own override instead: `REACT_APP_DEV_GRISPI_ENV` (set in `.env.development.local`). It defaults to `preprod` and accepts the same three values as `_grispi_env` above.
+
 ---
 
 ## 4 · Adding the Plugin to Your Tenant
@@ -80,7 +101,7 @@ Remember to restore the client before committing or deploying.
    - **Tenant ID**
    - **Desired Plugin ID** (unique identifier for your plugin within your tenant, similar to a domain name format like `com.yourcompany.pluginname`)
    - The final **`manifest.json`**
-   - Your **`settings`** object
+   - Your **`settings`** object — for TR tenants, this must include `_grispi_env: "prod_tr"` (see [Required setting: `_grispi_env`](#required-setting-_grispi_env) above)
 3. Grispi's team will review and email once the plugin is live.
 
 ---
