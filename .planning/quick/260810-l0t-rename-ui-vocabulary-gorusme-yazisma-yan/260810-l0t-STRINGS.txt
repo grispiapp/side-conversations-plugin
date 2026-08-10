@@ -1,0 +1,63 @@
+src/app.tsx:52:          body="Yeni görüşme taslağın var; talebi değiştirirsen kaybolur."
+src/screens/compose-screen.tsx:120:        title={<ScreenTitle>Yeni Görüşme</ScreenTitle>}
+src/screens/compose-screen.tsx:121:        backLabel="Yan görüşme listesine dön"
+src/screens/compose-screen.tsx:134:          aria-label="Yeni görüşme e-postası"
+src/screens/chat-screen.tsx:34:  "Görüşme çözüldü olarak işaretlensin mi? Yeni bir e-posta yanıtı gelirse tekrar aktif olur.";
+src/screens/chat-screen.tsx:286:            {recipientLabel || "Görüşme"}
+src/screens/chat-screen.tsx:295:        backLabel="Görüşme listesine dön"
+src/screens/chat-screen.tsx:303:              aria-label="Görüşme seçenekleri"
+src/screens/chat-screen.tsx:321:                aria-label="Görüşme işlemleri"
+src/screens/chat-screen.tsx:415:              <span>Görüşme yükleniyor</span>
+src/screens/chat-screen.tsx:425:                Görüşme yüklenemedi. Lütfen tekrar deneyin.
+src/screens/chat-screen.tsx:431:                aria-label="Görüşmeyi tekrar yükle"
+src/screens/chat-screen.tsx:450:                aria-label="Görüşme mesajları"
+src/screens/chat-screen.tsx:494:                    ? "Bu görüşme kapalı."
+src/screens/chat-screen.tsx:495:                    : "Yanıt yazmak için görüşmeyi tekrar açın."}
+src/screens/components/error-card.tsx:23:      ? "Bağlantı sorunu nedeniyle yan görüşmeler yüklenemedi."
+src/screens/components/error-card.tsx:24:      : "Yan görüşmeler şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.";
+src/screens/components/error-card.tsx:29:      aria-label="Yan görüşmeler yüklenemedi"
+src/screens/conversations-list-screen.tsx:49:        title={<ScreenTitle>Yan Görüşmeler</ScreenTitle>}
+src/screens/conversations-list-screen.tsx:55:            aria-label="Yeni görüşme başlat"
+src/screens/conversations-list-screen.tsx:60:            Yeni görüşme
+src/screens/conversations-list-screen.tsx:68:            aria-label="Yan görüşmeler yükleniyor"
+src/screens/conversations-list-screen.tsx:71:            <span className="sr-only">Yan görüşmeler yükleniyor</span>
+src/screens/conversations-list-screen.tsx:84:              aria-label="Yan görüşmeler"
+src/screens/components/empty-state.tsx:20:      aria-label="Boş yan görüşme listesi"
+src/screens/components/empty-state.tsx:23:      <h2 className="text-lg font-semibold">Henüz yan görüşme yok</h2>
+src/screens/components/empty-state.tsx:33:        aria-label="Yeni görüşme başlat"
+src/screens/components/empty-state.tsx:37:        Yeni görüşme başlat
+src/screens/components/message-field.tsx:34:          sectionLabel="Yeni görüşme mesajı"
+src/screens/__tests__/conversations-list-screen.test.tsx:144:    '[aria-label="Yeni görüşme başlat"]'
+src/screens/__tests__/conversations-list-screen.test.tsx:146:  expect(create?.textContent).toContain("Yeni görüşme");
+src/screens/__tests__/conversations-list-screen.test.tsx:214:    container.querySelector('[aria-label="Yeni görüşme başlat"]')
+src/screens/__tests__/conversations-list-screen.test.tsx:227:    container.querySelector('[aria-label="Yeni görüşme başlat"]')
+src/screens/__tests__/conversations-list-screen.test.tsx:237:  expect(container.textContent).not.toContain("Henüz yan görüşme yok");
+src/screens/__tests__/conversations-list-screen.test.tsx:242:  expect(container.textContent).toContain("Henüz yan görüşme yok");
+src/screens/__tests__/inbox-surfaces.test.tsx:116:            title={<ScreenTitle>Yeni Görüşme</ScreenTitle>}
+src/screens/__tests__/inbox-surfaces.test.tsx:119:            backLabel="Görüşme listesine dön"
+src/screens/__tests__/inbox-surfaces.test.tsx:120:            trailing={<Button aria-label="Görüşme seçenekleri">Menü</Button>}
+src/screens/__tests__/inbox-surfaces.test.tsx:129:    expect(header?.textContent).toContain("Yeni Görüşme");
+src/screens/__tests__/inbox-surfaces.test.tsx:132:      container.querySelector('[aria-label="Görüşme listesine dön"]')
+src/screens/__tests__/inbox-surfaces.test.tsx:135:      container.querySelector('[aria-label="Görüşme seçenekleri"]')
+src/screens/__tests__/inbox-surfaces.test.tsx:143:          <ScreenHeader title="Yan Görüşmeler" />
+src/screens/__tests__/inbox-surfaces.test.tsx:174:      "Yeni Görüşme"
+src/screens/__tests__/inbox-surfaces.test.tsx:177:      container.querySelector('[aria-label="Yan görüşme listesine dön"]')
+src/screens/__tests__/inbox-surfaces.test.tsx:192:      container.querySelector('[aria-label="Yeni görüşme mesajı"]')
+src/screens/__tests__/inbox-surfaces.test.tsx:202:      '[aria-label="Yeni görüşme e-postası"]'
+src/screens/__tests__/inbox-surfaces.test.tsx:244:    expect(send?.closest('[aria-label="Yeni görüşme mesajı"]')).not.toBeNull();
+src/screens/__tests__/chat-screen.test.tsx:269:    click("Görüşme seçenekleri");
+src/screens/__tests__/chat-screen.test.tsx:278:    expect(container.textContent).toContain("Görüşme yükleniyor");
+src/screens/__tests__/chat-screen.test.tsx:289:    expect(container.textContent).toContain("Görüşme yüklenemedi");
+src/screens/__tests__/chat-screen.test.tsx:290:    click("Görüşmeyi tekrar yükle");
+src/screens/__tests__/chat-screen.test.tsx:442:      '[aria-label="Görüşme seçenekleri"]'
+src/screens/__tests__/chat-screen.test.tsx:446:    click("Görüşme seçenekleri");
+src/screens/__tests__/chat-screen.test.tsx:465:    click("Görüşme seçenekleri");
+src/screens/__tests__/chat-screen.test.tsx:474:    click("Görüşme seçenekleri");
+src/screens/__tests__/chat-screen.test.tsx:493:    click("Görüşme seçenekleri");
+src/screens/__tests__/chat-screen.test.tsx:519:      "Yanıt yazmak için görüşmeyi tekrar açın."
+src/screens/__tests__/chat-screen.test.tsx:525:    click("Görüşme seçenekleri");
+src/screens/__tests__/chat-screen.test.tsx:545:        '[aria-label="Görüşme seçenekleri"]'
+src/screens/__tests__/chat-screen.test.tsx:551:    expect(container.textContent).toContain("Bu görüşme kapalı.");
+src/screens/__tests__/chat-screen.test.tsx:562:      '[aria-label="Görüşme seçenekleri"]'
+src/screens/__tests__/chat-screen.test.tsx:564:    click("Görüşme seçenekleri");
+src/screens/__tests__/chat-screen.test.tsx:620:    click("Görüşme listesine dön");
