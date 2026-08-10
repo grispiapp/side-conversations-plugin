@@ -113,11 +113,11 @@ describe("shared inbox shell", () => {
       root.render(
         <Screen>
           <ScreenHeader
-            title={<ScreenTitle>Yeni Yazışma</ScreenTitle>}
+            title={<ScreenTitle>Yeni Konuşma</ScreenTitle>}
             subtitle="Alıcı · Konu"
             onBack={jest.fn()}
-            backLabel="Yazışma listesine dön"
-            trailing={<Button aria-label="Yazışma seçenekleri">Menü</Button>}
+            backLabel="Konuşma listesine dön"
+            trailing={<Button aria-label="Konuşma seçenekleri">Menü</Button>}
           />
           <ScreenContent>İçerik</ScreenContent>
         </Screen>
@@ -126,13 +126,13 @@ describe("shared inbox shell", () => {
 
     const header = container.querySelector("header");
     expect(header?.className).toContain("h-[var(--panel-header-height)]");
-    expect(header?.textContent).toContain("Yeni Yazışma");
+    expect(header?.textContent).toContain("Yeni Konuşma");
     expect(header?.textContent).toContain("Alıcı · Konu");
     expect(
-      container.querySelector('[aria-label="Yazışma listesine dön"]')
+      container.querySelector('[aria-label="Konuşma listesine dön"]')
     ).not.toBeNull();
     expect(
-      container.querySelector('[aria-label="Yazışma seçenekleri"]')
+      container.querySelector('[aria-label="Konuşma seçenekleri"]')
     ).not.toBeNull();
   });
 
@@ -140,7 +140,7 @@ describe("shared inbox shell", () => {
     act(() => {
       root.render(
         <Screen data-testid="screen">
-          <ScreenHeader title="Yan Yazışmalar" />
+          <ScreenHeader title="Yan Konuşmalar" />
           <ScreenContent data-testid="content">
             <Button>Gönder</Button>
             <Button size="sm">Tekrar dene</Button>
@@ -171,10 +171,10 @@ describe("unified compose surface", () => {
     act(() => root.render(<ComposeScreen />));
 
     expect(container.querySelector("header")?.textContent).toContain(
-      "Yeni Yazışma"
+      "Yeni Konuşma"
     );
     expect(
-      container.querySelector('[aria-label="Yan yazışma listesine dön"]')
+      container.querySelector('[aria-label="Yan konuşma listesine dön"]')
     ).not.toBeNull();
     expect(container.textContent).toContain("Alıcı");
     expect(container.textContent).toContain("Konu");
@@ -189,7 +189,7 @@ describe("unified compose surface", () => {
       )
     ).not.toBeNull();
     expect(
-      container.querySelector('[aria-label="Yeni yazışma mesajı"]')
+      container.querySelector('[aria-label="Yeni konuşma mesajı"]')
     ).not.toBeNull();
 
     const send = Array.from(
@@ -199,7 +199,7 @@ describe("unified compose surface", () => {
     expect(send?.disabled).toBe(false);
 
     const composeSurface = container.querySelector(
-      '[aria-label="Yeni yazışma e-postası"]'
+      '[aria-label="Yeni konuşma e-postası"]'
     );
     const recipientRow = container.querySelector(
       '[aria-label="Alıcıyı değiştir"]'
@@ -241,7 +241,7 @@ describe("unified compose surface", () => {
       editor!.compareDocumentPosition(toolbar!) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
-    expect(send?.closest('[aria-label="Yeni yazışma mesajı"]')).not.toBeNull();
+    expect(send?.closest('[aria-label="Yeni konuşma mesajı"]')).not.toBeNull();
   });
 
   it("keeps recipient search and invalid compose states labelled and keyboard reachable", () => {

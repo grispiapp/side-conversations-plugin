@@ -17,24 +17,24 @@ export const EmptyState: FC = () => {
   return (
     <section
       role="status"
-      aria-label="Boş yan yazışma listesi"
+      aria-label="Boş yan konuşma listesi"
       className="flex h-full min-w-0 flex-col items-center justify-center gap-3 py-8 text-center"
     >
-      <h2 className="text-lg font-semibold">Henüz yan yazışma yok</h2>
+      <h2 className="text-lg font-semibold">Henüz yan konuşma yok</h2>
       <p className="text-sm text-muted-foreground">
         Tedarikçi ya da başka bir ekiple, talep sahibinin görmediği ayrı bir
         e-posta akışı başlatın.
       </p>
       <p className="text-sm font-semibold text-foreground">
-        Talep sahibi bu yazışmayı görmez.
+        Talep sahibi bu konuşmayı görmez.
       </p>
       <Button
         className="mt-2"
-        aria-label="Yeni yazışma başlat"
+        aria-label="Yeni konuşma başlat"
         onClick={() => panelNavigation.openCompose()}
       >
         <PlusIcon className="mr-1 size-4" />
-        Yeni yazışma başlat
+        Yeni konuşma başlat
       </Button>
     </section>
   );

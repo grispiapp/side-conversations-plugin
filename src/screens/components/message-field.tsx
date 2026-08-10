@@ -31,7 +31,7 @@ export const MessageField = observer(
         <RichTextComposer
           value={compose.message}
           editorLabel="Mesaj"
-          sectionLabel="Yeni yazışma mesajı"
+          sectionLabel="Yeni konuşma mesajı"
           placeholder="Mesajınızı yazın…"
           mode="compose"
           submitDisabled={submitDisabled}

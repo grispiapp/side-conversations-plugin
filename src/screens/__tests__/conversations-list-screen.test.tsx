@@ -141,9 +141,9 @@ it("renders a labelled header action and flush textual queue states", () => {
   render(<ConversationsListScreen />);
 
   const create = container.querySelector<HTMLButtonElement>(
-    '[aria-label="Yeni yazışma başlat"]'
+    '[aria-label="Yeni konuşma başlat"]'
   );
-  expect(create?.textContent).toContain("Yeni yazışma");
+  expect(create?.textContent).toContain("Yeni konuşma");
   expect(container.querySelector('[role="list"]')?.className).toContain(
     "border-y"
   );
@@ -211,7 +211,7 @@ it("falls back to the labeled header create action when the activating row disap
   render(<ConversationsListScreen />);
 
   expect(document.activeElement).toBe(
-    container.querySelector('[aria-label="Yeni yazışma başlat"]')
+    container.querySelector('[aria-label="Yeni konuşma başlat"]')
   );
   expect(
     mockStore.panelNavigation.consumeListFocusRequest
@@ -224,7 +224,7 @@ it("focuses the create action for a compose-origin return", () => {
   render(<ConversationsListScreen />);
 
   expect(document.activeElement).toBe(
-    container.querySelector('[aria-label="Yeni yazışma başlat"]')
+    container.querySelector('[aria-label="Yeni konuşma başlat"]')
   );
 });
 
@@ -234,12 +234,12 @@ it("derives skeleton, empty, retry and pagination controls from Query state", ()
   expect(
     container.querySelector('[role="status"][aria-label*="yükleniyor"]')
   ).not.toBeNull();
-  expect(container.textContent).not.toContain("Henüz yan yazışma yok");
+  expect(container.textContent).not.toContain("Henüz yan konuşma yok");
 
   mockListQuery = { ...mockListQuery, isPending: false, rows: [] };
   render(<></>);
   render(<ConversationsListScreen />);
-  expect(container.textContent).toContain("Henüz yan yazışma yok");
+  expect(container.textContent).toContain("Henüz yan konuşma yok");
 
   mockListQuery = {
     ...mockListQuery,
