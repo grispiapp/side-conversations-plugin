@@ -172,6 +172,31 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **UI hint**: yes
 
+### Phase 04.1: Ortam yönlendirmesi ve prod hazırlığı (INSERTED)
+
+**Goal:** Plugin, yüklendiği Grispi ortamının doğru API'siyle konuşur — preprod (`.net`), prod (`.com`) ve TR prod (`.com.tr`) — ve varsayılanı yanlış ortama düşmeyecek şekilde güvenli tarafta durur.
+**Mode:** mvp
+**Depends on:** Phase 4
+**Requirements**: CORE-04
+**Success Criteria** (what must be TRUE):
+
+  1. Base URL çalışma zamanında çözümlenir: `bundle.settings["_grispi_env"]` (`preprod` | `prod` | `prod_tr`) birincil kaynaktır; geçersiz/eksikse token'ın `dev` claim'i ikincil kaynaktır (`dev: true` → preprod, aksi hâlde prod)
+  2. Çözümleme, plugin ilk API isteğini atmadan önce tamamlanır (`plugin-bootstrap` içinde `switchTicket`'tan ÖNCE) — hiçbir istek yanlış host'a gitmez
+  3. Standalone dev modu bundle'ı bypass ettiği için kendi ortam override'ına sahiptir ve mevcut `gsocial-test` (preprod) akışı bozulmaz
+  4. Hiçbir yerde ortam-bağımlı host hardcode edilmez (`usercontent` dâhil — `objectUrl` API'den tam nitelikli gelir)
+  5. `_grispi_env`'in ne zaman zorunlu olduğu README'de belgelenir: TR kurulumlarında **elle set edilmek zorundadır**, çünkü `dev` claim'i `.com` ile `.com.tr`'yi ayırt edemez (backend: `dev = !(PROD || PROD_TR)`)
+
+**Canonical refs:**
+- `vivollo-chat-side-plugin` feature branch'i (`.claude/worktrees/grispi-api-domain-param-ca0ee0/src/grispi/client/environment.ts` + `contexts/grispi-context.tsx`) — çalışan referans implementasyon; birebir kopyalanabilir
+- `grispi-api` `GrispiUrlGenerator.java` + `Environment.java` — beş ortamın (local/dev/net/com/com.tr) otoriter eşlemesi
+- **Tuzak:** backend kendi içinde `prod-tr` (tire) kullanır; ayar anahtarı `prod_tr` (alt çizgi). Strict eşleşme olduğu için tire sessizce `prod`'a düşer.
+
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 04.1 to break down)
+
 ### Phase 5: Zenginleştirmeler ve Dayanıklılık
 
 **Goal**: Uçtan uca döngü çalışırken deneyimi tamamlar: talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme.

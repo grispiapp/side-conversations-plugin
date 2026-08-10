@@ -6,15 +6,15 @@ current_phase: 4
 current_phase_name: dosya-ekleri-ve-inline-g-rseller
 status: verifying
 stopped_at: Phase 4 executed (8/8); verification human_needed — 04-UAT.md pending
-last_updated: "2026-08-01T05:32:38.388Z"
+last_updated: "2026-08-10T09:07:09.639Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 4 execution started
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 5
   total_plans: 29
   completed_plans: 29
-  percent: 83
+  percent: 71
 ---
 
 # Project State
@@ -157,6 +157,7 @@ None yet.
 
 - Phase 4 edited: ek/attachment kapsamı genişletildi: COMP-08 + THRD-06 eklendi, COMP-05/THRD-05 revize (Base64 varsayımı düzeltildi)
 - Phase 5 added: Faz 4 bölündü: ekler Faz 4'te kaldı, talep özeti + önceki görüşmeler + sessiz tazeleme Faz 5'e taşındı
+- Phase 04.1 inserted after Phase 4: Ortam yönlendirmesi: sabit .net yerine _grispi_env + dev claim ile çalışma-zamanı çözümleme (prod blocker) (URGENT)
 
 ## Deferred Items
 
