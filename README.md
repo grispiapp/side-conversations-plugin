@@ -1,4 +1,4 @@
-# Yan Yazışmalar — Grispi Side Conversations Plugin
+# Yan Konuşmalar — Grispi Side Conversations Plugin
 
 A plugin that runs in the right-hand panel (~372px iframe) of a Grispi ticket page. It lets an agent start, run and track separate email threads with third parties — a supplier, a courier, another team — in the context of a ticket, **without ever involving the ticket requester**.
 
@@ -12,7 +12,7 @@ The definition Grispi needs in order to register the plugin. This file does **no
 
 ```json
 {
-  "title": "Yan Yazışmalar",
+  "title": "Yan Konuşmalar",
   "src": "https://grispi.app/side-conversations-plugin/public/",
   "uiDefinition": {
     "height": 900
