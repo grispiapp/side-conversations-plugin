@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 04.1
 current_phase_name: ortam-y-nlendirmesi-ve-prod-haz-rl
 status: verifying
-stopped_at: Completed 04.1-02-PLAN.md
-last_updated: "2026-08-10T11:16:18.844Z"
+stopped_at: "Completed quick task 260810-m8f: build/ tracked + source maps off + README rewrite for repo-as-host deploy"
+last_updated: "2026-08-10T13:11:10.511Z"
 last_activity: 2026-08-10
 last_activity_desc: "Completed quick task 260810-jiw: WR-02 behavioral tests proving setEnvironment reaches fetch host (CORE-04)"
 progress:
@@ -78,6 +78,7 @@ Progress: [██████████] 100%
 | Phase 04.1 P01 | 20min | 2 tasks | 9 files |
 | Phase 04.1 P02 | ~15min | 2 tasks | 4 files |
 | Phase quick-260810-jiw P01 | 25min | 3 tasks | 2 files |
+| Phase quick-260810-m8f P01 | 15min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,7 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04.1, Plan 02]: REACT_APP_DEV_GRISPI_ENV resolved through isGrispiEnvironment allowlist, not the file's other fields' plain trim-or-default pattern — required so an unrecognized/hyphenated value can never leak into StandaloneDevConfig.environment (T-04.1-01) — Plan 04.1-02 Task 1
 - [Phase ?]: [Phase 04.1, Plan 02]: README documents the TR-mandatory _grispi_env rule and hyphen trap as explicit prose warnings, since JWT dev claim genuinely cannot distinguish prod from prod_tr — documentation is the only mitigation for T-04.1-06 — Plan 04.1-02 Task 2
 - [Phase quick-260810-jiw]: WR-02 closed: HttpHandler.setEnvironment and GrispiAPI.setEnvironment proven end-to-end via 11 new behavioral tests; mutation-resistance empirically confirmed via 3 probes (headline no-op mutants + host-constant collision), all restored
+- [Phase quick-260810-m8f]: Repo-as-host deploy model: build/ tracked in git as the deploy artifact; grispi.app serves it directly from /build/, no separate hosting/CI pipeline — Source maps disabled via committed .env.production (not inline shell prefix) so the setting is Windows-shell-safe and always applied regardless of caller
 
 ### Pending Todos
 
@@ -173,6 +175,7 @@ None yet.
 | 260810-jiw | WR-02: behavioral tests proving setEnvironment reaches fetch() host (CORE-04 terminal link) | 2026-08-10 | 4c92b33 | [260810-jiw-wr-02-behavioral-tests-proving-setenviro](./quick/260810-jiw-wr-02-behavioral-tests-proving-setenviro/) |
 | 260810-fst | Rewrite README for this plugin (manifest + settings sections); drop starter-kit leftovers | 2026-08-10 | 8bf0a6b | — (gsd-fast, inline) |
 | 260810-l0t | Rename UI vocabulary görüşme → konuşma (product name "Yan Görüşmeler" → "Yan Konuşmalar"; yazışma was an intermediate step, superseded) | 2026-08-10 | cf3b68d | [260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan](./quick/260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan/) |
+| 260810-m8f | Repo-as-host deploy: track build/, disable source maps (.env.production), manifest URL → /build/ | 2026-08-10 | 35b15e7 | [260810-m8f-ship-build-output-from-the-repo-untrack-](./quick/260810-m8f-ship-build-output-from-the-repo-untrack-/) |
 
 ### Roadmap Evolution
 
@@ -190,6 +193,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-10T11:13:47.929Z
-Stopped at: Completed 04.1-02-PLAN.md
+Last session: 2026-08-10T13:11:10.505Z
+Stopped at: Completed quick task 260810-m8f: build/ tracked + source maps off + README rewrite for repo-as-host deploy
 Resume file: 
