@@ -6,9 +6,9 @@ current_phase: 04.1
 current_phase_name: ortam-y-nlendirmesi-ve-prod-haz-rl
 status: verifying
 stopped_at: Completed 04.1-02-PLAN.md
-last_updated: "2026-08-10T10:15:59.337Z"
+last_updated: "2026-08-10T11:16:18.844Z"
 last_activity: 2026-08-10
-last_activity_desc: Phase 04.1 execution started
+last_activity_desc: "Completed quick task 260810-jiw: WR-02 behavioral tests proving setEnvironment reaches fetch host (CORE-04)"
 progress:
   total_phases: 7
   completed_phases: 6
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 Phase: 04.1 (ortam-y-nlendirmesi-ve-prod-haz-rl) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-08-10 — Completed quick task 260810-j2w: WR-01: gate SDK ticket-update events on bootstrap completion + add grispi-context render test
+Last activity: 2026-08-10 — Completed quick task 260810-jiw: WR-02 behavioral tests proving setEnvironment reaches fetch host (CORE-04)
 
 Progress: [██████████] 100%
 
@@ -77,6 +77,7 @@ Progress: [██████████] 100%
 | Phase 04 P08 | 48min | 4 tasks | 11 files |
 | Phase 04.1 P01 | 20min | 2 tasks | 9 files |
 | Phase 04.1 P02 | ~15min | 2 tasks | 4 files |
+| Phase quick-260810-jiw P01 | 25min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,7 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04.1, Plan 02]: DEFAULT_DEV_ENVIRONMENT is preprod (opposite of the real chain's safe-side prod default) — gsocial-test lives on preprod, so the standalone override must preserve existing local UAT flow — Plan 04.1-02 Task 1
 - [Phase ?]: [Phase 04.1, Plan 02]: REACT_APP_DEV_GRISPI_ENV resolved through isGrispiEnvironment allowlist, not the file's other fields' plain trim-or-default pattern — required so an unrecognized/hyphenated value can never leak into StandaloneDevConfig.environment (T-04.1-01) — Plan 04.1-02 Task 1
 - [Phase ?]: [Phase 04.1, Plan 02]: README documents the TR-mandatory _grispi_env rule and hyphen trap as explicit prose warnings, since JWT dev claim genuinely cannot distinguish prod from prod_tr — documentation is the only mitigation for T-04.1-06 — Plan 04.1-02 Task 2
+- [Phase quick-260810-jiw]: WR-02 closed: HttpHandler.setEnvironment and GrispiAPI.setEnvironment proven end-to-end via 11 new behavioral tests; mutation-resistance empirically confirmed via 3 probes (headline no-op mutants + host-constant collision), all restored
 
 ### Pending Todos
 
@@ -168,6 +170,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260810-j2w | WR-01: gate SDK ticket-update events on bootstrap completion + add grispi-context render test | 2026-08-10 | 37cf6fd | [260810-j2w-wr-01-gate-sdk-ticket-update-events-on-b](./quick/260810-j2w-wr-01-gate-sdk-ticket-update-events-on-b/) |
+| 260810-jiw | WR-02: behavioral tests proving setEnvironment reaches fetch() host (CORE-04 terminal link) | 2026-08-10 | 4c92b33 | [260810-jiw-wr-02-behavioral-tests-proving-setenviro](./quick/260810-jiw-wr-02-behavioral-tests-proving-setenviro/) |
 
 ### Roadmap Evolution
 
@@ -185,6 +188,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-10T10:15:59.331Z
+Last session: 2026-08-10T11:13:47.929Z
 Stopped at: Completed 04.1-02-PLAN.md
 Resume file: 
