@@ -1,5 +1,6 @@
 import {
   DEFAULT_DEV_AGENT_EMAIL,
+  DEFAULT_DEV_ENVIRONMENT,
   DEFAULT_DEV_TENANT_ID,
   DEFAULT_DEV_TICKET_KEY,
   resolveStandaloneDevConfig,
@@ -41,6 +42,7 @@ describe("resolveStandaloneDevConfig", () => {
       tenantId: DEFAULT_DEV_TENANT_ID,
       initialTicketKey: DEFAULT_DEV_TICKET_KEY,
       agentEmail: DEFAULT_DEV_AGENT_EMAIL,
+      environment: DEFAULT_DEV_ENVIRONMENT,
     });
   });
 
@@ -95,5 +97,87 @@ describe("resolveStandaloneDevConfig", () => {
         ""
       )?.tenantId
     ).toBe("another-tenant");
+  });
+
+  it("defaults environment to DEFAULT_DEV_ENVIRONMENT (preprod) when REACT_APP_DEV_GRISPI_ENV is unset — preserves the existing gsocial-test flow", () => {
+    expect(
+      resolveStandaloneDevConfig(
+        { NODE_ENV: "development", REACT_APP_DEV_TOKEN: "tok" },
+        ""
+      )?.environment
+    ).toBe(DEFAULT_DEV_ENVIRONMENT);
+    expect(DEFAULT_DEV_ENVIRONMENT).toBe("preprod");
+  });
+
+  it("honors REACT_APP_DEV_GRISPI_ENV when it is an allowlisted environment key", () => {
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_GRISPI_ENV: "prod",
+        },
+        ""
+      )?.environment
+    ).toBe("prod");
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_GRISPI_ENV: "prod_tr",
+        },
+        ""
+      )?.environment
+    ).toBe("prod_tr");
+  });
+
+  it("trims whitespace around REACT_APP_DEV_GRISPI_ENV like the other override fields", () => {
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_GRISPI_ENV: "  preprod  ",
+        },
+        ""
+      )?.environment
+    ).toBe("preprod");
+  });
+
+  it("falls back to DEFAULT_DEV_ENVIRONMENT for the hyphenated prod-tr trap — never converts it to prod_tr", () => {
+    const resolved = resolveStandaloneDevConfig(
+      {
+        NODE_ENV: "development",
+        REACT_APP_DEV_TOKEN: "tok",
+        REACT_APP_DEV_GRISPI_ENV: "prod-tr",
+      },
+      ""
+    )?.environment;
+    expect(resolved).toBe(DEFAULT_DEV_ENVIRONMENT);
+    expect(resolved).not.toBe("prod_tr");
+  });
+
+  it("falls back to DEFAULT_DEV_ENVIRONMENT for unrecognized or empty values", () => {
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_GRISPI_ENV: "staging",
+        },
+        ""
+      )?.environment
+    ).toBe(DEFAULT_DEV_ENVIRONMENT);
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_GRISPI_ENV: "",
+        },
+        ""
+      )?.environment
+    ).toBe(DEFAULT_DEV_ENVIRONMENT);
   });
 });
