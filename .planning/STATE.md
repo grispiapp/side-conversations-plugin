@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 Phase: 04.1 (ortam-y-nlendirmesi-ve-prod-haz-rl) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-08-10 — Phase 04.1 execution started
+Last activity: 2026-08-10 — Completed quick task 260810-j2w: WR-01: gate SDK ticket-update events on bootstrap completion + add grispi-context render test
 
 Progress: [██████████] 100%
 
@@ -162,6 +162,12 @@ None yet.
 - Faz 4: "alıcıyla önceki görüşmeler" v2 preview endpoint'ine (`GET /public/v2/tickets`) dayanır — değişebilir, izole/bayraklı kullanılmalı
 - Faz 4 kapanışı: P6b (alıcının posta istemcisinde inline görsel render'ı) ve P5 (plugin-mode bundle token) 04-08 UAT'sinde doğrulanamadı — kullanıcı tarafından teyit bekliyor, fazı bloklamıyor
 - Faz 04.1 kapanışı: M2 (canlı preprod ağ kontrolü — DevTools Network sekmesinde ilk XHR host'unun preprod olduğunun teyidi, hem plugin-mode hem standalone-mode için) yürütücü tarafından doğrulanamadı — kullanıcı teyidi bekliyor, fazı bloklamıyor
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260810-j2w | WR-01: gate SDK ticket-update events on bootstrap completion + add grispi-context render test | 2026-08-10 | 37cf6fd | [260810-j2w-wr-01-gate-sdk-ticket-update-events-on-b](./quick/260810-j2w-wr-01-gate-sdk-ticket-update-events-on-b/) |
 
 ### Roadmap Evolution
 
