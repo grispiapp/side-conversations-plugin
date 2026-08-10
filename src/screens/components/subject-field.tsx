@@ -57,6 +57,7 @@ export const SubjectField = observer(() => {
         }
         className="h-12 min-w-0 flex-1 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         placeholder="Konu"
+        autoComplete="off"
         aria-describedby={describedBy || undefined}
       />
       {isEmpty && (

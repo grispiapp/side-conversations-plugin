@@ -147,6 +147,10 @@ export const RecipientField = observer(() => {
           onKeyDown={handleKeyDown}
           className="h-12 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           placeholder="Alıcı ara veya e-posta yaz…"
+          // Browser autofill only — our own listbox below is unaffected.
+          // Its dropdown otherwise covers the listbox and fights
+          // aria-activedescendant.
+          autoComplete="off"
           role="combobox"
           aria-expanded={hasResultOptions}
           aria-controls={hasResultOptions ? listboxId : undefined}
