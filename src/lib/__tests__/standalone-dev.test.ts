@@ -6,6 +6,8 @@ import {
   resolveStandaloneDevConfig,
 } from "../standalone-dev";
 
+import { GRISPI_BASE_URLS } from "@/grispi/client/environment";
+
 describe("resolveStandaloneDevConfig", () => {
   it("returns null outside development (production build can never activate)", () => {
     expect(
@@ -180,4 +182,35 @@ describe("resolveStandaloneDevConfig", () => {
       )?.environment
     ).toBe(DEFAULT_DEV_ENVIRONMENT);
   });
+
+  /**
+   * Regression guard for the `in`-operator prototype-chain bypass in
+   * `isGrispiEnvironment` — these keys used to clear the allowlist here too,
+   * so `GRISPI_BASE_URLS[environment]` resolved to `Object.prototype` / a
+   * native function instead of a host (T-04.1-01).
+   */
+  it.each([
+    "__proto__",
+    "constructor",
+    "toString",
+    "valueOf",
+    "hasOwnProperty",
+  ])(
+    "falls back to DEFAULT_DEV_ENVIRONMENT for the inherited prototype key %s",
+    (key) => {
+      const resolved = resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_GRISPI_ENV: key,
+        },
+        ""
+      )?.environment;
+
+      expect(resolved).toBe(DEFAULT_DEV_ENVIRONMENT);
+      expect(resolved).toBe("preprod");
+      expect(typeof GRISPI_BASE_URLS[resolved!]).toBe("string");
+      expect(GRISPI_BASE_URLS[resolved!]).toMatch(/^https:\/\//);
+    }
+  );
 });

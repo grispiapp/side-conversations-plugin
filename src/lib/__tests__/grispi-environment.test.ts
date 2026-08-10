@@ -102,6 +102,45 @@ describe("resolveGrispiEnvironment", () => {
     );
   });
 
+  /**
+   * Regression guard for the `in`-operator prototype-chain bypass: `"__proto__"
+   * in GRISPI_BASE_URLS` is `true`, so these keys used to clear the allowlist
+   * and reach `GRISPI_BASE_URLS[key]` as `Object.prototype` / a native
+   * function. The pre-existing "https://evil.example.com" case does NOT cover
+   * this — it fails the check for an unrelated reason (T-04.1-01).
+   */
+  it.each([
+    "__proto__",
+    "constructor",
+    "toString",
+    "valueOf",
+    "hasOwnProperty",
+  ])(
+    "rejects the inherited prototype key %s — falls through to prod and warns",
+    (key) => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      const token = makeToken({ foo: "bar" });
+
+      expect(resolveGrispiEnvironment({ _grispi_env: key }, token)).toBe(
+        "prod"
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        "grispi-environment",
+        "Unknown _grispi_env setting, falling back",
+        key
+      );
+    }
+  );
+
+  it("still honors the dev-claim fallback for prototype keys rather than treating them as an explicit environment", () => {
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const devToken = makeToken({ dev: true });
+
+    expect(
+      resolveGrispiEnvironment({ _grispi_env: "__proto__" }, devToken)
+    ).toBe("preprod");
+  });
+
   it("does not warn when the _grispi_env key is simply absent (no explicit setting to complain about)", () => {
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     const token = makeToken({ dev: true });
@@ -145,5 +184,27 @@ describe("isGrispiEnvironment", () => {
     expect(isGrispiEnvironment(null)).toBe(false);
     expect(isGrispiEnvironment(42)).toBe(false);
     expect(isGrispiEnvironment({})).toBe(false);
+  });
+
+  /**
+   * Own-property check, not `in` — these keys are inherited from
+   * `Object.prototype` and must never clear the allowlist (T-04.1-01).
+   */
+  it.each([
+    "__proto__",
+    "constructor",
+    "toString",
+    "valueOf",
+    "hasOwnProperty",
+  ])("returns false for the inherited prototype key %s", (key) => {
+    expect(isGrispiEnvironment(key)).toBe(false);
+  });
+
+  it("never yields a non-string host for any inherited prototype key", () => {
+    for (const key of ["__proto__", "constructor", "toString"]) {
+      if (isGrispiEnvironment(key)) {
+        throw new Error(`allowlist accepted inherited key ${key}`);
+      }
+    }
   });
 });
