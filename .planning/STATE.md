@@ -6,15 +6,15 @@ current_phase: 04.2
 current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 status: verifying
 stopped_at: Phase 04.2 executed 8/8 — verification gaps_found (SC1/SC9)
-last_updated: "2026-08-17T16:53:53.129Z"
+last_updated: "2026-08-17T16:59:04.355Z"
 last_activity: 2026-08-17
 last_activity_desc: gap planlama tamam; gereklilik 9/9, karar 23/23, post-planning gap 32/32
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 41
-  completed_plans: 40
-  percent: 75
+  completed_plans: 41
+  percent: 88
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — GAP PLANS READY
-Plan: 9 of 10 (04.2-09, 04.2-10 gap kapanışı, `gap_closure: true`)
+Plan: 10 of 10 (04.2-09, 04.2-10 gap kapanışı, `gap_closure: true`)
 Status: SC1/SC9 boşlukları için 2 gap planı hazır ve plan-checker'dan geçti (revizyon 1). Kök neden: `executeCreateMutation`'daki `isCurrent` erken dönüşü `assertSideConversationLink`'i hiç çağırmıyor. D-23 eklendi (D-04'ün tek retry'ı iç nottan `tu.side_conversation_parent` alanına geçti). Sıradaki: `/gsd-execute-phase 04.2 --gaps-only`
 Last activity: 2026-08-17 — gap planlama tamam; gereklilik 9/9, karar 23/23, post-planning gap 32/32
 
@@ -92,6 +92,7 @@ Progress: [███████░░░] 75%
 | Phase 04.2 P07 | 25min | 2 tasks | 5 files |
 | Phase 04.2 P08 | 3min | 2 tasks | 1 files |
 | Phase 04.2 P09 | 4min | 3 tasks | 5 files |
+| Phase 04.2 P10 | 2min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -182,6 +183,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04.2, Plan 09]: linkAssertion promise created once right after sideKey is known, awaited explicitly at each of the three return points in executeCreateMutation — no dangling promise on either isCurrent early-return
 - [Phase ?]: [Phase 04.2, Plan 09]: patchTicketFields throws synchronously before http.send when the body carries ts.status, enforcing D-15 structurally for this generic field-writer rather than by caller convention
 - [Phase ?]: [Phase 04.2, Plan 09]: D-23 retry body built fresh as its own TicketFieldsPatchRequest literal (never derived from InternalNotePatchRequest) so the type system guarantees the retry cannot carry a comment
+- [Phase ?]: [Phase 04.2, Plan 10]: Comment-stripping in environment-static.test.ts is two-stage and order-dependent — block comments stripped first, then only leading-// lines dropped, never mid-line // (would truncate GRISPI_BASE_URLS's https:// URL values)
+- [Phase ?]: [Phase 04.2, Plan 10]: Static gate reads environment.ts via path.join(__dirname, '..', 'environment.ts') + readFileSync, never require.resolve, to guarantee it reads the literal TS source on disk
 
 ### Pending Todos
 
@@ -226,7 +229,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-17T16:53:08.817Z
+Last session: 2026-08-17T16:58:25.438Z
 Stopped at: Completed 04.2-04-PLAN.md
 Resume file: 
 None

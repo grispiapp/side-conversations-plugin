@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu** - Tiptap/DOMPurify, tenant-scoped React Query, senkron thread navigasyonu ve ortak 372px inbox kabuğuyla Phase 3 deneyimini güvenli ve tutarlı hâle getirir (completed 2026-07-29)
 - [ ] **Phase 4: Dosya Ekleri ve Inline Görseller** - Temsilci çoklu dosya ekler (sürükle-bırak/ataç), editöre yapıştırdığı görsel inline gömülür, gelen ekler thread'de görünür *(8/8 plan yürütüldü; doğrulama `human_needed` — 04-UAT.md'deki 4 madde insan onayı bekliyor)*
 - [x] **Phase 04.1: Ortam yönlendirmesi ve prod hazırlığı** - `_grispi_env` + token `dev` claim'i ile çalışma-zamanı base URL çözümlemesi; hiçbir istek yanlış host'a gitmez *(INSERTED)*
-- [ ] **Phase 04.2: UAT geri bildirimleri** - İlişki iç notu, yan/üst talep navigasyonu, gönderen ve alıcı kimliğinin netleşmesi, dar/kısa panelde kullanılabilirlik *(INSERTED — canlı UAT geri bildirimi 2026-08-17)*
+- [x] **Phase 04.2: UAT geri bildirimleri** - İlişki iç notu, yan/üst talep navigasyonu, gönderen ve alıcı kimliğinin netleşmesi, dar/kısa panelde kullanılabilirlik *(INSERTED — canlı UAT geri bildirimi 2026-08-17)* (completed 2026-08-17)
 - [ ] **Phase 5: Zenginleştirmeler ve Dayanıklılık** - Talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
 
 ## Phase Details
@@ -232,7 +232,7 @@ Plans:
 - **Probe SONUÇLANDI (2026-08-17, `gsocial-test`):** `PATCH /v2/tickets/{key}` + `comment.publicVisible: false` alıcıya `toId`/`toEmail` bağlamıyor (e-posta gitmiyor) ve `ts.status`'ü değiştirmiyor — **CONFIRMED**, D-01 ters çevrilmeyecek. Preprod agent-UI host'u `{tenant}.grispi.net` de canlı doğrulandı (D-07 sağlam). Ayrıntı: `04.2-RESEARCH.md`
 - **Aynı probe'da bulunan yan etki (UX-09'un gerekçesi):** `POST /v2/tickets`'ın `fields` dizisi `tu.side_conversation_parent`'ı iki bağımsız taze create'te kaydetmedi; `fields`-only `PATCH public/v1/tickets/{key}` anında kaydetti. D-22 gereği UX-01'in PATCH'i bu alanı da yeniden tesis eder — kök-neden araştırması bu fazın kapsamında değil
 
-**Plans:** 9/10 plans executed
+**Plans:** 10/10 plans complete
 
 Plans:
 
@@ -256,7 +256,7 @@ Plans:
 **Gap kapanışı** *(paralel — dosya çakışması yok; `04.2-VERIFICATION.md` SC1/SC9 FAIL üzerine)*
 
 - [x] 04.2-09-PLAN.md — Sunucu tarafı ilişki yazımını `isCurrent` kapısının önüne al, kilitleyici testi düzelt, tek yeniden denemeyi idempotent yap (UX-01, UX-09)
-- [ ] 04.2-10-PLAN.md — T-04.1-01 şablon-değişmez gate'i için otomatik regresyon testi (UX-02)
+- [x] 04.2-10-PLAN.md — T-04.1-01 şablon-değişmez gate'i için otomatik regresyon testi (UX-02)
 
 ### Phase 5: Zenginleştirmeler ve Dayanıklılık
 
@@ -286,5 +286,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 04.1 → 04.2 
 | 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
 | 4. Dosya Ekleri ve Inline Görseller | 8/8 | Executed (UAT bekliyor) | - |
 | 04.1. Ortam yönlendirmesi ve prod hazırlığı | 2/2 | Complete   | 2026-08-10 |
-| 04.2. UAT geri bildirimleri | 9/10 | In Progress|  |
+| 04.2. UAT geri bildirimleri | 10/10 | Complete   | 2026-08-17 |
 | 5. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
