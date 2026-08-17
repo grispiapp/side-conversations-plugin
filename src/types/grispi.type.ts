@@ -302,6 +302,42 @@ export interface ReplyTicketPatchRequest {
   };
 }
 
+/**
+ * `PATCH /v2/tickets/{key}` internal-note body — D-01/D-02. CONFIRMED live
+ * (Phase 04.2 RESEARCH.md P1-P3 probe): `/v2/tickets` PATCH with
+ * `comment.publicVisible: false` returns 200, leaves `ts.status` untouched,
+ * and both `toId`/`toEmail` stay `null` (no email sent to the requester).
+ * Stays on `/v2/tickets`, never `public/v1/tickets/{key}` — same write-path
+ * split as `ReplyTicketPatchRequest`/`CreateTicketRequest` above, though the
+ * reason here is simply consistency with the create-mutation follow-up call
+ * (the side ticket itself was created via `/v2/tickets`), not attachment
+ * binding.
+ *
+ * Deliberately a SIBLING type of `ReplyTicketPatchRequest`, never a widened
+ * version of it — `publicVisible` is narrowed to the `false` literal (never
+ * `boolean`) so a caller cannot accidentally construct a body that emails
+ * the requester (RESEARCH.md Pitfall #3). `ReplyTicketPatchRequest.comment.
+ * publicVisible`'s own `true` literal is never widened either; the two
+ * types must never merge.
+ *
+ * `fields` (D-22, added 2026-08-17 on RESEARCH.md's adjacent finding): the
+ * same PATCH re-asserts `tu.side_conversation_parent` with the parent
+ * ticket's key. A live probe showed `POST /v2/tickets`'s `fields` array can
+ * fail to persist this field on a freshly created ticket, but a follow-up
+ * `fields`-only PATCH persists it immediately — this type carries that
+ * proven mechanism as a near-zero-cost addition to a PATCH already being
+ * sent.
+ */
+export interface InternalNotePatchRequest {
+  comment: {
+    body: string;
+    publicVisible: false;
+    creator: [{ key: "us.email"; value: string }];
+    channel: "WEB";
+  };
+  fields: Array<{ key: string; value: string }>;
+}
+
 export type TicketLifecycleStatusId = "2" | "4";
 
 /**

@@ -5,6 +5,7 @@ import {
   AdvancedSearchRequest,
   AdvancedSearchResponse,
   CreateTicketRequest,
+  InternalNotePatchRequest,
   PatchTicketResponse,
   ReplyTicketPatchRequest,
   StatusTicketPatchRequest,
@@ -86,6 +87,32 @@ export class Tickets {
    * state.
    */
   async replyTicket(ticketKey: string, body: ReplyTicketPatchRequest) {
+    return this.http.send<PatchTicketResponse>(
+      `v2/tickets/${encodeURIComponent(ticketKey)}`,
+      {
+        method: "PATCH",
+        cache: "no-cache",
+        headers: this.auth.headers,
+        body: JSON.stringify(body),
+      }
+    );
+  }
+
+  /**
+   * D-01/D-02 — appends a silent internal note (`publicVisible: false`) to
+   * an already-created side ticket and re-asserts its `tu.side_conversation_
+   * parent` field (D-22). Deliberately a SIBLING of `replyTicket` above —
+   * never calls it, never shares its request type (`InternalNotePatchRequest`
+   * narrows `publicVisible` to `false`, `ReplyTicketPatchRequest` narrows it
+   * to `true`; see that type's own doc-comment, RESEARCH.md Pitfall #3).
+   * Stays on `/v2/tickets`, never `public/v1/tickets/{key}` — `patchTicket`
+   * below is the only method on that host, and its D-15 rationale is
+   * untouched since this method never touches `ts.status`. PATCH responses
+   * are mutation-ticket objects, not canonical GET `Ticket`s; callers do not
+   * need to refetch off this response — the create mutation's own
+   * `refreshCanonicalAfterMutation` handles that.
+   */
+  async addInternalNote(ticketKey: string, body: InternalNotePatchRequest) {
     return this.http.send<PatchTicketResponse>(
       `v2/tickets/${encodeURIComponent(ticketKey)}`,
       {

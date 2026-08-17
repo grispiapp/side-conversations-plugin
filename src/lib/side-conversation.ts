@@ -38,6 +38,20 @@ export function formatPrefillSubject(
 }
 
 /**
+ * D-01/D-02 (locked decision) — the fixed internal-note body sent alongside
+ * every new side ticket's create-mutation follow-up PATCH. The text is
+ * SETTINGS-INDEPENDENT and constant; the parent ticket KEY is the only
+ * interpolation point. No other user-authored content (subject,
+ * description, recipient) may ever enter this body (T-04.2-05) — doing so
+ * would leak parent-ticket context into a note that Grispi agents outside
+ * this plugin can also read. Plain text only, never composer-authored HTML —
+ * no HTML-cleaning step of any kind is needed or applied here.
+ */
+export function formatInternalNoteBody(parentKey: string): string {
+  return `Bu talep, ${parentKey} talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.`;
+}
+
+/**
  * Client-side UX gate only (D-06) — the server is the actual authority on
  * whether an address is deliverable via `ts.requester`. Deliberately loose
  * (not RFC 5322) per RESEARCH.md's "Don't Hand-Roll" guidance: a stricter
