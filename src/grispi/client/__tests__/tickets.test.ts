@@ -4,6 +4,7 @@ import { Tickets } from "../tickets";
 
 import {
   CreateTicketRequest,
+  InternalNotePatchRequest,
   PatchTicketRequest,
   PatchTicketResponse,
   ReplyTicketPatchRequest,
@@ -174,6 +175,133 @@ describe("Tickets.replyTicket", () => {
         tenantId: "test-tenant",
       },
       body: JSON.stringify(body),
+    });
+  });
+});
+
+describe("Tickets.addInternalNote", () => {
+  let http: HttpHandler;
+  let auth: Authentication;
+  let tickets: Tickets;
+  let send: jest.SpyInstance;
+
+  const response: PatchTicketResponse = {
+    key: "SIDE-601",
+    comments: [],
+    fieldMap: {
+      "ts.status": {
+        key: "ts.status",
+        value: { id: 2, name: "Open" },
+      },
+    },
+  };
+
+  beforeEach(() => {
+    http = new HttpHandler();
+    auth = new Authentication(http);
+    auth.setToken("test-token");
+    auth.setTenantId("test-tenant");
+    tickets = new Tickets(http, auth);
+    send = jest.spyOn(http, "send").mockResolvedValue(response);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("PATCHes v2/tickets/{key}, never public/v1 (D-01)", async () => {
+    const body: InternalNotePatchRequest = {
+      comment: {
+        body: "Bu talep, TICKET-563 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
+        publicVisible: false,
+        creator: [{ key: "us.email", value: "agent@example.com" }],
+        channel: "WEB",
+      },
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-563" }],
+    };
+
+    await tickets.addInternalNote("TICKET-601", body);
+
+    expect(send).toHaveBeenCalledWith("v2/tickets/TICKET-601", {
+      method: "PATCH",
+      cache: "no-cache",
+      headers: {
+        Authorization: "Bearer test-token",
+        tenantId: "test-tenant",
+      },
+      body: JSON.stringify(body),
+    });
+  });
+
+  it("encodes the ticket key in the URL", async () => {
+    const body: InternalNotePatchRequest = {
+      comment: {
+        body: "Bu talep, A/B talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
+        publicVisible: false,
+        creator: [{ key: "us.email", value: "agent@example.com" }],
+        channel: "WEB",
+      },
+      fields: [{ key: "tu.side_conversation_parent", value: "A/B" }],
+    };
+
+    await tickets.addInternalNote("A/B", body);
+
+    expect(send.mock.calls[0][0]).toBe("v2/tickets/A%2FB");
+  });
+
+  it("sends comment.publicVisible false and comment.channel WEB", async () => {
+    const body: InternalNotePatchRequest = {
+      comment: {
+        body: "Bu talep, TICKET-1 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
+        publicVisible: false,
+        creator: [{ key: "us.email", value: "agent@example.com" }],
+        channel: "WEB",
+      },
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-1" }],
+    };
+
+    await tickets.addInternalNote("TICKET-1", body);
+
+    const sentBody = JSON.parse(send.mock.calls[0][1].body);
+    expect(sentBody.comment.publicVisible).toBe(false);
+    expect(sentBody.comment.channel).toBe("WEB");
+  });
+
+  it("carries the parent ticket key in fields[0] under the side-conversation field key", async () => {
+    const body: InternalNotePatchRequest = {
+      comment: {
+        body: "Bu talep, TICKET-9 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
+        publicVisible: false,
+        creator: [{ key: "us.email", value: "agent@example.com" }],
+        channel: "WEB",
+      },
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-9" }],
+    };
+
+    await tickets.addInternalNote("TICKET-9", body);
+
+    const sentBody = JSON.parse(send.mock.calls[0][1].body);
+    expect(sentBody.fields).toEqual([
+      { key: "tu.side_conversation_parent", value: "TICKET-9" },
+    ]);
+  });
+
+  it("sends the auth headers, same as replyTicket", async () => {
+    const body: InternalNotePatchRequest = {
+      comment: {
+        body: "Bu talep, TICKET-2 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
+        publicVisible: false,
+        creator: [{ key: "us.email", value: "agent@example.com" }],
+        channel: "WEB",
+      },
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-2" }],
+    };
+
+    await tickets.addInternalNote("TICKET-2", body);
+
+    expect(send.mock.calls[0][1].headers).toEqual({
+      Authorization: "Bearer test-token",
+      tenantId: "test-tenant",
     });
   });
 });

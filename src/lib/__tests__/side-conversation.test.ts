@@ -1,5 +1,6 @@
 import {
   SIDE_CONVERSATION_PARENT_FIELD_KEY,
+  formatInternalNoteBody,
   formatPrefillSubject,
   formatRequesterField,
   isValidEmail,
@@ -28,6 +29,24 @@ describe("formatPrefillSubject", () => {
 
   it("trims trailing whitespace when the title is empty (edge case)", () => {
     expect(formatPrefillSubject("X-1", "")).toBe("[X-1]");
+  });
+});
+
+describe("formatInternalNoteBody", () => {
+  it("interpolates only the parent ticket key into the D-02 locked text", () => {
+    expect(formatInternalNoteBody("TICKET-563")).toBe(
+      "Bu talep, TICKET-563 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez."
+    );
+  });
+
+  it("is pure — same input yields the same output every time", () => {
+    const first = formatInternalNoteBody("DESTEK-9");
+    const second = formatInternalNoteBody("DESTEK-9");
+    expect(first).toBe(second);
+  });
+
+  it("never emits HTML tags (plain text only)", () => {
+    expect(formatInternalNoteBody("X-1")).not.toMatch(/<[^>]+>/);
   });
 });
 
