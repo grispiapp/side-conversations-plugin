@@ -1,6 +1,9 @@
 import { ConfirmDialog } from "./components/confirm-dialog";
+import { InfoBox } from "./components/info-box";
+import { ParentKeyChip } from "./components/parent-key-chip";
 import { RichTextComposer } from "./components/rich-text-composer";
 import { ThreadMessage } from "./components/thread-message";
+import { TicketKeyLink } from "./components/ticket-key-link";
 import {
   CheckCircledIcon,
   DotsHorizontalIcon,
@@ -12,15 +15,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Screen,
-  ScreenContent,
-  ScreenHeader,
-  ScreenTitle,
-} from "@/components/ui/screen";
+import { Screen, ScreenContent, ScreenHeader } from "@/components/ui/screen";
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 import { rejectionToastLines } from "@/lib/attachment-format";
+import { getInfoBoxSeen, setInfoBoxSeen } from "@/lib/info-box-store";
 import {
   MutationBoundary,
   useCreateSideConversationMutation,
@@ -32,6 +31,11 @@ import { MessageVM, MutationEnvelope } from "@/store/active-conversation-store";
 
 const SOLVE_CONFIRMATION =
   "Konuşma çözüldü olarak işaretlensin mi? Yeni bir e-posta yanıtı gelirse tekrar aktif olur.";
+
+// Task 1: the back button's aria-label, extracted so Task 3's post-dismiss
+// focus transfer can locate the same control without ScreenHeader exposing
+// a new prop.
+const CHAT_BACK_LABEL = "Konuşma listesine dön";
 
 function messagePresentation(
   messages: MessageVM[]
@@ -53,7 +57,7 @@ export const ChatScreen = observer(() => {
   const attachmentUpload = store.attachmentUpload;
   const panelNavigation = store.panelNavigation;
   const selected = panelNavigation.selectedConversation;
-  const { tenantId, agentEmail } = useGrispi();
+  const { tenantId, agentEmail, agentName, environment } = useGrispi();
   const sideKey = selected?.ticketKey ?? null;
   const parentKey = selected?.parentKey ?? null;
   const sessionKey = selected?.sessionKey ?? null;
@@ -88,6 +92,39 @@ export const ChatScreen = observer(() => {
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuItemRef = useRef<HTMLButtonElement | null>(null);
+  const screenRootRef = useRef<HTMLDivElement | null>(null);
+
+  // Task 3 (D-16b): "created in this session" latch — true only for
+  // conversations that started this session as a pending create
+  // (sideKey null → filled), never for conversations opened from the list
+  // (sideKey filled from the very first render of that sessionKey).
+  const createdThisSessionKeyRef = useRef<number | null>(null);
+  const [createdThisSession, setCreatedThisSession] = useState(false);
+  const [infoBoxVisible, setInfoBoxVisible] = useState(
+    () => Boolean(tenantId) && !getInfoBoxSeen(tenantId ?? "")
+  );
+
+  useEffect(() => {
+    if (createdThisSessionKeyRef.current !== sessionKey) {
+      createdThisSessionKeyRef.current = sessionKey;
+      setCreatedThisSession(false);
+    }
+    if (sessionKey !== null && sideKey === null) {
+      setCreatedThisSession(true);
+    }
+  }, [sessionKey, sideKey]);
+
+  useEffect(() => {
+    setInfoBoxVisible(Boolean(tenantId) && !getInfoBoxSeen(tenantId ?? ""));
+  }, [tenantId]);
+
+  const handleDismissInfoBox = () => {
+    if (tenantId) setInfoBoxSeen(tenantId);
+    setInfoBoxVisible(false);
+    screenRootRef.current
+      ?.querySelector<HTMLButtonElement>(`[aria-label="${CHAT_BACK_LABEL}"]`)
+      ?.focus();
+  };
 
   const canonicalMessages = detail.data?.messages ?? [];
   const messages =
@@ -279,309 +316,344 @@ export const ChatScreen = observer(() => {
   const lifecycleActionLabel = solved ? "Tekrar aç" : "Çözüldü olarak işaretle";
 
   return (
-    <Screen>
-      <ScreenHeader
-        title={
-          <ScreenTitle className="text-sm">
-            {recipientLabel || "Konuşma"}
-          </ScreenTitle>
-        }
-        subtitle={`Konu: ${subject || "Konu yok"}`}
-        onBack={() => {
-          if (panelNavigation.requestChatBack()) {
-            setDraftDialogOpen(true);
+    <div ref={screenRootRef} className="contents">
+      <Screen>
+        <ScreenHeader
+          title={
+            sideKey && tenantId && environment ? (
+              <TicketKeyLink
+                tenantId={tenantId}
+                environment={environment}
+                ticketKey={sideKey}
+              />
+            ) : (
+              <span className="text-sm font-semibold text-foreground">
+                {sideKey ?? "Yeni konuşma"}
+              </span>
+            )
           }
-        }}
-        backLabel="Konuşma listesine dön"
-        trailing={
-          <div className="relative">
-            <Button
-              ref={menuTriggerRef}
-              type="button"
-              size="header"
-              variant="ghost"
-              aria-label="Konuşma seçenekleri"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              disabled={
-                !sideKey || detail.isPending || detail.isError || closed
-              }
-              onClick={() => {
-                if (menuOpen) closeMenu();
-                else setMenuOpen(true);
-              }}
-            >
-              <DotsHorizontalIcon className="size-5" aria-hidden="true" />
-            </Button>
-
-            {menuOpen && (
-              <div
-                ref={menuRef}
-                role="menu"
-                aria-label="Konuşma işlemleri"
-                className="absolute right-0 top-full z-20 mt-1 min-w-56 rounded-md border border-border bg-card p-1 shadow-lg"
-                onBlur={(event) => {
-                  const nextFocus = event.relatedTarget as Node | null;
-                  if (nextFocus && menuRef.current?.contains(nextFocus)) return;
-                  closeMenu(false);
+          subtitle={
+            <span className="flex min-w-0 items-center gap-1.5">
+              {parentKey && (
+                <ParentKeyChip parentKey={parentKey} size="compact" />
+              )}
+              <span className="min-w-0 flex-1 truncate">
+                Konu: {subject || "Konu yok"}
+              </span>
+            </span>
+          }
+          onBack={() => {
+            if (panelNavigation.requestChatBack()) {
+              setDraftDialogOpen(true);
+            }
+          }}
+          backLabel={CHAT_BACK_LABEL}
+          trailing={
+            <div className="relative">
+              <Button
+                ref={menuTriggerRef}
+                type="button"
+                size="header"
+                variant="ghost"
+                aria-label="Konuşma seçenekleri"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                disabled={
+                  !sideKey || detail.isPending || detail.isError || closed
+                }
+                onClick={() => {
+                  if (menuOpen) closeMenu();
+                  else setMenuOpen(true);
                 }}
               >
-                <button
-                  ref={menuItemRef}
-                  type="button"
-                  role="menuitem"
-                  aria-label={lifecycleActionLabel}
-                  disabled={activeConversation.lifecyclePending !== null}
-                  className="min-h-11 w-full rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === "ArrowDown" ||
-                      event.key === "ArrowUp" ||
-                      event.key === "Home" ||
-                      event.key === "End"
-                    ) {
-                      event.preventDefault();
-                      menuItemRef.current?.focus();
-                    }
-                  }}
-                  onClick={() => {
-                    closeMenu();
-                    if (!lifecycleParams) return;
-                    if (solved) {
-                      executeEnvelope(
-                        activeConversation.reopen(lifecycleParams)
-                      );
-                    } else {
-                      setSolveDialogOpen(true);
-                    }
+                <DotsHorizontalIcon className="size-5" aria-hidden="true" />
+              </Button>
+
+              {menuOpen && (
+                <div
+                  ref={menuRef}
+                  role="menu"
+                  aria-label="Konuşma işlemleri"
+                  className="absolute right-0 top-full z-20 mt-1 min-w-56 rounded-md border border-border bg-card p-1 shadow-lg"
+                  onBlur={(event) => {
+                    const nextFocus = event.relatedTarget as Node | null;
+                    if (nextFocus && menuRef.current?.contains(nextFocus))
+                      return;
+                    closeMenu(false);
                   }}
                 >
-                  {lifecycleActionLabel}
-                </button>
-              </div>
-            )}
-          </div>
-        }
-      />
+                  <button
+                    ref={menuItemRef}
+                    type="button"
+                    role="menuitem"
+                    aria-label={lifecycleActionLabel}
+                    disabled={activeConversation.lifecyclePending !== null}
+                    className="min-h-11 w-full rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "ArrowDown" ||
+                        event.key === "ArrowUp" ||
+                        event.key === "Home" ||
+                        event.key === "End"
+                      ) {
+                        event.preventDefault();
+                        menuItemRef.current?.focus();
+                      }
+                    }}
+                    onClick={() => {
+                      closeMenu();
+                      if (!lifecycleParams) return;
+                      if (solved) {
+                        executeEnvelope(
+                          activeConversation.reopen(lifecycleParams)
+                        );
+                      } else {
+                        setSolveDialogOpen(true);
+                      }
+                    }}
+                  >
+                    {lifecycleActionLabel}
+                  </button>
+                </div>
+              )}
+            </div>
+          }
+        />
 
-      <ScreenContent
-        role="main"
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
-      >
-        {solved && (
-          <div
-            role="status"
-            className="border-b border-border bg-muted px-4 py-2 text-center text-sm font-medium text-muted-foreground"
-          >
-            {closed ? "Kapalı" : "Çözüldü"}
-          </div>
-        )}
+        <ScreenContent
+          role="main"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          {tenantId && infoBoxVisible && createdThisSession && (
+            <InfoBox dismissible onDismiss={handleDismissInfoBox} />
+          )}
 
-        {activeConversation.lifecycleError && (
-          <div
-            role="alert"
-            className="flex items-center justify-between gap-3 border-b border-destructive/20 bg-destructive/5 px-4 py-2 text-xs text-destructive"
-          >
-            <span>İşlem tamamlanamadı.</span>
-            <button
-              type="button"
-              aria-label="Yaşam döngüsü işlemini tekrar dene"
-              className="min-h-11 shrink-0 rounded-md px-2 font-semibold underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              onClick={() =>
-                executeEnvelope(activeConversation.retryLifecycle())
-              }
-            >
-              Tekrar dene
-            </button>
-          </div>
-        )}
-
-        {activeConversation.lifecyclePending && (
-          <div
-            role="status"
-            className="border-b border-border bg-muted/60 px-4 py-2 text-center text-xs text-muted-foreground"
-          >
-            İşlem sürüyor…
-          </div>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
-          {sideKey && detail.isPending && (
+          {solved && (
             <div
               role="status"
-              className="flex h-full items-center justify-center gap-2 p-6 text-sm text-muted-foreground"
+              className="border-b border-border bg-muted px-4 py-2 text-center text-sm font-medium text-muted-foreground"
             >
-              <ReloadIcon className="size-4 animate-spin" />
-              <span>Konuşma yükleniyor</span>
+              {closed ? "Kapalı" : "Çözüldü"}
             </div>
           )}
 
-          {sideKey && detail.isError && (
+          {activeConversation.lifecycleError && (
             <div
               role="alert"
-              className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
+              className="flex items-center justify-between gap-3 border-b border-destructive/20 bg-destructive/5 px-4 py-2 text-xs text-destructive"
             >
-              <p className="text-sm text-destructive">
-                Konuşma yüklenemedi. Lütfen tekrar deneyin.
-              </p>
-              <Button
+              <span>İşlem tamamlanamadı.</span>
+              <button
                 type="button"
-                size="sm"
-                variant="outline"
-                aria-label="Konuşmayı tekrar yükle"
-                onClick={() => void detail.refetch()}
+                aria-label="Yaşam döngüsü işlemini tekrar dene"
+                className="min-h-11 shrink-0 rounded-md px-2 font-semibold underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onClick={() =>
+                  executeEnvelope(activeConversation.retryLifecycle())
+                }
               >
                 Tekrar dene
-              </Button>
+              </button>
             </div>
           )}
 
-          {(!sideKey || (!detail.isPending && !detail.isError)) &&
-            (messages.length === 0 ? (
-              <p
-                role="status"
-                className="p-6 text-center text-sm text-muted-foreground"
-              >
-                Henüz mesaj yok.
-              </p>
-            ) : (
-              <div
-                role="feed"
-                aria-label="Konuşma mesajları"
-                className="divide-y divide-border/70 border-b border-border/70 bg-card"
-              >
-                {messagePresentation(messages).map(
-                  ({ message, showFullSender }) => (
-                    <div
-                      key={message.id}
-                      ref={(node) => {
-                        if (node) messageRefs.current.set(message.id, node);
-                        else messageRefs.current.delete(message.id);
-                      }}
-                    >
-                      <ThreadMessage
-                        message={message}
-                        showFullSender={showFullSender}
-                        onRetry={(clientMessageId) =>
-                          executeEnvelope(
-                            activeConversation.getRetryEnvelope(clientMessageId)
-                          )
-                        }
-                      />
-                    </div>
-                  )
-                )}
-              </div>
-            ))}
-        </div>
+          {activeConversation.lifecyclePending && (
+            <div
+              role="status"
+              className="border-b border-border bg-muted/60 px-4 py-2 text-center text-xs text-muted-foreground"
+            >
+              İşlem sürüyor…
+            </div>
+          )}
 
-        {solved ? (
-          <section
-            aria-label="Yanıt yazma durumu"
-            className="shrink-0 border-t border-border bg-card px-4 py-3"
-          >
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground shadow-sm">
-                {closed ? (
-                  <LockClosedIcon className="size-4" aria-hidden="true" />
-                ) : (
-                  <CheckCircledIcon className="size-4" aria-hidden="true" />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">
-                  {closed
-                    ? "Bu konuşma kapalı."
-                    : "Yanıt yazmak için konuşmayı tekrar açın."}
-                </p>
-                {!closed && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Açtıktan sonra alıcıya yeni bir e-posta gönderebilirsiniz.
-                  </p>
-                )}
+          <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
+            {sideKey && detail.isPending && (
+              <div
+                role="status"
+                className="flex h-full items-center justify-center gap-2 p-6 text-sm text-muted-foreground"
+              >
+                <ReloadIcon className="size-4 animate-spin" />
+                <span>Konuşma yükleniyor</span>
               </div>
-              {!closed && (
+            )}
+
+            {sideKey && detail.isError && (
+              <div
+                role="alert"
+                className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
+              >
+                <p className="text-sm text-destructive">
+                  Konuşma yüklenemedi. Lütfen tekrar deneyin.
+                </p>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="shrink-0"
-                  disabled={
-                    !lifecycleParams ||
-                    activeConversation.lifecyclePending !== null
-                  }
-                  onClick={() => {
-                    if (!lifecycleParams) return;
-                    executeEnvelope(activeConversation.reopen(lifecycleParams));
-                  }}
+                  aria-label="Konuşmayı tekrar yükle"
+                  onClick={() => void detail.refetch()}
                 >
-                  {activeConversation.lifecyclePending === "reopen"
-                    ? "Açılıyor…"
-                    : "Tekrar aç"}
+                  Tekrar dene
                 </Button>
-              )}
-            </div>
-          </section>
-        ) : (
-          <RichTextComposer
-            ref={composerRef}
-            value={activeConversation.draftHtml}
-            valueIsTrustedAuthored
-            recipientLabel={recipientLabel}
-            recipientPrefix="Yanıt:"
-            placeholder="Yanıtınızı yazın…"
-            disabled={
-              !tenantId ||
-              !agentEmail ||
-              !sideKey ||
-              detail.isPending ||
-              detail.isError
-            }
-            onChange={(html) => activeConversation.setAuthoredDraftHtml(html)}
-            onSubmit={submitReply}
-            className="shrink-0"
-            attachments={attachmentUpload.chips("reply")}
-            attachmentsUploading={attachmentUpload.isUploading("reply")}
-            onAttachFiles={handleAttachFiles}
-            onRemoveAttachment={(chipId) =>
-              attachmentUpload.removeChip("reply", chipId)
-            }
-            onRetryAttachment={(chipId) =>
-              attachmentUpload.retryChip("reply", chipId)
-            }
-            onInlineImagePaste={handleInlineImagePaste}
+              </div>
+            )}
+
+            {(!sideKey || (!detail.isPending && !detail.isError)) &&
+              (messages.length === 0 ? (
+                <p
+                  role="status"
+                  className="p-6 text-center text-sm text-muted-foreground"
+                >
+                  Henüz mesaj yok.
+                </p>
+              ) : (
+                <div
+                  role="feed"
+                  aria-label="Konuşma mesajları"
+                  className="divide-y divide-border/70 border-b border-border/70 bg-card"
+                >
+                  {messagePresentation(messages).map(
+                    ({ message, showFullSender }) => (
+                      <div
+                        key={message.id}
+                        ref={(node) => {
+                          if (node) messageRefs.current.set(message.id, node);
+                          else messageRefs.current.delete(message.id);
+                        }}
+                      >
+                        <ThreadMessage
+                          message={message}
+                          showFullSender={showFullSender}
+                          agentEmail={agentEmail}
+                          agentName={agentName}
+                          onRetry={(clientMessageId) =>
+                            executeEnvelope(
+                              activeConversation.getRetryEnvelope(
+                                clientMessageId
+                              )
+                            )
+                          }
+                        />
+                      </div>
+                    )
+                  )}
+                </div>
+              ))}
+          </div>
+
+          {solved ? (
+            <section
+              aria-label="Yanıt yazma durumu"
+              className="shrink-0 border-t border-border bg-card px-4 py-3"
+            >
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground shadow-sm">
+                  {closed ? (
+                    <LockClosedIcon className="size-4" aria-hidden="true" />
+                  ) : (
+                    <CheckCircledIcon className="size-4" aria-hidden="true" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {closed
+                      ? "Bu konuşma kapalı."
+                      : "Yanıt yazmak için konuşmayı tekrar açın."}
+                  </p>
+                  {!closed && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Açtıktan sonra alıcıya yeni bir e-posta gönderebilirsiniz.
+                    </p>
+                  )}
+                  {recipientLabel && (
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      Alıcı: {recipientLabel}
+                    </p>
+                  )}
+                </div>
+                {!closed && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    disabled={
+                      !lifecycleParams ||
+                      activeConversation.lifecyclePending !== null
+                    }
+                    onClick={() => {
+                      if (!lifecycleParams) return;
+                      executeEnvelope(
+                        activeConversation.reopen(lifecycleParams)
+                      );
+                    }}
+                  >
+                    {activeConversation.lifecyclePending === "reopen"
+                      ? "Açılıyor…"
+                      : "Tekrar aç"}
+                  </Button>
+                )}
+              </div>
+            </section>
+          ) : (
+            <RichTextComposer
+              ref={composerRef}
+              value={activeConversation.draftHtml}
+              valueIsTrustedAuthored
+              recipientLabel={recipientLabel}
+              recipientPrefix="Yanıt:"
+              placeholder="Yanıtınızı yazın…"
+              disabled={
+                !tenantId ||
+                !agentEmail ||
+                !sideKey ||
+                detail.isPending ||
+                detail.isError
+              }
+              onChange={(html) => activeConversation.setAuthoredDraftHtml(html)}
+              onSubmit={submitReply}
+              className="shrink-0"
+              attachments={attachmentUpload.chips("reply")}
+              attachmentsUploading={attachmentUpload.isUploading("reply")}
+              onAttachFiles={handleAttachFiles}
+              onRemoveAttachment={(chipId) =>
+                attachmentUpload.removeChip("reply", chipId)
+              }
+              onRetryAttachment={(chipId) =>
+                attachmentUpload.retryChip("reply", chipId)
+              }
+              onInlineImagePaste={handleInlineImagePaste}
+            />
+          )}
+        </ScreenContent>
+
+        {solveDialogOpen && lifecycleParams && (
+          <ConfirmDialog
+            title="Çözüldü olarak işaretle"
+            body={SOLVE_CONFIRMATION}
+            cancelLabel="Vazgeç"
+            confirmLabel="Çözüldü olarak işaretle"
+            onCancel={() => setSolveDialogOpen(false)}
+            onConfirm={() => {
+              setSolveDialogOpen(false);
+              executeEnvelope(activeConversation.setSolved(lifecycleParams));
+            }}
           />
         )}
-      </ScreenContent>
 
-      {solveDialogOpen && lifecycleParams && (
-        <ConfirmDialog
-          title="Çözüldü olarak işaretle"
-          body={SOLVE_CONFIRMATION}
-          cancelLabel="Vazgeç"
-          confirmLabel="Çözüldü olarak işaretle"
-          onCancel={() => setSolveDialogOpen(false)}
-          onConfirm={() => {
-            setSolveDialogOpen(false);
-            executeEnvelope(activeConversation.setSolved(lifecycleParams));
-          }}
-        />
-      )}
-
-      {draftDialogOpen && (
-        <ConfirmDialog
-          title="Taslak kaybolacak"
-          body="Gönderilmemiş yanıt taslağın silinecek."
-          tone="danger"
-          cancelLabel="Kalsın"
-          confirmLabel="Taslağı sil"
-          onCancel={() => setDraftDialogOpen(false)}
-          onConfirm={() => {
-            panelNavigation.confirmDiscardReplyAndReturnToList();
-            setDraftDialogOpen(false);
-          }}
-        />
-      )}
-    </Screen>
+        {draftDialogOpen && (
+          <ConfirmDialog
+            title="Taslak kaybolacak"
+            body="Gönderilmemiş yanıt taslağın silinecek."
+            tone="danger"
+            cancelLabel="Kalsın"
+            confirmLabel="Taslağı sil"
+            onCancel={() => setDraftDialogOpen(false)}
+            onConfirm={() => {
+              panelNavigation.confirmDiscardReplyAndReturnToList();
+              setDraftDialogOpen(false);
+            }}
+          />
+        )}
+      </Screen>
+    </div>
   );
 });

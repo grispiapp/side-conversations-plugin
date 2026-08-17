@@ -2,6 +2,7 @@ import { ChatScreen } from "../chat-screen";
 import { ReactElement, act } from "react";
 import { Root, createRoot } from "react-dom/client";
 
+import { buildAgentTicketUrl } from "@/grispi/client/environment";
 import { MutationEnvelope } from "@/store/active-conversation-store";
 
 let mockStore: any;
@@ -12,6 +13,8 @@ let mockReplyMutation: any;
 let mockStatusMutation: any;
 
 const mockUseDetail = jest.fn();
+const mockGetInfoBoxSeen = jest.fn();
+const mockSetInfoBoxSeen = jest.fn();
 
 jest.mock("@/contexts/store-context", () => ({
   useStore: () => mockStore,
@@ -19,6 +22,14 @@ jest.mock("@/contexts/store-context", () => ({
 
 jest.mock("@/contexts/grispi-context", () => ({
   useGrispi: () => mockGrispi,
+}));
+
+// Task 3 (D-16b): the real localStorage-backed store is Plan 04's own
+// concern — this screen's tests only assert the CALL contract (tenant-scoped
+// seen check + one dismiss write) against a mocked store.
+jest.mock("@/lib/info-box-store", () => ({
+  getInfoBoxSeen: (tenantId: string) => mockGetInfoBoxSeen(tenantId),
+  setInfoBoxSeen: (tenantId: string) => mockSetInfoBoxSeen(tenantId),
 }));
 
 jest.mock("@/query/side-conversation-queries", () => ({
@@ -221,9 +232,14 @@ beforeEach(() => {
   mockGrispi = {
     tenantId: "tenant-1",
     agentEmail: "agent@example.test",
+    agentName: "Destek Temsilcisi",
+    environment: "preprod",
   };
   mockUseDetail.mockReset();
   mockUseDetail.mockImplementation(() => mockDetail);
+  mockGetInfoBoxSeen.mockReset();
+  mockGetInfoBoxSeen.mockReturnValue(false);
+  mockSetInfoBoxSeen.mockReset();
 });
 
 afterEach(() => {
@@ -623,5 +639,247 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(
       mockStore.panelNavigation.confirmDiscardReplyAndReturnToList
     ).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ChatScreen header composition (D-06/D-07/D-08/D-10)", () => {
+  it("renders the side ticket key as a new-tab link and keeps the recipient out of the header", () => {
+    render(<ChatScreen />);
+
+    const header = container.querySelector("header");
+    const link = header?.querySelector("a");
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href")).toBe(
+      buildAgentTicketUrl("tenant-1", "preprod", "SC-42")
+    );
+    expect(link?.getAttribute("target")).toBe("_blank");
+    expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link?.textContent).toContain("SC-42");
+    expect(header?.textContent).not.toContain("Ada <ada@example.test>");
+  });
+
+  it("renders a plain-text placeholder, never a broken link, while the conversation is pending", () => {
+    mockStore.panelNavigation.selectedConversation = {
+      ticketKey: null,
+      parentKey: "PARENT-7",
+      sessionKey: 8,
+    };
+    mockDetail = makeDetail({ data: undefined });
+    render(<ChatScreen />);
+
+    const header = container.querySelector("header");
+    expect(header?.querySelector("a")).toBeNull();
+    expect(header?.textContent).toContain("Yeni konuşma");
+  });
+
+  it("renders no link and does not crash when environment is not yet resolved", () => {
+    mockGrispi.environment = null;
+    expect(() => render(<ChatScreen />)).not.toThrow();
+
+    const header = container.querySelector("header");
+    expect(header?.querySelector("a")).toBeNull();
+  });
+
+  it("renders the parent ticket key as a neutral chip, never a link", () => {
+    render(<ChatScreen />);
+
+    const header = container.querySelector("header");
+    expect(header?.textContent).toContain("üst talep");
+    expect(header?.textContent).toContain("PARENT-7");
+    const links = Array.from(header?.querySelectorAll("a") ?? []);
+    links.forEach((link) => {
+      expect(link.textContent).not.toContain("PARENT-7");
+    });
+  });
+
+  it("keeps the 'Konu:' prefix and its empty-subject placeholder in the subtitle", () => {
+    mockDetail = makeDetail({
+      data: { ...makeDetail().data, subject: "" },
+    });
+    render(<ChatScreen />);
+
+    const header = container.querySelector("header");
+    expect(header?.textContent).toContain("Konu: Konu yok");
+  });
+});
+
+describe("ChatScreen recipient visibility and identity wiring (D-09/D-13/D-14)", () => {
+  it("shows the recipient in the solved block, and omits the line entirely when the label is empty", () => {
+    mockDetail = makeDetail({
+      data: { ...makeDetail().data, lifecycle: "solved", solved: true },
+    });
+    render(<ChatScreen />);
+    expect(container.textContent).toContain("Alıcı: Ada <ada@example.test>");
+
+    mockDetail = makeDetail({
+      data: {
+        ...makeDetail().data,
+        lifecycle: "solved",
+        solved: true,
+        recipientLabel: "",
+      },
+    });
+    render(<></>);
+    render(<ChatScreen />);
+    expect(container.textContent).not.toContain("Alıcı:");
+  });
+
+  it("shows the recipient line when the conversation is closed too", () => {
+    mockDetail = makeDetail({
+      data: {
+        ...makeDetail().data,
+        lifecycle: "closed",
+        solved: true,
+        reopenable: false,
+      },
+    });
+    render(<ChatScreen />);
+    expect(container.textContent).toContain("Alıcı: Ada <ada@example.test>");
+  });
+
+  it("keeps the recipient in the composer row (not the solved block) while the conversation is open", () => {
+    render(<ChatScreen />);
+    expect(
+      container.querySelector('[aria-label="Yanıt yazma durumu"]')
+    ).toBeNull();
+    expect(container.textContent).toContain("Yanıt: Ada <ada@example.test>");
+  });
+
+  it("shows the 'Siz' badge only on the active agent's own message", () => {
+    mockStore.activeConversation.mergeCanonical.mockReturnValue([
+      {
+        id: "own-active",
+        direction: "own",
+        body: "<p>Benim</p>",
+        status: "sent",
+        createdAt: 1_000,
+        senderName: "Agent One",
+        senderEmail: "agent@example.test",
+      },
+      {
+        id: "own-other",
+        direction: "own",
+        body: "<p>Diğer</p>",
+        status: "sent",
+        createdAt: 2_000,
+        senderName: "Agent Two",
+        senderEmail: "other-agent@example.test",
+      },
+    ]);
+    render(<ChatScreen />);
+
+    const activeMessage = container.querySelector(
+      '[data-testid="thread-message-own-active"]'
+    );
+    const otherMessage = container.querySelector(
+      '[data-testid="thread-message-own-other"]'
+    );
+    expect(
+      activeMessage?.querySelector('[data-testid="sender-badge"]')
+    ).not.toBeNull();
+    expect(
+      otherMessage?.querySelector('[data-testid="sender-badge"]')
+    ).toBeNull();
+    expect(activeMessage?.textContent).toContain("Agent One");
+    expect(otherMessage?.textContent).toContain("Agent Two");
+  });
+
+  it("shows the bundled agent name on a still-pending optimistic own message", () => {
+    mockGrispi.agentName = "Ada Temsilci";
+    mockStore.panelNavigation.selectedConversation = {
+      ticketKey: null,
+      parentKey: "PARENT-7",
+      sessionKey: 8,
+    };
+    mockDetail = makeDetail({ data: undefined });
+    mockStore.activeConversation.getOverlayMessages.mockReturnValue([
+      {
+        id: "pending-own",
+        direction: "own",
+        body: "<p>Taslak</p>",
+        status: "pending",
+        createdAt: 3_000,
+      },
+    ]);
+    render(<ChatScreen />);
+
+    expect(container.textContent).toContain("Ada Temsilci");
+  });
+});
+
+describe("ChatScreen info box (D-16(b))", () => {
+  function reserveCreatedConversation() {
+    mockStore.panelNavigation.selectedConversation = {
+      ticketKey: null,
+      parentKey: "PARENT-7",
+      sessionKey: 8,
+    };
+    mockDetail = makeDetail({ data: undefined });
+  }
+
+  it("never shows the info box for a conversation opened from the list", () => {
+    render(<ChatScreen />);
+    expect(container.textContent).not.toContain(
+      "Bu işlem yeni bir talep oluşturur"
+    );
+  });
+
+  it("shows the info box once a conversation is created in this session, and keeps it through binding", () => {
+    reserveCreatedConversation();
+    render(<ChatScreen />);
+    expect(container.textContent).toContain(
+      "Bu işlem yeni bir talep oluşturur"
+    );
+
+    mockStore.panelNavigation.selectedConversation = {
+      ticketKey: "SC-42",
+      parentKey: "PARENT-7",
+      sessionKey: 8,
+    };
+    render(<ChatScreen />);
+    expect(container.textContent).toContain(
+      "Bu işlem yeni bir talep oluşturur"
+    );
+  });
+
+  it("does not show the info box when this tenant already dismissed it", () => {
+    mockGetInfoBoxSeen.mockReturnValue(true);
+    reserveCreatedConversation();
+    render(<ChatScreen />);
+    expect(container.textContent).not.toContain(
+      "Bu işlem yeni bir talep oluşturur"
+    );
+  });
+
+  it("dismiss calls setInfoBoxSeen once, removes the box, and returns focus to the back button", () => {
+    reserveCreatedConversation();
+    render(<ChatScreen />);
+
+    click("Bilgi kutusunu kapat");
+
+    expect(mockSetInfoBoxSeen).toHaveBeenCalledTimes(1);
+    expect(mockSetInfoBoxSeen).toHaveBeenCalledWith("tenant-1");
+    expect(container.textContent).not.toContain(
+      "Bu işlem yeni bir talep oluşturur"
+    );
+    const backButton = container.querySelector<HTMLElement>(
+      '[aria-label="Konuşma listesine dön"]'
+    );
+    expect(backButton).not.toBeNull();
+    expect(document.activeElement).toBe(backButton);
+
+    render(<ChatScreen />);
+    expect(container.textContent).not.toContain(
+      "Bu işlem yeni bir talep oluşturur"
+    );
+  });
+
+  it("never renders the info box when tenantId is null", () => {
+    mockGrispi.tenantId = null;
+    reserveCreatedConversation();
+    render(<ChatScreen />);
+    expect(container.textContent).not.toContain(
+      "Bu işlem yeni bir talep oluşturur"
+    );
   });
 });
