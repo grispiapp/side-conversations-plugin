@@ -26,6 +26,7 @@ import {
 import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
 import {
   SIDE_CONVERSATION_PARENT_FIELD_KEY,
+  formatInternalNoteBody,
   isValidEmail,
 } from "@/lib/side-conversation";
 import {
@@ -43,6 +44,7 @@ import {
   AdvancedSearchResponse,
   Comment,
   Customer,
+  InternalNotePatchRequest,
   SideTicketSummary,
   Ticket,
 } from "@/types/grispi.type";
@@ -588,6 +590,64 @@ async function refreshCanonicalAfterMutation(
   }
 }
 
+/**
+ * D-01/D-04/D-22 — appends the silent internal note + re-asserts the
+ * `tu.side_conversation_parent` field on the freshly created side ticket.
+ * Fires exactly once per successful create, with at most one retry, and
+ * NEVER throws: a failure here must never surface to the agent or convert
+ * an already-committed create into a resendable failure (D-04). The two
+ * concerns (note body + parent field) share one PATCH body/call, but their
+ * failure logs stay on separate `console.error` lines (D-22) since the
+ * parent field is load-bearing for listing while the note itself is not.
+ */
+export async function assertSideConversationLink(
+  sideKey: string,
+  parentKey: string,
+  agentEmail: string | null
+): Promise<void> {
+  if (!agentEmail) {
+    console.error(
+      "side-conversation-queries",
+      "internal note skipped — no agent identity on envelope",
+      sideKey
+    );
+    return;
+  }
+
+  const body: InternalNotePatchRequest = {
+    comment: {
+      body: formatInternalNoteBody(parentKey),
+      publicVisible: false,
+      creator: [{ key: "us.email", value: agentEmail }],
+      channel: "WEB",
+    },
+    fields: [{ key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: parentKey }],
+  };
+
+  try {
+    await grispiAPI.tickets.addInternalNote(sideKey, body);
+    return;
+  } catch {
+    // fall through to the single retry below (D-04: at most 1 retry, no
+    // backoff/delay/queue).
+  }
+
+  try {
+    await grispiAPI.tickets.addInternalNote(sideKey, body);
+  } catch {
+    console.error(
+      "side-conversation-queries",
+      "internal note PATCH failed after retry — side conversation may be missing its Grispi-side link",
+      sideKey
+    );
+    console.error(
+      "side-conversation-queries",
+      "tu.side_conversation_parent re-assertion failed after retry — listing may not find this ticket",
+      sideKey
+    );
+  }
+}
+
 export async function executeCreateMutation(
   queryClient: QueryClient,
   boundary: MutationBoundary,
@@ -610,6 +670,18 @@ export async function executeCreateMutation(
   boundary.bindCreatedTicket(envelope.sessionKey, sideKey);
   if (!isCurrent(boundary, envelope, sideKey)) return;
   boundary.activeConversation.mutationAccepted(envelope);
+  // MUST be awaited BEFORE refreshCanonicalAfterMutation's detail refetch
+  // below (RESEARCH.md Pitfall #1) — a fire-and-forget call here would race
+  // the refetch and could leave the note missing from the agent's first
+  // view of the conversation. Never wrapped in its own try/catch here:
+  // assertSideConversationLink already swallows every failure internally
+  // (D-04), so wrapping it a second time would just split that contract
+  // across two places.
+  await assertSideConversationLink(
+    sideKey,
+    envelope.parentKey,
+    envelope.request.comment.creator[0]?.value ?? null
+  );
   try {
     await refreshCanonicalAfterMutation(
       queryClient,
