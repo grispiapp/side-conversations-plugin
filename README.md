@@ -118,7 +118,7 @@ npm start
 
 To open a different ticket: `http://localhost:3000/?ticket=TICKET-123`.
 
-Standalone mode never activates in a production build (it also requires `NODE_ENV === "development"`). The remaining overrides — tenant, default ticket, agent email, environment — are optional; see `src/lib/standalone-dev.ts` for their names and defaults.
+Standalone mode never activates in a production build (it also requires `NODE_ENV === "development"`). The acting agent's email is derived from `REACT_APP_DEV_TOKEN`'s own `sub` claim; the token carries no name claim, so the agent's display name is set only via `REACT_APP_DEV_AGENT_NAME` (in your local, git-ignored `.env.development.local`) and otherwise shows the sender's email. The remaining overrides — tenant, default ticket, agent email, environment — are optional; see `src/lib/standalone-dev.ts` for their names and defaults.
 
 ---
 

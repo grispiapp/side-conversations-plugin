@@ -217,6 +217,28 @@ describe("ThreadMessage", () => {
       expect(container.textContent).toContain("Siz");
     });
 
+    it("falls back to senderEmail for a pending optimistic own reply when agentName is explicitly null (standalone dev, no name override)", () => {
+      // Proves the real runtime value (standalone dev passes null, not
+      // undefined) hits the same fallback branch as the test above.
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "pending-own-null-agent-name",
+            direction: "own",
+            senderName: undefined,
+            senderEmail: "davut@firma.test",
+            status: "pending",
+          }}
+          agentEmail="davut@firma.test"
+          agentName={null}
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.textContent).toContain("davut@firma.test");
+      expect(container.textContent).toContain("Siz");
+    });
+
     it("falls back through senderEmail then a static placeholder when neither senderName nor agentName exist", () => {
       render(
         <ThreadMessage

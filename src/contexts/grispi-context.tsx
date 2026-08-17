@@ -28,15 +28,17 @@ type GrispiContextType = {
   /**
    * The acting agent's email — createTicket's `creator` source (D-13,
    * RESEARCH.md Pitfall #3). Sourced from `bundle.context.agent.email` in
-   * plugin mode, or `REACT_APP_DEV_AGENT_EMAIL` (standalone-dev.ts) in
-   * local standalone mode. `null` until resolved.
+   * plugin mode, or the token's own `sub` claim (or an explicit operator
+   * override) in standalone dev mode. `null` until resolved, or permanently
+   * if standalone identity can't be determined — send gates stay closed.
    */
   agentEmail: string | null;
   /**
    * The acting agent's display name — sender label for optimistic messages
-   * (D-13). Sourced from `bundle.context.agent.fullName` in plugin mode, or
-   * `DEFAULT_DEV_AGENT_NAME`/`REACT_APP_DEV_AGENT_NAME` in standalone dev
-   * mode. `null` until resolved.
+   * (D-13). Sourced from `bundle.context.agent.fullName` in plugin mode; in
+   * standalone dev mode the only source is `REACT_APP_DEV_AGENT_NAME` (the
+   * token carries no name claim), so it's `null` otherwise and the label
+   * falls back to `senderEmail`.
    */
   agentName: string | null;
   /**
