@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 04.2
 current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 status: verifying
-stopped_at: Completed 04.2-04-PLAN.md
-last_updated: "2026-08-17T15:43:13.525Z"
+stopped_at: Phase 04.2 executed 8/8 — verification gaps_found (SC1/SC9)
+last_updated: "2026-08-17T16:05:00.000Z"
 last_activity: 2026-08-17
-last_activity_desc: Phase 04.2 execution started
+last_activity_desc: Phase 04.2 yürütüldü (8/8) — doğrulama 5/9, SC1 ve SC9 açık
 progress:
   total_phases: 8
   completed_phases: 7
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 ## Current Position
 
-Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTING
+Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTED, GAPS FOUND
 Plan: 8 of 8
-Status: Phase complete — ready for verification
-Last activity: 2026-08-17 — Phase 04.2 execution started
+Status: Doğrulama 5/9 must-have. SC1 (sessiz iç not) ve SC9 (parent alan tesisi) tek kök nedenle FAIL: `executeCreateMutation`'daki `isCurrent` erken dönüşü `assertSideConversationLink`'i hiç çağırmıyor. UX-07/UX-08 canlı ölçüm bekliyor (`04.2-UAT.md`, 7 madde pending). Sıradaki: `/gsd-plan-phase 04.2 --gaps`
+Last activity: 2026-08-17 — 8/8 plan yürütüldü; code review 2 blocker, doğrulama gaps_found
 
 Progress: [███████░░░] 75%
 

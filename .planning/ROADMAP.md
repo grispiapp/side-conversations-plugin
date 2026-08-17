@@ -281,4 +281,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 03.1 → 4 → 04.1 → 04.2 
 | 03.1. Editör, cache ve birleşik inbox deneyimi modernizasyonu | 5/5 | Complete    | 2026-07-29 |
 | 4. Dosya Ekleri ve Inline Görseller | 8/8 | Executed (UAT bekliyor) | - |
 | 04.1. Ortam yönlendirmesi ve prod hazırlığı | 2/2 | Complete   | 2026-08-10 |
+| 04.2. UAT geri bildirimleri | 8/8 | Executed (gaps found — SC1/SC9) | - |
 | 5. Zenginleştirmeler ve Dayanıklılık | 0/TBD | Not started | - |
