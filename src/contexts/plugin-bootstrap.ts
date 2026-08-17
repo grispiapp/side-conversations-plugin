@@ -49,6 +49,21 @@ export interface BootstrapPluginInitDeps {
    */
   setEnvironment(environment: GrispiEnvironment): void;
   /**
+   * D-07 — the React-reachable sink for the resolved environment
+   * (`useGrispi().environment`). A SECOND receiver of the exact same
+   * resolved value `setEnvironment` above receives — it does NOT replace
+   * `setEnvironment`, which still feeds `HttpHandler`.
+   * Required (not optional): an omitted call site would silently leave
+   * `TicketKeyLink`/`ParentKeyChip` callers with a `null` environment.
+   */
+  setEnvironmentState(environment: GrispiEnvironment): void;
+  /**
+   * D-13 — agentName source for optimistic-message sender display. Same
+   * optional-chaining defensiveness as `setAgentEmail` below (a bundle can
+   * arrive with no `agent`).
+   */
+  setAgentName(name: string | null): void;
+  /**
    * WR-01 (04.1-REVIEW.md) / CORE-04 — opens the SDK ticket-update gate in
    * `GrispiProvider`'s `currentTicketUpdated` handler. Called immediately
    * after `setEnvironment`, in the same uninterrupted synchronous block as
@@ -72,12 +87,16 @@ export async function bootstrapPluginInit(
     const bundle = await deps.plugin._init();
 
     // CORE-04: resolve and apply the base URL FIRST, in the same synchronous
-    // block as _init()'s resolution — no `await` between here and
-    // `switchTicket` may be introduced, or the first fetch could race ahead
-    // of the environment switch.
-    deps.setEnvironment(
-      resolveGrispiEnvironment(bundle.settings, bundle.context.token)
+    // block as _init()'s resolution — no suspension point may be introduced
+    // between here and `switchTicket`, or the first fetch could race ahead
+    // of the environment switch. Resolved exactly once — both sinks receive
+    // the same value.
+    const resolvedEnvironment = resolveGrispiEnvironment(
+      bundle.settings,
+      bundle.context.token
     );
+    deps.setEnvironment(resolvedEnvironment);
+    deps.setEnvironmentState(resolvedEnvironment);
     deps.onEnvironmentReady();
 
     deps.authentication.setTenantId(bundle.context.tenantId);
@@ -85,6 +104,7 @@ export async function bootstrapPluginInit(
     deps.setTenantId(bundle.context.tenantId);
     deps.setSettings(bundle.settings);
     deps.setAgentEmail(bundle.context.agent?.email ?? null);
+    deps.setAgentName(bundle.context.agent?.fullName ?? null);
     deps.setLoading(false);
     deps.switchTicket(bundle.context.ticketKey);
   } catch (err) {

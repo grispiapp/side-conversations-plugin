@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 
+import { GrispiEnvironment } from "@/grispi/client/environment";
 import { HttpError, NetworkError } from "@/grispi/client/http-handler";
 import { grispiAPI } from "@/grispi/client/api";
 import {
@@ -31,6 +32,21 @@ type GrispiContextType = {
    * local standalone mode. `null` until resolved.
    */
   agentEmail: string | null;
+  /**
+   * The acting agent's display name — sender label for optimistic messages
+   * (D-13). Sourced from `bundle.context.agent.fullName` in plugin mode, or
+   * `DEFAULT_DEV_AGENT_NAME`/`REACT_APP_DEV_AGENT_NAME` in standalone dev
+   * mode. `null` until resolved.
+   */
+  agentName: string | null;
+  /**
+   * Resolved once at bootstrap, alongside `HttpHandler`'s own copy
+   * (`grispiAPI.setEnvironment`). This is the ONLY sink React components can
+   * read — used exclusively to build agent-UI deep links
+   * (`buildAgentTicketUrl`, D-07/D-08); API calls never read this field,
+   * they go through `HttpHandler`.
+   */
+  environment: GrispiEnvironment | null;
   /** True only in local standalone dev mode (never in the Grispi iframe). */
   standalone: boolean;
   /**
@@ -78,6 +94,12 @@ export const GrispiProvider: React.FC<{
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [agentEmail, setAgentEmail] = useState<string | null>(null);
+  const [agentName, setAgentName] = useState<string | null>(null);
+  // Distinct name from `grispiAPI.setEnvironment` (HttpHandler's own copy,
+  // called alongside this in both branches below) — this is the React
+  // state sink, never the request-host sink.
+  const [environment, setEnvironmentState] =
+    useState<GrispiEnvironment | null>(null);
 
   // Latest requested ticket key — a slower, older detail fetch must never
   // overwrite a newer switch's ticket (same idea as the store's generation
@@ -161,6 +183,7 @@ export const GrispiProvider: React.FC<{
       setTenantId(standaloneConfig.tenantId);
       grispiAPI.authentication.setToken(standaloneConfig.token);
       grispiAPI.setEnvironment(standaloneConfig.environment);
+      setEnvironmentState(standaloneConfig.environment);
       // Invariant parity only (WR-01) — standalone has no SDK event source,
       // so nothing reads this ref here; behavior is unchanged
       // (04.1-VERIFICATION.md verified truth #9).
@@ -168,6 +191,7 @@ export const GrispiProvider: React.FC<{
 
       setSettings({});
       setAgentEmail(standaloneConfig.agentEmail);
+      setAgentName(standaloneConfig.agentName);
       setLoading(false);
       void switchTicket(standaloneConfig.initialTicketKey);
       return;
@@ -202,8 +226,10 @@ export const GrispiProvider: React.FC<{
       setSettings,
       setLoading,
       setAgentEmail,
+      setAgentName,
       setTenantId,
       setEnvironment: grispiAPI.setEnvironment.bind(grispiAPI),
+      setEnvironmentState,
       onEnvironmentReady: () => {
         environmentReadyRef.current = true;
       },
@@ -244,6 +270,8 @@ export const GrispiProvider: React.FC<{
         settings,
         loading,
         agentEmail,
+        agentName,
+        environment,
         standalone: standaloneConfig !== null,
         switchTicket,
       }}

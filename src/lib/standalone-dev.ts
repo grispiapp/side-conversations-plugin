@@ -22,6 +22,7 @@ export interface StandaloneDevConfig {
   tenantId: string;
   initialTicketKey: string;
   agentEmail: string;
+  agentName: string;
   environment: GrispiEnvironment;
 }
 
@@ -36,6 +37,12 @@ export const DEFAULT_DEV_TICKET_KEY = "TICKET-563";
  * "Davut Kember", id 15, ROLE_ADMIN).
  */
 export const DEFAULT_DEV_AGENT_EMAIL = "davutkmbr@gmail.com";
+/**
+ * D-13's `agentName` counterpart to `DEFAULT_DEV_AGENT_EMAIL` — same
+ * live-verified identity (02-01-SUMMARY.md probe: davutkmbr@gmail.com →
+ * team user "Davut Kember", id 15, ROLE_ADMIN).
+ */
+export const DEFAULT_DEV_AGENT_NAME = "Davut Kember";
 /**
  * Standalone dev mode bypasses the bundle/SDK entirely, so it never enters
  * the `_grispi_env` → JWT `dev` claim → prod resolution chain
@@ -71,6 +78,8 @@ export function resolveStandaloneDevConfig(
 
   const agentEmail =
     env.REACT_APP_DEV_AGENT_EMAIL?.trim() || DEFAULT_DEV_AGENT_EMAIL;
+  const agentName =
+    env.REACT_APP_DEV_AGENT_NAME?.trim() || DEFAULT_DEV_AGENT_NAME;
 
   // Not a plain `?.trim() || DEFAULT` fallback: an unrecognized value (the
   // backend's hyphenated internal spelling, "staging", etc.) must never pass
@@ -81,7 +90,7 @@ export function resolveStandaloneDevConfig(
     ? rawEnvironment
     : DEFAULT_DEV_ENVIRONMENT;
 
-  return { token, tenantId, initialTicketKey, agentEmail, environment };
+  return { token, tenantId, initialTicketKey, agentEmail, agentName, environment };
 }
 
 /** Convenience wrapper reading the real environment. */
