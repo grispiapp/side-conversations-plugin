@@ -28,10 +28,14 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 ## Current Position
 
-Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — GAP PLANS READY
-Plan: 10 of 10 (04.2-09, 04.2-10 gap kapanışı, `gap_closure: true`)
-Status: SC1/SC9 boşlukları için 2 gap planı hazır ve plan-checker'dan geçti (revizyon 1). Kök neden: `executeCreateMutation`'daki `isCurrent` erken dönüşü `assertSideConversationLink`'i hiç çağırmıyor. D-23 eklendi (D-04'ün tek retry'ı iç nottan `tu.side_conversation_parent` alanına geçti). Sıradaki: `/gsd-execute-phase 04.2 --gaps-only`
-Last activity: 2026-08-17 — gap planlama tamam; gereklilik 9/9, karar 23/23, post-planning gap 32/32
+Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTED, UAT BEKLİYOR
+Plan: 10 of 10 (04.2-09, 04.2-10 gap kapanışı tamamlandı)
+Status: Doğrulama `human_needed`, 8/9 must-have (5/9 → 8/9). SC1 KAPANDI — `assertSideConversationLink` artık `isCurrent` kapısının önünde ve her dönüş yolunda await ediliyor. SC9'un "yazma her zaman denenir" yarısı kapandı; "alan gerçekten kalıcı olur" yarısı canlı ölçüm bekliyor. Sıradaki: `/gsd-verify-work 04.2` (7 madde)
+Last activity: 2026-08-17 — gap kapanışı yürütüldü (09, 10); test 527/527, D-22'nin gerekçe hatası düzeltildi
+
+**SC9 kalan risk (kullanıcı kararı 2026-08-17 — bilinçli olarak canlı UAT'a bırakıldı):** mutlu yolda `tu.side_conversation_parent` yalnızca `/v2` PATCH'inin `fields` dizisiyle yazılıyor ve bu mekanizma hiç probe edilmedi; kanıtlanmış `public/v1` fields-only PATCH'i yalnızca `catch`'te. Aynı `/v2` yüzeyi POST'ta bu alanı 2/2 düşürmüştü. Ayrıntı + düzeltme reçetesi: `04.2-UAT.md` madde 7, `04.2-REVIEW-GAPS.md` CR-01, CONTEXT.md'deki D-22 düzeltme notu.
+
+**Test borcu (WR-03):** `side-conversation-queries.test.tsx:1244`'teki D-01 sıralama testi `invocationCallOrder` kullanıyor — çağrı sırasını ölçüyor, await tamamlanmasını değil. Hoist sonrası totolojik hâle geldi: `await linkAssertion` satırları silinse hiçbir test kırılmaz. D-01 invariant'ı suite tarafından korunmuyor.
 
 **Kapsam dışı, ayrı ele alınacak:** CR-02 — `src/lib/standalone-dev.ts`'teki hardcoded `DEFAULT_DEV_AGENT_EMAIL`/`DEFAULT_DEV_AGENT_NAME` canlı API'ye `creator: us.email` olarak ulaşabiliyor. Kullanıcı kararı: önce JWT/bundle canlı probe'u, sonra ayrı faz.
 
