@@ -30,20 +30,44 @@ export interface ThreadMessageData {
 export interface ThreadMessageProps {
   message: ThreadMessageData;
   showFullSender?: boolean;
+  agentEmail?: string | null;
+  agentName?: string | null;
   onRetry: (id: string) => void;
 }
 
+/**
+ * Gerçek gönderen adını üretir — sabit "Siz" metni kalktı çünkü aynı yan
+ * konuşmaya birden fazla temsilci yazabilir (D-13). `isCurrentAgent` yalnızca
+ * bir bayraktır; rozeti adın YERİNE değil YANINA render etmek çağıranın işi
+ * (D-14).
+ */
 function senderLabel(
   message: ThreadMessageData,
-  showFullSender: boolean
-): string {
-  if (message.internal) return "İç not · Salt okunur";
-  if (message.direction === "own") return "Siz";
+  showFullSender: boolean,
+  agentEmail: string | null | undefined,
+  agentName: string | null | undefined
+): { text: string; isCurrentAgent: boolean } {
+  if (message.internal) return { text: "İç not", isCurrentAgent: false };
 
-  const name = message.senderName || message.senderEmail || "Gönderen";
-  return showFullSender && message.senderName && message.senderEmail
-    ? `${message.senderName} <${message.senderEmail}>`
-    : name;
+  const pendingOwnFallback =
+    message.direction === "own" && !message.senderName
+      ? agentName
+      : undefined;
+  const name =
+    message.senderName ||
+    pendingOwnFallback ||
+    message.senderEmail ||
+    "Gönderen";
+  const text =
+    showFullSender && message.senderName && message.senderEmail
+      ? `${message.senderName} <${message.senderEmail}>`
+      : name;
+  const isCurrentAgent =
+    message.direction === "own" &&
+    Boolean(agentEmail) &&
+    message.senderEmail === agentEmail;
+
+  return { text, isCurrentAgent };
 }
 
 function formatTime(timestamp: number): string {
@@ -140,9 +164,17 @@ function ThreadAttachments({
 export const ThreadMessage: FC<ThreadMessageProps> = ({
   message,
   showFullSender = false,
+  agentEmail,
+  agentName,
   onRetry,
 }) => {
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const { text: senderText, isCurrentAgent } = senderLabel(
+    message,
+    showFullSender,
+    agentEmail,
+    agentName
+  );
   // This component re-sanitizes `MessageVM`'s already-sanitized HTML as a
   // defense-in-depth second pass (doc-comment below). The second pass MUST
   // follow the same direction rule as the first (normalizeComment) or an
@@ -196,8 +228,9 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
               message.internal && "text-amber-800"
             )}
           >
-            {senderLabel(message, showFullSender)}
+            {senderText}
           </span>
+          {isCurrentAgent && <span className="text-primary">Siz</span>}
         </span>
         <time
           className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
