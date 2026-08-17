@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 03.1: Editör, cache ve birleşik inbox deneyimi modernizasyonu** - Tiptap/DOMPurify, tenant-scoped React Query, senkron thread navigasyonu ve ortak 372px inbox kabuğuyla Phase 3 deneyimini güvenli ve tutarlı hâle getirir (completed 2026-07-29)
 - [ ] **Phase 4: Dosya Ekleri ve Inline Görseller** - Temsilci çoklu dosya ekler (sürükle-bırak/ataç), editöre yapıştırdığı görsel inline gömülür, gelen ekler thread'de görünür *(8/8 plan yürütüldü; doğrulama `human_needed` — 04-UAT.md'deki 4 madde insan onayı bekliyor)*
 - [x] **Phase 04.1: Ortam yönlendirmesi ve prod hazırlığı** - `_grispi_env` + token `dev` claim'i ile çalışma-zamanı base URL çözümlemesi; hiçbir istek yanlış host'a gitmez *(INSERTED)*
-- [x] **Phase 04.2: UAT geri bildirimleri** - İlişki iç notu, yan/üst talep navigasyonu, gönderen ve alıcı kimliğinin netleşmesi, dar/kısa panelde kullanılabilirlik *(INSERTED — canlı UAT geri bildirimi 2026-08-17)* (completed 2026-08-17)
+- [ ] **Phase 04.2: UAT geri bildirimleri** - İlişki iç notu, yan/üst talep navigasyonu, gönderen ve alıcı kimliğinin netleşmesi, dar/kısa panelde kullanılabilirlik *(INSERTED — canlı UAT geri bildirimi 2026-08-17)*
 - [ ] **Phase 5: Zenginleştirmeler ve Dayanıklılık** - Talep özeti alıntılama, alıcıyla önceki görüşmeler ve arka planda sessiz tazeleme
 
 ## Phase Details
