@@ -6,14 +6,14 @@ current_phase: 04.2
 current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 status: executing
 stopped_at: Completed 04.2-04-PLAN.md
-last_updated: "2026-08-17T15:06:58.641Z"
+last_updated: "2026-08-17T15:24:19.394Z"
 last_activity: 2026-08-17
 last_activity_desc: Phase 04.2 execution started
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 39
-  completed_plans: 36
+  completed_plans: 37
   percent: 75
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Status: Ready to execute
 Last activity: 2026-08-17 — Phase 04.2 execution started
 
@@ -86,6 +86,7 @@ Progress: [███████░░░] 75%
 | Phase 04.2 P03 | ~8min | 2 tasks | 2 files |
 | Phase 04.2 P04 | 12min | 2 tasks | 5 files |
 | Phase 04.2 P05 | 40min | 2 tasks | 5 files |
+| Phase 04.2 P06 | 35min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -167,6 +168,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04.2, Plan 04]: InfoBox never manages its own visibility or focus-on-dismiss — caller (compose screen here, chat screen in Plan 06) owns both
 - [Phase ?]: [Phase 04.2, Plan 05]: closeLinkEditor/closeHeadingMenu return focus to the Aa FormatMenu trigger (formatTriggerRef), not the old linkTriggerRef/headingTriggerRef, since those buttons only exist while the popover is open
 - [Phase ?]: [Phase 04.2, Plan 05]: FormatMenu onBlur close-guard exempts focus moving into the composer's own editor (not just into the panel) so toggling bold/italic/list/quote doesn't silently close the panel
+- [Phase ?]: Header title falls back to sideKey plain text when environment/tenantId aren't yet resolved but sideKey is known — extends D-06/D-07's never-broken-link rule
+- [Phase ?]: Post-dismiss InfoBox focus transfer uses a display:contents wrapper ref around Screen instead of a new ScreenHeader prop
+- [Phase ?]: Chat-screen InfoBox 'created this session' latch is local component state, not a PanelNavigationStore addition
 
 ### Pending Todos
 
@@ -211,7 +215,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-17T15:06:27.195Z
+Last session: 2026-08-17T15:24:09.406Z
 Stopped at: Completed 04.2-04-PLAN.md
 Resume file: 
 None

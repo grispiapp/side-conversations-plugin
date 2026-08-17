@@ -232,7 +232,7 @@ Plans:
 - **Probe SONUÇLANDI (2026-08-17, `gsocial-test`):** `PATCH /v2/tickets/{key}` + `comment.publicVisible: false` alıcıya `toId`/`toEmail` bağlamıyor (e-posta gitmiyor) ve `ts.status`'ü değiştirmiyor — **CONFIRMED**, D-01 ters çevrilmeyecek. Preprod agent-UI host'u `{tenant}.grispi.net` de canlı doğrulandı (D-07 sağlam). Ayrıntı: `04.2-RESEARCH.md`
 - **Aynı probe'da bulunan yan etki (UX-09'un gerekçesi):** `POST /v2/tickets`'ın `fields` dizisi `tu.side_conversation_parent`'ı iki bağımsız taze create'te kaydetmedi; `fields`-only `PATCH public/v1/tickets/{key}` anında kaydetti. D-22 gereği UX-01'in PATCH'i bu alanı da yeniden tesis eder — kök-neden araştırması bu fazın kapsamında değil
 
-**Plans:** 5/8 plans executed
+**Plans:** 6/8 plans executed
 
 Plans:
 
@@ -246,7 +246,7 @@ Plans:
 
 **Wave 2** *(Wave 1'e bağımlı)*
 
-- [ ] 04.2-06-PLAN.md — Sohbet ekranı: key linki, üst talep chip'i, çözüldü/kapalı alıcı satırı, kimlik prop'ları, bir kerelik bilgi kutusu (UX-02, UX-04, UX-05, UX-06)
+- [x] 04.2-06-PLAN.md — Sohbet ekranı: key linki, üst talep chip'i, çözüldü/kapalı alıcı satırı, kimlik prop'ları, bir kerelik bilgi kutusu (UX-02, UX-04, UX-05, UX-06)
 - [ ] 04.2-07-PLAN.md — Liste ekranı: üst-talep bandı + yeni konuşma engeli, dar panel başlık daralması (UX-03, UX-08)
 
 **Wave 3** *(faz kapanışı)*
