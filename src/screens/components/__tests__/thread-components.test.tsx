@@ -264,6 +264,103 @@ describe("ThreadMessage", () => {
     });
   });
 
+  describe("identity row rendering (D-14)", () => {
+    it("renders the sender name and the 'Siz' badge as separate DOM elements, not merged text", () => {
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "own-match",
+            direction: "own",
+            senderName: "Davut Kember",
+            senderEmail: "davut@firma.test",
+          }}
+          agentEmail="davut@firma.test"
+          onRetry={jest.fn()}
+        />
+      );
+      const nameEl = container.querySelector('[data-testid="sender-name"]');
+      const badgeEl = container.querySelector('[data-testid="sender-badge"]');
+      expect(nameEl?.textContent).toBe("Davut Kember");
+      expect(badgeEl?.textContent).toBe("Siz");
+      expect(nameEl).not.toBe(badgeEl);
+    });
+
+    it("omits the 'Siz' badge entirely from the DOM when the agent does not match", () => {
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "own-mismatch",
+            direction: "own",
+            senderName: "Davut Kember",
+            senderEmail: "davut@firma.test",
+          }}
+          agentEmail="baska@firma.test"
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.querySelector('[data-testid="sender-badge"]')).toBeNull();
+    });
+
+    it("keeps the internal note's amber visual language unchanged, with no name or badge", () => {
+      render(
+        <ThreadMessage
+          message={{ ...baseMessage, id: "m-internal-2", internal: true }}
+          agentEmail={baseMessage.senderEmail}
+          onRetry={jest.fn()}
+        />
+      );
+      expect(
+        container.querySelector('[data-testid="thread-message-m-internal-2"]')
+          ?.className
+      ).toContain("border-l-amber-500");
+      expect(container.querySelector('[data-testid="sender-badge"]')).toBeNull();
+    });
+
+    it("always truncates the sender name, never the badge or timestamp, for a long real name", () => {
+      const longName = "A".repeat(80) + " Uzun Soyad Örneği";
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "own-long-name",
+            direction: "own",
+            senderName: longName,
+            senderEmail: "davut@firma.test",
+          }}
+          agentEmail="davut@firma.test"
+          onRetry={jest.fn()}
+        />
+      );
+      const nameEl = container.querySelector('[data-testid="sender-name"]');
+      const badgeEl = container.querySelector('[data-testid="sender-badge"]');
+      expect(nameEl?.className).toContain("truncate");
+      expect(badgeEl?.className).toContain("shrink-0");
+    });
+
+    it("shows the bundled agent name for a pending own-direction message end to end", () => {
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "pending-agent-name",
+            direction: "own",
+            senderName: undefined,
+            senderEmail: "davut@firma.test",
+            status: "pending",
+          }}
+          agentEmail="davut@firma.test"
+          agentName="Davut Kember"
+          onRetry={jest.fn()}
+        />
+      );
+      expect(
+        container.querySelector('[data-testid="sender-name"]')?.textContent
+      ).toBe("Davut Kember");
+    });
+  });
+
   it("keeps pending and failed retry behavior in the email-flow block", () => {
     const onRetry = jest.fn();
     render(
