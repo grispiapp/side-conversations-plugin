@@ -338,6 +338,23 @@ export interface InternalNotePatchRequest {
   fields: Array<{ key: string; value: string }>;
 }
 
+/**
+ * `PATCH public/v1/tickets/{key}` fields-only body — D-23, `assertSide
+ * ConversationLink`'s ONE retry step for the `tu.side_conversation_parent`
+ * re-assertion. No `comment` member: a comment PATCH APPENDS, so repeating
+ * `InternalNotePatchRequest` on retry would leave two identical internal
+ * notes (D-03 — notes are never hidden); this shape makes that structurally
+ * impossible. MUST stay on `public/v1`, never `/v2/tickets` — `/v2/tickets`
+ * PATCH requires a `comment` in the body (probe finding N2) and returns 500
+ * without one, so a comment-free write is only possible here. A live probe
+ * (04.2-RESEARCH.md) confirmed a `fields`-only `PATCH public/v1/tickets/
+ * {key}` persists this field immediately, which is the mechanism D-22 relies
+ * on.
+ */
+export interface TicketFieldsPatchRequest {
+  fields: Array<{ key: string; value: string }>;
+}
+
 export type TicketLifecycleStatusId = "2" | "4";
 
 /**

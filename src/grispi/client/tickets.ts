@@ -10,6 +10,7 @@ import {
   ReplyTicketPatchRequest,
   StatusTicketPatchRequest,
   Ticket,
+  TicketFieldsPatchRequest,
 } from "@/types/grispi.type";
 
 export class Tickets {
@@ -138,6 +139,36 @@ export class Tickets {
    * `getTicket` before replacing application state.
    */
   async patchTicket(ticketKey: string, body: StatusTicketPatchRequest) {
+    return this.http.send<PatchTicketResponse>(
+      `public/v1/tickets/${encodeURIComponent(ticketKey)}`,
+      {
+        method: "PATCH",
+        cache: "no-cache",
+        headers: this.auth.headers,
+        body: JSON.stringify(body),
+      }
+    );
+  }
+
+  /**
+   * D-23 — sibling of `patchTicket` above: a generic `fields`-only write to
+   * `public/v1/tickets/{key}`, comment-free by type (`TicketFieldsPatchRequest`
+   * has no `comment` member). Stays on `public/v1`, never `/v2/tickets` —
+   * same N2 reasoning as `patchTicket`'s own doc-comment: `/v2/tickets` PATCH
+   * requires a `comment` and 500s without one, so a comment-free write is
+   * only possible here. Guards against `ts.status` before sending so this
+   * generic field-writer can never re-open the lifecycle hole `patchTicket`'s
+   * narrowing already closed (D-15) — solve/reopen stays exclusively on
+   * `patchTicket`. Its only caller today is `assertSideConversationLink`'s
+   * one retry (D-23).
+   */
+  async patchTicketFields(ticketKey: string, body: TicketFieldsPatchRequest) {
+    if (body.fields.some((field) => field.key === "ts.status")) {
+      throw new Error(
+        "patchTicketFields must not write ts.status — use Tickets.patchTicket for lifecycle transitions (D-15)"
+      );
+    }
+
     return this.http.send<PatchTicketResponse>(
       `public/v1/tickets/${encodeURIComponent(ticketKey)}`,
       {
