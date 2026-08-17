@@ -58,8 +58,8 @@ export function grispiTld(env: GrispiEnvironment): string {
  * host live-verified, 04.2-RESEARCH.md P4.
  *
  * Deliberately built with string concatenation, not a template literal —
- * this file's T-04.1-01 gate requires zero `${` occurrences so a future
- * accidental host interpolation stays impossible to introduce silently.
+ * T-04.1-01 requires this file to stay free of template interpolation so a
+ * future accidental host interpolation cannot be introduced silently.
  */
 export function buildAgentTicketUrl(
   tenantId: string,
