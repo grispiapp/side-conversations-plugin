@@ -255,11 +255,13 @@ export function sideConversationDetailOptions(
 ) {
   return queryOptions({
     queryKey: sideConversationKeys.detail(tenantId, sideKey),
-    queryFn: () => {
+    queryFn: async () => {
       requireIdentity(tenantId, "tenantId");
-      return grispiAPI.tickets
-        .getTicket(requireIdentity(sideKey, "sideKey"))
-        .then(normalizeSideConversationDetail);
+      const ticket = await grispiAPI.tickets.getTicket(
+        requireIdentity(sideKey, "sideKey")
+      );
+      const detail = normalizeSideConversationDetail(ticket);
+      return resolveDetailRecipientFallback(detail, ticket);
     },
     enabled: Boolean(tenantId && sideKey),
     staleTime: DETAIL_STALE_TIME,
@@ -519,6 +521,36 @@ export function normalizeSideConversationDetail(
     messages,
     latestRelevantExternalAt,
   };
+}
+
+/**
+ * D-12 — the detail path's `resolveRecipientLabel` above can only resolve a
+ * recipient by finding a `ROLE_END_USER` comment; when the third party has
+ * never written a reply yet, that scan finds nothing and the label stays
+ * `RECIPIENT_UNKNOWN_PLACEHOLDER` ("—"). This is `hydrateSummaries`'s
+ * list-path `users.getUser` fallback (lines above) ported to the
+ * single-ticket detail path — same defensive shape (early exit when
+ * already resolved, single request, try/catch degrades to the existing
+ * placeholder). No new resolution path, no new store method, no new cache
+ * key — D-12 explicitly rules those out.
+ */
+export async function resolveDetailRecipientFallback(
+  detail: SideConversationDetail,
+  ticket: Ticket
+): Promise<SideConversationDetail> {
+  if (detail.recipientLabel !== RECIPIENT_UNKNOWN_PLACEHOLDER) return detail;
+
+  const requesterId = Number(ticket.fieldMap?.["ts.requester"]?.value);
+  if (!Number.isFinite(requesterId)) return detail;
+
+  try {
+    const user = await grispiAPI.users.getUser(requesterId);
+    return user?.primaryEmail
+      ? { ...detail, recipientLabel: user.primaryEmail }
+      : detail;
+  } catch {
+    return detail;
+  }
 }
 
 function isCurrent(
