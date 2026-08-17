@@ -1,3 +1,5 @@
+import { Ticket } from "@/types/grispi.type";
+
 /**
  * The custom field key that marks a Grispi ticket as a side conversation
  * and links it back to its parent ticket.
@@ -61,4 +63,50 @@ export function formatInternalNoteBody(parentKey: string): string {
  */
 export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+/**
+ * D-11/UX-03 — hydration-safe side-conversation detection.
+ *
+ * `switchTicket` (grispi-context.tsx) sets a PROVISIONAL ticket
+ * (`{ key } as Ticket`, no field map) synchronously the instant the active
+ * ticket changes, then replaces it with the full hydrated object once the
+ * detail fetch resolves. Checking `ticket !== null` alone would treat that
+ * provisional object as hydrated and read a field map it doesn't have yet
+ * — the guard below checks the real object shape instead (`"fieldMap" in
+ * ticket`), which only becomes true once hydration actually completed.
+ *
+ * Safe direction while hydration is still in flight: side-conversation
+ * detection below returns `false`. The banner is briefly ABSENT and "Yeni
+ * konuşma" stays enabled for one frame-or-two — never a false-positive
+ * banner, and reading the field map before it exists never throws.
+ */
+export function isHydratedTicket(ticket: Ticket | null): ticket is Ticket {
+  return ticket !== null && "fieldMap" in ticket;
+}
+
+/**
+ * D-11 — true when the ACTIVE ticket is itself a side conversation (its own
+ * parent-link field carries a value), never the other direction. Callers
+ * must read this ONCE per render and feed the same result into both the
+ * parent banner's visibility and the "Yeni konuşma" button's disabled
+ * state — never two independent calls for the two decisions.
+ */
+export function isSideConversationTicket(ticket: Ticket | null): boolean {
+  if (!isHydratedTicket(ticket)) return false;
+  const value = ticket.fieldMap[SIDE_CONVERSATION_PARENT_FIELD_KEY]?.value;
+  return typeof value === "string" && value.trim() !== "";
+}
+
+/**
+ * The parent ticket's key, or `null` when `ticket` isn't a side
+ * conversation (or isn't hydrated yet). Single source for both the parent
+ * banner's displayed key and its deep-link input — never a second,
+ * independent read of the same field.
+ */
+export function parentKeyOfTicket(ticket: Ticket | null): string | null {
+  if (!isSideConversationTicket(ticket)) return null;
+  const value = (ticket as Ticket).fieldMap[SIDE_CONVERSATION_PARENT_FIELD_KEY]
+    ?.value;
+  return typeof value === "string" ? value.trim() : null;
 }
