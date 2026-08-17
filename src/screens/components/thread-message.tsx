@@ -220,8 +220,9 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
             )}
           />
           <span
+            data-testid="sender-name"
             className={cn(
-              "min-w-0 break-words font-semibold text-foreground",
+              "min-w-0 truncate font-semibold text-foreground",
               message.direction === "own" &&
                 !message.internal &&
                 "text-primary",
@@ -230,7 +231,14 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
           >
             {senderText}
           </span>
-          {isCurrentAgent && <span className="text-primary">Siz</span>}
+          {isCurrentAgent && (
+            <span
+              data-testid="sender-badge"
+              className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-1.5 py-0 text-[10px] font-semibold text-primary"
+            >
+              Siz
+            </span>
+          )}
         </span>
         <time
           className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
