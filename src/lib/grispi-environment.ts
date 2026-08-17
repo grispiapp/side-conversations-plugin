@@ -7,6 +7,7 @@ import { Settings } from "@/types/grispi.type";
 
 interface DecodedJwt {
   dev?: boolean;
+  sub?: string;
   [key: string]: unknown;
 }
 

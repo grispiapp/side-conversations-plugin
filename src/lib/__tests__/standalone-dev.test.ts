@@ -1,6 +1,4 @@
 import {
-  DEFAULT_DEV_AGENT_EMAIL,
-  DEFAULT_DEV_AGENT_NAME,
   DEFAULT_DEV_ENVIRONMENT,
   DEFAULT_DEV_TENANT_ID,
   DEFAULT_DEV_TICKET_KEY,
@@ -8,6 +6,14 @@ import {
 } from "../standalone-dev";
 
 import { GRISPI_BASE_URLS } from "@/grispi/client/environment";
+
+// Test files don't import from each other (repo idiom) — copied locally
+// from grispi-environment.test.ts.
+function makeToken(payload: Record<string, unknown>): string {
+  const header = btoa(JSON.stringify({ alg: "none" }));
+  const body = btoa(JSON.stringify(payload));
+  return `${header}.${body}.signature`;
+}
 
 describe("resolveStandaloneDevConfig", () => {
   it("returns null outside development (production build can never activate)", () => {
@@ -35,7 +41,7 @@ describe("resolveStandaloneDevConfig", () => {
     ).toBeNull();
   });
 
-  it("activates with dev + token, applying tenant/ticket/agentEmail defaults", () => {
+  it("activates with dev + unresolvable token, agentEmail/agentName both null (no identity source)", () => {
     const config = resolveStandaloneDevConfig(
       { NODE_ENV: "development", REACT_APP_DEV_TOKEN: "tok" },
       ""
@@ -44,32 +50,112 @@ describe("resolveStandaloneDevConfig", () => {
       token: "tok",
       tenantId: DEFAULT_DEV_TENANT_ID,
       initialTicketKey: DEFAULT_DEV_TICKET_KEY,
-      agentEmail: DEFAULT_DEV_AGENT_EMAIL,
-      agentName: DEFAULT_DEV_AGENT_NAME,
+      agentEmail: null,
+      agentName: null,
       environment: DEFAULT_DEV_ENVIRONMENT,
     });
   });
 
-  it("honors REACT_APP_DEV_AGENT_EMAIL when set, falls back to the default otherwise", () => {
+  it("activates with dev + a token whose sub resolves, agentEmail from sub / agentName null", () => {
+    const token = makeToken({ sub: "gsocial@api.grispi.com" });
+    const config = resolveStandaloneDevConfig(
+      { NODE_ENV: "development", REACT_APP_DEV_TOKEN: token },
+      ""
+    );
+    expect(config).toEqual({
+      token,
+      tenantId: DEFAULT_DEV_TENANT_ID,
+      initialTicketKey: DEFAULT_DEV_TICKET_KEY,
+      agentEmail: "gsocial@api.grispi.com",
+      agentName: null,
+      environment: DEFAULT_DEV_ENVIRONMENT,
+    });
+  });
+
+  it("derives agentEmail from the token's sub claim when no override is set", () => {
+    const token = makeToken({ sub: "gsocial@api.grispi.com" });
+    expect(
+      resolveStandaloneDevConfig(
+        { NODE_ENV: "development", REACT_APP_DEV_TOKEN: token },
+        ""
+      )?.agentEmail
+    ).toBe("gsocial@api.grispi.com");
+  });
+
+  it("REACT_APP_DEV_AGENT_EMAIL override wins over the token's sub claim", () => {
+    const token = makeToken({ sub: "gsocial@api.grispi.com" });
     expect(
       resolveStandaloneDevConfig(
         {
           NODE_ENV: "development",
-          REACT_APP_DEV_TOKEN: "tok",
-          REACT_APP_DEV_AGENT_EMAIL: "  someone@example.com  ",
+          REACT_APP_DEV_TOKEN: token,
+          REACT_APP_DEV_AGENT_EMAIL: "  override@firma.test  ",
         },
         ""
       )?.agentEmail
-    ).toBe("someone@example.com");
+    ).toBe("override@firma.test");
+  });
+
+  it("an empty/whitespace-only REACT_APP_DEV_AGENT_EMAIL falls through to sub, not null", () => {
+    const token = makeToken({ sub: "gsocial@api.grispi.com" });
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: token,
+          REACT_APP_DEV_AGENT_EMAIL: "   ",
+        },
+        ""
+      )?.agentEmail
+    ).toBe("gsocial@api.grispi.com");
+  });
+
+  it("agentEmail is null when the token has no sub claim", () => {
+    const token = makeToken({ dev: true });
+    expect(
+      resolveStandaloneDevConfig(
+        { NODE_ENV: "development", REACT_APP_DEV_TOKEN: token },
+        ""
+      )?.agentEmail
+    ).toBeNull();
+  });
+
+  it("agentEmail is null when the token cannot be decoded (no exception)", () => {
     expect(
       resolveStandaloneDevConfig(
         { NODE_ENV: "development", REACT_APP_DEV_TOKEN: "tok" },
         ""
       )?.agentEmail
-    ).toBe(DEFAULT_DEV_AGENT_EMAIL);
+    ).toBeNull();
   });
 
-  it("honors REACT_APP_DEV_AGENT_NAME when set (trimmed), falls back to the default otherwise", () => {
+  it("agentEmail is null when sub is whitespace-only", () => {
+    const token = makeToken({ sub: "   " });
+    expect(
+      resolveStandaloneDevConfig(
+        { NODE_ENV: "development", REACT_APP_DEV_TOKEN: token },
+        ""
+      )?.agentEmail
+    ).toBeNull();
+  });
+
+  it("agentEmail is null (not throwing) when sub is not a string", () => {
+    const token = makeToken({ sub: 12345 });
+    expect(() =>
+      resolveStandaloneDevConfig(
+        { NODE_ENV: "development", REACT_APP_DEV_TOKEN: token },
+        ""
+      )
+    ).not.toThrow();
+    expect(
+      resolveStandaloneDevConfig(
+        { NODE_ENV: "development", REACT_APP_DEV_TOKEN: token },
+        ""
+      )?.agentEmail
+    ).toBeNull();
+  });
+
+  it("honors REACT_APP_DEV_AGENT_NAME when set (trimmed), null otherwise (no token source for name)", () => {
     expect(
       resolveStandaloneDevConfig(
         {
@@ -85,10 +171,10 @@ describe("resolveStandaloneDevConfig", () => {
         { NODE_ENV: "development", REACT_APP_DEV_TOKEN: "tok" },
         ""
       )?.agentName
-    ).toBe(DEFAULT_DEV_AGENT_NAME);
+    ).toBeNull();
   });
 
-  it("falls back to DEFAULT_DEV_AGENT_NAME for an empty/whitespace-only REACT_APP_DEV_AGENT_NAME", () => {
+  it("agentName is null for an empty/whitespace-only REACT_APP_DEV_AGENT_NAME", () => {
     expect(
       resolveStandaloneDevConfig(
         {
@@ -98,7 +184,17 @@ describe("resolveStandaloneDevConfig", () => {
         },
         ""
       )?.agentName
-    ).toBe(DEFAULT_DEV_AGENT_NAME);
+    ).toBeNull();
+  });
+
+  it("agentName stays null when agentEmail resolves from sub and no name override is set (no cross-contamination)", () => {
+    const token = makeToken({ sub: "gsocial@api.grispi.com" });
+    const config = resolveStandaloneDevConfig(
+      { NODE_ENV: "development", REACT_APP_DEV_TOKEN: token },
+      ""
+    );
+    expect(config?.agentEmail).toBe("gsocial@api.grispi.com");
+    expect(config?.agentName).toBeNull();
   });
 
   it("prefers ?ticket= over REACT_APP_DEV_TICKET_KEY over the default", () => {
