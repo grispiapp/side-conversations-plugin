@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.2
 current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
-status: executing
+status: verifying
 stopped_at: Completed 04.2-04-PLAN.md
-last_updated: "2026-08-17T15:34:39.323Z"
+last_updated: "2026-08-17T15:43:13.525Z"
 last_activity: 2026-08-17
 last_activity_desc: Phase 04.2 execution started
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 39
-  completed_plans: 38
-  percent: 75
+  completed_plans: 39
+  percent: 88
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-17 — Phase 04.2 execution started
 
 Progress: [███████░░░] 75%
@@ -88,6 +88,7 @@ Progress: [███████░░░] 75%
 | Phase 04.2 P05 | 40min | 2 tasks | 5 files |
 | Phase 04.2 P06 | 35min | 3 tasks | 2 files |
 | Phase 04.2 P07 | 25min | 2 tasks | 5 files |
+| Phase 04.2 P08 | 3min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -174,6 +175,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Chat-screen InfoBox 'created this session' latch is local component state, not a PanelNavigationStore addition
 - [Phase 04.2]: [Phase 04.2, Plan 07]: isHydratedTicket guards on the real object shape ("fieldMap" in ticket), never ticket !== null — switchTicket's provisional ticket is real and reading fieldMap off it must never throw
 - [Phase 04.2]: [Phase 04.2, Plan 07]: isSideConversationTicket(ticket) is the single predicate consumed once per render, feeding both ParentBanner's visibility and the Yeni konuşma button's disabled state — never two independent calls
+- [Phase 04.2]: [Phase 04.2, Plan 08]: 04.2-UAT.md's seven items follow the plan's own numbered action list (folding list-header-truncation into item 6, adding a dedicated parent-banner-block item 4) rather than VALIDATION.md's table grouping verbatim
 
 ### Pending Todos
 
@@ -218,7 +220,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-17T15:34:04.635Z
+Last session: 2026-08-17T15:42:12.897Z
 Stopped at: Completed 04.2-04-PLAN.md
 Resume file: 
 None
