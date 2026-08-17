@@ -123,7 +123,7 @@ describe("ThreadMessage", () => {
     expect(container.querySelector("img")).toBeNull();
   });
 
-  it("uses minimal successive/own identity and explicit internal-note treatment", () => {
+  it("shows minimal successive sender identity and the shortened internal-note label", () => {
     render(<ThreadMessage message={baseMessage} onRetry={jest.fn()} />);
     expect(container.textContent).toContain("Ada Lovelace");
     expect(container.textContent).not.toContain("ada@example.test");
@@ -139,7 +139,8 @@ describe("ThreadMessage", () => {
         onRetry={jest.fn()}
       />
     );
-    expect(container.textContent).toContain("Siz");
+    expect(container.textContent).toContain("Ada Lovelace");
+    expect(container.textContent).not.toContain("Siz");
 
     render(
       <ThreadMessage
@@ -148,10 +149,119 @@ describe("ThreadMessage", () => {
       />
     );
     expect(container.textContent).toContain("İç not");
-    expect(container.textContent).toContain("Salt okunur");
     expect(
       container.querySelector('[data-testid="thread-message-m3"]')?.className
     ).toContain("border-l-amber-500");
+  });
+
+  describe("sender identity (D-13/D-14/D-15)", () => {
+    const ownMessage = {
+      ...baseMessage,
+      id: "own-ayse",
+      direction: "own" as const,
+      senderName: "Ayşe Yılmaz",
+      senderEmail: "ayse@firma.test",
+    };
+
+    it("never lets the internal-note label carry the old second half, even when the agent matches", () => {
+      render(
+        <ThreadMessage
+          message={{ ...baseMessage, id: "m-internal", internal: true }}
+          agentEmail={baseMessage.senderEmail}
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.textContent).toContain("İç not");
+      expect(container.textContent).not.toContain("Salt okunur");
+    });
+
+    it("shows each agent's real name on an own-direction message, with 'Siz' only for the active agent", () => {
+      render(
+        <ThreadMessage
+          message={ownMessage}
+          agentEmail="davut@firma.test"
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.textContent).toContain("Ayşe Yılmaz");
+      expect(container.textContent).not.toContain("Siz");
+
+      render(
+        <ThreadMessage
+          message={ownMessage}
+          agentEmail="ayse@firma.test"
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.textContent).toContain("Ayşe Yılmaz");
+      expect(container.textContent).toContain("Siz");
+    });
+
+    it("falls back to the bundled agent name for a still-pending optimistic own reply with no server sender name", () => {
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "pending-own",
+            direction: "own",
+            senderName: undefined,
+            senderEmail: "davut@firma.test",
+            status: "pending",
+          }}
+          agentEmail="davut@firma.test"
+          agentName="Davut Kember"
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.textContent).toContain("Davut Kember");
+      expect(container.textContent).toContain("Siz");
+    });
+
+    it("falls back through senderEmail then a static placeholder when neither senderName nor agentName exist", () => {
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "own-email-only",
+            direction: "own",
+            senderName: undefined,
+            senderEmail: "someone@firma.test",
+          }}
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.textContent).toContain("someone@firma.test");
+
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "own-no-identity",
+            direction: "own",
+            senderName: undefined,
+            senderEmail: undefined,
+          }}
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.textContent).toContain("Gönderen");
+    });
+
+    it("never marks an incoming message as the current agent even if the email matches", () => {
+      render(
+        <ThreadMessage
+          message={baseMessage}
+          agentEmail={baseMessage.senderEmail}
+          onRetry={jest.fn()}
+        />
+      );
+      expect(container.textContent).not.toContain("Siz");
+    });
+
+    it("never marks any message as the current agent when agentEmail is not provided", () => {
+      render(<ThreadMessage message={ownMessage} onRetry={jest.fn()} />);
+      expect(container.textContent).not.toContain("Siz");
+    });
   });
 
   it("keeps pending and failed retry behavior in the email-flow block", () => {
