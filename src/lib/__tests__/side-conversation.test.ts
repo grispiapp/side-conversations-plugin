@@ -3,8 +3,12 @@ import {
   formatInternalNoteBody,
   formatPrefillSubject,
   formatRequesterField,
+  isHydratedTicket,
+  isSideConversationTicket,
   isValidEmail,
+  parentKeyOfTicket,
 } from "../side-conversation";
+import { Ticket } from "@/types/grispi.type";
 
 describe("SIDE_CONVERSATION_PARENT_FIELD_KEY", () => {
   it("is exactly tu.side_conversation_parent (CORE-01 / D-01 / D-02 guard)", () => {
@@ -73,5 +77,81 @@ describe("isValidEmail", () => {
 
   it("rejects an address containing a space", () => {
     expect(isValidEmail("a @b.com")).toBe(false);
+  });
+});
+
+function hydratedTicket(fieldValue: unknown): Ticket {
+  return {
+    key: "TICKET-1",
+    fieldMap:
+      fieldValue === undefined
+        ? {}
+        : {
+            [SIDE_CONVERSATION_PARENT_FIELD_KEY]: {
+              key: SIDE_CONVERSATION_PARENT_FIELD_KEY,
+              value: fieldValue,
+            },
+          },
+  } as unknown as Ticket;
+}
+
+const provisionalTicket = { key: "TICKET-1" } as Ticket;
+
+describe("isHydratedTicket", () => {
+  it("returns false for null (RESEARCH Pitfall #2 — never the sole guard)", () => {
+    expect(isHydratedTicket(null)).toBe(false);
+  });
+
+  it("returns false for the provisional switchTicket ticket (no field map yet)", () => {
+    expect(isHydratedTicket(provisionalTicket)).toBe(false);
+  });
+
+  it("returns true once a field map exists, even if it's empty", () => {
+    expect(isHydratedTicket(hydratedTicket(undefined))).toBe(true);
+  });
+});
+
+describe("isSideConversationTicket", () => {
+  it("returns true when the parent field carries a non-empty value", () => {
+    expect(isSideConversationTicket(hydratedTicket("PARENT-1"))).toBe(true);
+  });
+
+  it("returns false when the field value is null", () => {
+    expect(isSideConversationTicket(hydratedTicket(null))).toBe(false);
+  });
+
+  it("returns false when the field value is an empty string", () => {
+    expect(isSideConversationTicket(hydratedTicket(""))).toBe(false);
+  });
+
+  it("returns false when the field is absent entirely", () => {
+    expect(isSideConversationTicket(hydratedTicket(undefined))).toBe(false);
+  });
+
+  it("returns false and does not throw for the provisional (field-map-less) ticket", () => {
+    expect(() => isSideConversationTicket(provisionalTicket)).not.toThrow();
+    expect(isSideConversationTicket(provisionalTicket)).toBe(false);
+  });
+
+  it("returns false for null", () => {
+    expect(isSideConversationTicket(null)).toBe(false);
+  });
+});
+
+describe("parentKeyOfTicket", () => {
+  it("returns the parent ticket key for a side conversation ticket", () => {
+    expect(parentKeyOfTicket(hydratedTicket("PARENT-1"))).toBe("PARENT-1");
+  });
+
+  it("returns null for a hydrated, non-side-conversation ticket", () => {
+    expect(parentKeyOfTicket(hydratedTicket(undefined))).toBeNull();
+  });
+
+  it("returns null for the provisional (field-map-less) ticket", () => {
+    expect(parentKeyOfTicket(provisionalTicket)).toBeNull();
+  });
+
+  it("returns null for null", () => {
+    expect(parentKeyOfTicket(null)).toBeNull();
   });
 });
