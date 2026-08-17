@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04.1
-current_phase_name: ortam-y-nlendirmesi-ve-prod-haz-rl
-status: verifying
-stopped_at: "Completed quick task 260810-m8f: build/ tracked + source maps off + README rewrite for repo-as-host deploy"
-last_updated: "2026-08-10T13:11:10.511Z"
-last_activity: 2026-08-10
-last_activity_desc: "Completed quick task 260810-jiw: WR-02 behavioral tests proving setEnvironment reaches fetch host (CORE-04)"
+current_phase: 04.2
+current_phase_name: uat-geri-bildirimleri
+status: planning
+stopped_at: "Phase 04.2 inserted from live UAT feedback; awaiting /gsd-plan-phase 04.2"
+last_updated: "2026-08-17T10:12:01.044Z"
+last_activity: 2026-08-17
+last_activity_desc: "Inserted Phase 04.2 (UAT geri bildirimleri) with goal + 8 success criteria; Phase 4 UAT still has 4 items awaiting human sign-off"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 6
   total_plans: 31
   completed_plans: 31
-  percent: 86
+  percent: 75
 ---
 
 # Project State
@@ -24,16 +24,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayrılmadan yürütebilmeli; talep sahibi bu yazışmaları asla görmemeli.
-**Current focus:** Phase 04.1 — ortam-y-nlendirmesi-ve-prod-haz-rl
+**Current focus:** Phase 04.2 — uat-geri-bildirimleri
 
 ## Current Position
 
-Phase: 04.1 (ortam-y-nlendirmesi-ve-prod-haz-rl) — EXECUTING
-Plan: 2 of 2
-Status: Phase complete — ready for verification
-Last activity: 2026-08-10 — Completed quick task 260810-jiw: WR-02 behavioral tests proving setEnvironment reaches fetch host (CORE-04)
+Phase: 04.2 (uat-geri-bildirimleri) — NOT PLANNED
+Plan: 0 of 0
+Status: Inserted, awaiting /gsd-plan-phase 04.2 — açık probe: `PATCH /v2/tickets/{key}` + `publicVisible: false`
+Last activity: 2026-08-17 — Phase 04.2 roadmap'e eklendi (hedef + 8 başarı kriteri + canonical refs)
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 75%
+
+**Devralınan açık iş:** Phase 4 doğrulaması `human_needed` — `04-UAT.md`'deki 4 madde hâlâ insan onayı bekliyor; Phase 04.1 planları tamam ama fazın doğrulaması kapanmadı.
 
 ## Performance Metrics
 
@@ -182,6 +184,7 @@ None yet.
 - Phase 4 edited: ek/attachment kapsamı genişletildi: COMP-08 + THRD-06 eklendi, COMP-05/THRD-05 revize (Base64 varsayımı düzeltildi)
 - Phase 5 added: Faz 4 bölündü: ekler Faz 4'te kaldı, talep özeti + önceki görüşmeler + sessiz tazeleme Faz 5'e taşındı
 - Phase 04.1 inserted after Phase 4: Ortam yönlendirmesi: sabit .net yerine _grispi_env + dev claim ile çalışma-zamanı çözümleme (prod blocker) (URGENT)
+- Phase 04.2 inserted after Phase 4: UAT geri bildirimleri: ilişki notu, ticket navigasyonu, kimlik netliği ve dar/kısa panel dayanıklılığı (URGENT)
 
 ## Deferred Items
 

@@ -48,6 +48,19 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **SYNC-01**: Panel görünürken liste ve açık görüşme makul aralıklarla (30-60 sn) sessizce tazelenir
 - [x] **SYNC-02**: Her yazma işleminden (gönder, yanıtla, kapat) sonra ilgili görünüm anında tazelenir
 
+### Panel Deneyimi (UX)
+
+*Canlı UAT geri bildiriminden türetildi (2026-08-17); Phase 04.2'nin sekiz başarı ölçütüyle bire bir eşleşir.*
+
+- [ ] **UX-01**: Yeni yan konuşma oluşturulduğunda yan ticket'a ilişkiyi bildiren bir iç not (`publicVisible: false`) düşer — kimseye e-posta gitmez, not panelde de görünür, notun atılamaması konuşmanın kendisini bozmaz
+- [ ] **UX-02**: Sohbet ekranının başlığı yan ticket key'idir ve tıklandığında o talep yeni sekmede açılır; üst talep key'i ayrı bir görsel dille (nötr chip, link değil) gösterilir
+- [ ] **UX-03**: Aktif talep bir yan konuşmaysa panel bunu bildirir, "Üst talebe git" sunar ve yeni yan konuşma açılmasını engeller (iç içe yan konuşma yok)
+- [ ] **UX-04**: Alıcı, üçüncü taraf henüz hiç yanıt yazmamışken bile doğru görünür — yanıt alanında ve çözüldü/kapalı durum bloğunda hiçbir koşulda `—` kalmaz
+- [ ] **UX-05**: Mesajlarda gönderen adı görünür ("Siz" yerine agent adı), temsilcinin kendi mesajında adının yanında "Siz" rozeti bulunur ve iç notlarda "Salt okunur" ifadesi yer almaz
+- [ ] **UX-06**: Temsilci, yeni konuşma açarken ve açtıktan sonra, oluşan talebin alan/atanan/durum bilgilerinin otomatik dolmadığını söyleyen bir bilgi kutusu görür (ikincisi kalıcı olarak kapatılabilir)
+- [ ] **UX-07**: Biçimlendirme araçları tek bir popover'da toplanır; geri al/yinele dışarıda kalır ve toolbar ~280px panel genişliğinde yatay kaydırma üretmez
+- [ ] **UX-08**: Panel ~280px genişlik ve ~590px viewport yüksekliğinde kullanılabilir: liste başlığı kırpılmaz ve sohbet ekranında mesaj alanı bugünkünden en az %20 daha yüksektir
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -103,11 +116,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | THRD-05 | Phase 4 | Complete (shared upload client + attachmentIds request-type support Plan 02; independent reply-surface bucket Plan 03; composer UI Plan 05; attachmentIds send binding + live delivery Plan 06; phase-end panel UAT Plan 08. Recipient-mailbox visual confirmation (P6b) remains user-verified-pending, does not block) |
 | THRD-06 | Phase 4 | Complete (incoming-attachment projection + thread render Plan 04; phase-end panel UAT Plan 08 closed the deferred visual check — thumbnail/chip rendering, target="_blank"/rel="noopener noreferrer" confirmed live) |
 | SYNC-01 | Phase 4 | Pending |
+| UX-01 | Phase 04.2 | Not started |
+| UX-02 | Phase 04.2 | Not started |
+| UX-03 | Phase 04.2 | Not started |
+| UX-04 | Phase 04.2 | Not started |
+| UX-05 | Phase 04.2 | Not started |
+| UX-06 | Phase 04.2 | Not started |
+| UX-07 | Phase 04.2 | Not started |
+| UX-08 | Phase 04.2 | Not started |
 
 **Coverage:**
 
-- v1 requirements: 23 total
-- Mapped to phases: 23
+- v1 requirements: 31 total
+- Mapped to phases: 31
 - Unmapped: 0 ✓
 
 ---
