@@ -232,7 +232,7 @@ Plans:
 - **Probe SONUÇLANDI (2026-08-17, `gsocial-test`):** `PATCH /v2/tickets/{key}` + `comment.publicVisible: false` alıcıya `toId`/`toEmail` bağlamıyor (e-posta gitmiyor) ve `ts.status`'ü değiştirmiyor — **CONFIRMED**, D-01 ters çevrilmeyecek. Preprod agent-UI host'u `{tenant}.grispi.net` de canlı doğrulandı (D-07 sağlam). Ayrıntı: `04.2-RESEARCH.md`
 - **Aynı probe'da bulunan yan etki (UX-09'un gerekçesi):** `POST /v2/tickets`'ın `fields` dizisi `tu.side_conversation_parent`'ı iki bağımsız taze create'te kaydetmedi; `fields`-only `PATCH public/v1/tickets/{key}` anında kaydetti. D-22 gereği UX-01'in PATCH'i bu alanı da yeniden tesis eder — kök-neden araştırması bu fazın kapsamında değil
 
-**Plans:** 2/8 plans executed
+**Plans:** 3/8 plans executed
 
 Plans:
 
@@ -240,7 +240,7 @@ Plans:
 
 - [x] 04.2-01-PLAN.md — Veri katmanı: ilişki iç notu + `tu.side_conversation_parent` yeniden tesisi + detay yolunda alıcı fallback'i (UX-01, UX-04, UX-09)
 - [x] 04.2-02-PLAN.md — Ortam→agent-UI adresi türetimi, `environment`/`agentName`'in bağlama örülmesi, `TicketKeyLink`/`ParentKeyChip` (UX-02)
-- [ ] 04.2-03-PLAN.md — Gönderen adı, "Siz" rozeti ve iç not etiketi (`thread-message.tsx`) (UX-05)
+- [x] 04.2-03-PLAN.md — Gönderen adı, "Siz" rozeti ve iç not etiketi (`thread-message.tsx`) (UX-05)
 - [ ] 04.2-04-PLAN.md — Bilgi kutusu: tenant bazlı kapatma kalıcılığı, `InfoBox` bileşeni, yeni konuşma ekranı yerleşimi (UX-06)
 - [ ] 04.2-05-PLAN.md — Biçimlendirme popover'ı (`Aa`) ve kısa viewport kompakt token seti (UX-07, UX-08)
 
