@@ -9,6 +9,7 @@ import {
   PatchTicketResponse,
   ReplyTicketPatchRequest,
   StatusTicketPatchRequest,
+  TicketFieldsPatchRequest,
 } from "@/types/grispi.type";
 
 describe("ticket PATCH request contracts", () => {
@@ -362,4 +363,124 @@ describe("Tickets.patchTicket", () => {
       );
     }
   );
+});
+
+describe("Tickets.patchTicketFields", () => {
+  let http: HttpHandler;
+  let auth: Authentication;
+  let tickets: Tickets;
+  let send: jest.SpyInstance;
+
+  const response: PatchTicketResponse = {
+    key: "TICKET-601",
+    comments: [],
+    fieldMap: {
+      "ts.status": {
+        key: "ts.status",
+        value: { id: 2, name: "Open" },
+      },
+    },
+  };
+
+  beforeEach(() => {
+    http = new HttpHandler();
+    auth = new Authentication(http);
+    auth.setToken("test-token");
+    auth.setTenantId("test-tenant");
+    tickets = new Tickets(http, auth);
+    send = jest.spyOn(http, "send").mockResolvedValue(response);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("PATCHes public/v1/tickets/{key}, never v2/tickets (D-23)", async () => {
+    const body: TicketFieldsPatchRequest = {
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-563" }],
+    };
+
+    await tickets.patchTicketFields("TICKET-601", body);
+
+    expect(send).toHaveBeenCalledWith("public/v1/tickets/TICKET-601", {
+      method: "PATCH",
+      cache: "no-cache",
+      headers: {
+        Authorization: "Bearer test-token",
+        tenantId: "test-tenant",
+      },
+      body: JSON.stringify(body),
+    });
+  });
+
+  it("encodes the ticket key in the URL", async () => {
+    const body: TicketFieldsPatchRequest = {
+      fields: [{ key: "tu.side_conversation_parent", value: "A/B" }],
+    };
+
+    await tickets.patchTicketFields("A/B", body);
+
+    expect(send.mock.calls[0][0]).toBe("public/v1/tickets/A%2FB");
+  });
+
+  it("sends a body carrying only the fields key, never a comment", async () => {
+    const body: TicketFieldsPatchRequest = {
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-9" }],
+    };
+
+    await tickets.patchTicketFields("TICKET-9", body);
+
+    const sentBody = JSON.parse(send.mock.calls[0][1].body);
+    expect(Object.keys(sentBody)).toEqual(["fields"]);
+  });
+
+  it("carries the caller's key/value pair through unchanged", async () => {
+    const body: TicketFieldsPatchRequest = {
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-9" }],
+    };
+
+    await tickets.patchTicketFields("TICKET-9", body);
+
+    const sentBody = JSON.parse(send.mock.calls[0][1].body);
+    expect(sentBody.fields).toEqual([
+      { key: "tu.side_conversation_parent", value: "TICKET-9" },
+    ]);
+  });
+
+  it("sends the auth headers, same as patchTicket", async () => {
+    const body: TicketFieldsPatchRequest = {
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-2" }],
+    };
+
+    await tickets.patchTicketFields("TICKET-2", body);
+
+    expect(send.mock.calls[0][1].headers).toEqual({
+      Authorization: "Bearer test-token",
+      tenantId: "test-tenant",
+    });
+  });
+
+  it("rejects and never calls http.send when the body carries the lifecycle status key (D-15)", async () => {
+    const body = {
+      fields: [{ key: "ts.status", value: "4" }],
+    } as TicketFieldsPatchRequest;
+
+    await expect(
+      tickets.patchTicketFields("TICKET-5", body)
+    ).rejects.toThrow();
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent — sending the same body twice produces two identical requests", async () => {
+    const body: TicketFieldsPatchRequest = {
+      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-9" }],
+    };
+
+    await tickets.patchTicketFields("TICKET-9", body);
+    await tickets.patchTicketFields("TICKET-9", body);
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[0]).toEqual(send.mock.calls[1]);
+  });
 });
