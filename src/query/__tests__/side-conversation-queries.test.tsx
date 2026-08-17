@@ -14,6 +14,8 @@ import {
   executeCreateMutation,
   executeReplyMutation,
   executeStatusMutation,
+  normalizeSideConversationDetail,
+  resolveDetailRecipientFallback,
   sideConversationDetailOptions,
   sideConversationListOptions,
   useCustomersQuery,
@@ -1332,5 +1334,101 @@ describe("canonical detail and mutation executors", () => {
     await executeStatusMutation(client, boundary(), reopen);
     expect(store.lifecyclePending).toBeNull();
     expect(store.consumeComposerFocus(1, "SIDE-1")).toBe(true);
+  });
+});
+
+describe("resolveDetailRecipientFallback (D-12)", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it("never calls users.getUser when the ticket already resolved a ROLE_END_USER comment", async () => {
+    const ticket = makeTicket("SIDE-1", 7);
+    const detail = normalizeSideConversationDetail(ticket);
+    expect(detail.recipientLabel).not.toBe("—");
+
+    const result = await resolveDetailRecipientFallback(detail, ticket);
+
+    expect(mockedGetUser).not.toHaveBeenCalled();
+    expect(result).toBe(detail);
+  });
+
+  it("calls users.getUser exactly once with the numeric ts.requester id and resolves the label when unresolved", async () => {
+    const ticket = { ...makeTicket("SIDE-1", 92), comments: [] };
+    const detail = normalizeSideConversationDetail(ticket);
+    expect(detail.recipientLabel).toBe("—");
+    mockedGetUser.mockResolvedValue({
+      id: 92,
+      primaryEmail: "requester@example.test",
+    });
+
+    const result = await resolveDetailRecipientFallback(detail, ticket);
+
+    expect(mockedGetUser).toHaveBeenCalledTimes(1);
+    expect(mockedGetUser).toHaveBeenCalledWith(92);
+    expect(result.recipientLabel).toBe("requester@example.test");
+  });
+
+  it("keeps the label at — and does not throw when users.getUser rejects", async () => {
+    const ticket = { ...makeTicket("SIDE-1", 92), comments: [] };
+    const detail = normalizeSideConversationDetail(ticket);
+    mockedGetUser.mockRejectedValue(new Error("boom"));
+
+    const result = await resolveDetailRecipientFallback(detail, ticket);
+
+    expect(result.recipientLabel).toBe("—");
+  });
+
+  it("keeps the label at — when users.getUser resolves with primaryEmail: null", async () => {
+    const ticket = { ...makeTicket("SIDE-1", 92), comments: [] };
+    const detail = normalizeSideConversationDetail(ticket);
+    mockedGetUser.mockResolvedValue({ id: 92, primaryEmail: null });
+
+    const result = await resolveDetailRecipientFallback(detail, ticket);
+
+    expect(result.recipientLabel).toBe("—");
+  });
+
+  it("never calls users.getUser and keeps — when ts.requester is missing/non-numeric", async () => {
+    const ticket = {
+      ...makeTicket("SIDE-1", 92),
+      comments: [],
+      fieldMap: {},
+    };
+    const detail = normalizeSideConversationDetail(ticket);
+
+    const result = await resolveDetailRecipientFallback(detail, ticket);
+
+    expect(mockedGetUser).not.toHaveBeenCalled();
+    expect(result.recipientLabel).toBe("—");
+  });
+
+  it("resolves recipientLabel through sideConversationDetailOptions().queryFn end-to-end for a comment-less ticket", async () => {
+    const ticket = { ...makeTicket("SIDE-1", 92), comments: [] };
+    mockedGetTicket.mockResolvedValue(ticket);
+    mockedGetUser.mockResolvedValue({
+      id: 92,
+      primaryEmail: "requester@example.test",
+    });
+    const client = createTestQueryClient();
+
+    const detail = await client.fetchQuery(
+      sideConversationDetailOptions("tenant-1", "SIDE-1")
+    );
+
+    expect(detail.recipientLabel).toBe("requester@example.test");
+  });
+
+  it("does not throw and keeps — through sideConversationDetailOptions().queryFn when users.getUser rejects", async () => {
+    const ticket = { ...makeTicket("SIDE-1", 92), comments: [] };
+    mockedGetTicket.mockResolvedValue(ticket);
+    mockedGetUser.mockRejectedValue(new Error("boom"));
+    const client = createTestQueryClient();
+
+    const detail = await client.fetchQuery(
+      sideConversationDetailOptions("tenant-1", "SIDE-1")
+    );
+
+    expect(detail.recipientLabel).toBe("—");
   });
 });
