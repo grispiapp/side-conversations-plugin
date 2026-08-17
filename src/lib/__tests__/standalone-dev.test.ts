@@ -1,5 +1,6 @@
 import {
   DEFAULT_DEV_AGENT_EMAIL,
+  DEFAULT_DEV_AGENT_NAME,
   DEFAULT_DEV_ENVIRONMENT,
   DEFAULT_DEV_TENANT_ID,
   DEFAULT_DEV_TICKET_KEY,
@@ -44,6 +45,7 @@ describe("resolveStandaloneDevConfig", () => {
       tenantId: DEFAULT_DEV_TENANT_ID,
       initialTicketKey: DEFAULT_DEV_TICKET_KEY,
       agentEmail: DEFAULT_DEV_AGENT_EMAIL,
+      agentName: DEFAULT_DEV_AGENT_NAME,
       environment: DEFAULT_DEV_ENVIRONMENT,
     });
   });
@@ -65,6 +67,38 @@ describe("resolveStandaloneDevConfig", () => {
         ""
       )?.agentEmail
     ).toBe(DEFAULT_DEV_AGENT_EMAIL);
+  });
+
+  it("honors REACT_APP_DEV_AGENT_NAME when set (trimmed), falls back to the default otherwise", () => {
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_AGENT_NAME: "  Someone Else  ",
+        },
+        ""
+      )?.agentName
+    ).toBe("Someone Else");
+    expect(
+      resolveStandaloneDevConfig(
+        { NODE_ENV: "development", REACT_APP_DEV_TOKEN: "tok" },
+        ""
+      )?.agentName
+    ).toBe(DEFAULT_DEV_AGENT_NAME);
+  });
+
+  it("falls back to DEFAULT_DEV_AGENT_NAME for an empty/whitespace-only REACT_APP_DEV_AGENT_NAME", () => {
+    expect(
+      resolveStandaloneDevConfig(
+        {
+          NODE_ENV: "development",
+          REACT_APP_DEV_TOKEN: "tok",
+          REACT_APP_DEV_AGENT_NAME: "   ",
+        },
+        ""
+      )?.agentName
+    ).toBe(DEFAULT_DEV_AGENT_NAME);
   });
 
   it("prefers ?ticket= over REACT_APP_DEV_TICKET_KEY over the default", () => {

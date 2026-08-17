@@ -99,6 +99,8 @@ interface LoadedProvider {
   react: typeof ReactNamespace;
   GrispiProvider: React.FC<{ children: ReactNamespace.ReactNode }>;
   createRoot: (container: Element) => Root;
+  /** Untyped here (test-only) — same isolated-module instance as GrispiProvider. */
+  useGrispi: () => Record<string, unknown>;
 }
 
 /**
@@ -137,6 +139,7 @@ function loadGrispiProvider(pluginStub: unknown): LoadedProvider {
     loaded = {
       react,
       GrispiProvider: ctx.GrispiProvider,
+      useGrispi: ctx.useGrispi,
       createRoot: reactDomClient.createRoot,
     };
   });
@@ -277,5 +280,44 @@ describe("GrispiProvider — WR-01 pre-bootstrap SDK ticket-update gate", () => 
     expect(mockGetTicket).not.toHaveBeenCalled();
 
     consoleErrorSpy.mockRestore();
+  });
+});
+
+describe("GrispiProvider — standalone mode context values (D-07/D-13)", () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  it("environment and agentName mirror standaloneConfig's resolved values", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.REACT_APP_DEV_TOKEN = "dev-token";
+    process.env.REACT_APP_DEV_GRISPI_ENV = "preprod";
+    process.env.REACT_APP_DEV_AGENT_NAME = "Test Agent";
+
+    // Standalone mode never reads window.GrispiClient — the stub here is
+    // inert, only present because loadGrispiProvider always installs one.
+    const loaded = loadGrispiProvider({ _init: jest.fn() });
+
+    let captured: Record<string, unknown> | null = null;
+    function Capture(): null {
+      captured = loaded.useGrispi();
+      return null;
+    }
+
+    renderProvider(loaded, loaded.react.createElement(Capture));
+
+    // switchTicket's background getTicket() call resolves on a microtask —
+    // flush it inside act so the provider's own state update isn't left
+    // dangling past this test.
+    await activeAct!(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(captured).not.toBeNull();
+    expect(captured!.environment).toBe("preprod");
+    expect(captured!.agentName).toBe("Test Agent");
   });
 });

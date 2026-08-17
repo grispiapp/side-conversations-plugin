@@ -66,6 +66,8 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const setEnvironmentState = jest.fn();
+    const setAgentName = jest.fn();
     const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
@@ -75,8 +77,10 @@ describe("bootstrapPluginInit", () => {
       setSettings,
       setLoading,
       setAgentEmail,
+      setAgentName,
       setTenantId,
       setEnvironment,
+      setEnvironmentState,
       onEnvironmentReady,
       switchTicket,
     });
@@ -89,7 +93,19 @@ describe("bootstrapPluginInit", () => {
     expect(setLoading).toHaveBeenCalledWith(false);
     expect(switchTicket).toHaveBeenCalledWith(bundle.context.ticketKey);
     expect(setAgentEmail).toHaveBeenCalledWith(bundle.context.agent.email);
+    expect(setAgentName).toHaveBeenCalledWith(bundle.context.agent.fullName);
     expect(setTenantId).toHaveBeenCalledWith(bundle.context.tenantId);
+
+    // D-07 — setEnvironmentState is a second sink for the exact same
+    // resolved value setEnvironment receives, called once, before the
+    // first real fetch (switchTicket).
+    expect(setEnvironmentState).toHaveBeenCalledTimes(1);
+    expect(setEnvironmentState.mock.calls[0][0]).toBe(
+      setEnvironment.mock.calls[0][0]
+    );
+    expect(setEnvironmentState.mock.invocationCallOrder[0]).toBeLessThan(
+      switchTicket.mock.invocationCallOrder[0]
+    );
     expect(authentication.setTenantId.mock.invocationCallOrder[0]).toBeLessThan(
       setTenantId.mock.invocationCallOrder[0]
     );
@@ -127,6 +143,8 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const setEnvironmentState = jest.fn();
+    const setAgentName = jest.fn();
     const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
@@ -136,8 +154,10 @@ describe("bootstrapPluginInit", () => {
       setSettings,
       setLoading,
       setAgentEmail,
+      setAgentName,
       setTenantId,
       setEnvironment,
+      setEnvironmentState,
       onEnvironmentReady,
       switchTicket,
     });
@@ -154,6 +174,8 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const setEnvironmentState = jest.fn();
+    const setAgentName = jest.fn();
     const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
@@ -164,8 +186,10 @@ describe("bootstrapPluginInit", () => {
         setSettings,
         setLoading,
         setAgentEmail,
+        setAgentName,
         setTenantId,
         setEnvironment,
+        setEnvironmentState,
         onEnvironmentReady,
         switchTicket,
       })
@@ -185,22 +209,29 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const setEnvironmentState = jest.fn();
+    const setAgentName = jest.fn();
     const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
-    await bootstrapPluginInit({
-      plugin,
-      authentication,
-      setSettings,
-      setLoading,
-      setAgentEmail,
-      setTenantId,
-      setEnvironment,
-      onEnvironmentReady,
-      switchTicket,
-    });
+    await expect(
+      bootstrapPluginInit({
+        plugin,
+        authentication,
+        setSettings,
+        setLoading,
+        setAgentEmail,
+        setAgentName,
+        setTenantId,
+        setEnvironment,
+        setEnvironmentState,
+        onEnvironmentReady,
+        switchTicket,
+      })
+    ).resolves.toBeUndefined();
 
     expect(setAgentEmail).toHaveBeenCalledWith(null);
+    expect(setAgentName).toHaveBeenCalledWith(null);
   });
 
   it("reject branch: resolves without throwing, clears loading, and never calls switchTicket/setSettings/setEnvironment (no infinite rocket, no unhandled rejection)", async () => {
@@ -215,6 +246,8 @@ describe("bootstrapPluginInit", () => {
     const setAgentEmail = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const setEnvironmentState = jest.fn();
+    const setAgentName = jest.fn();
     const onEnvironmentReady = jest.fn();
     const switchTicket = jest.fn();
 
@@ -225,8 +258,10 @@ describe("bootstrapPluginInit", () => {
         setSettings,
         setLoading,
         setAgentEmail,
+        setAgentName,
         setTenantId,
         setEnvironment,
+        setEnvironmentState,
         onEnvironmentReady,
         switchTicket,
       })
@@ -236,6 +271,8 @@ describe("bootstrapPluginInit", () => {
     expect(switchTicket).not.toHaveBeenCalled();
     expect(setSettings).not.toHaveBeenCalled();
     expect(setEnvironment).not.toHaveBeenCalled();
+    expect(setEnvironmentState).not.toHaveBeenCalled();
+    expect(setAgentName).not.toHaveBeenCalled();
     expect(onEnvironmentReady).not.toHaveBeenCalled();
     expect(setTenantId).toHaveBeenCalledTimes(1);
     expect(setTenantId).toHaveBeenCalledWith(null);
@@ -248,8 +285,10 @@ describe("bootstrapPluginInit", () => {
     const setSettings = jest.fn();
     const setLoading = jest.fn();
     const setAgentEmail = jest.fn();
+    const setAgentName = jest.fn();
     const setTenantId = jest.fn();
     const setEnvironment = jest.fn();
+    const setEnvironmentState = jest.fn();
     const onEnvironmentReady = jest.fn();
 
     const client = createTestQueryClient();
@@ -269,8 +308,10 @@ describe("bootstrapPluginInit", () => {
       setSettings,
       setLoading,
       setAgentEmail,
+      setAgentName,
       setTenantId,
       setEnvironment,
+      setEnvironmentState,
       onEnvironmentReady,
       switchTicket,
     });
