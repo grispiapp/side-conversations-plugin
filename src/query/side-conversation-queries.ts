@@ -697,23 +697,36 @@ export async function executeCreateMutation(
     throw error;
   }
 
-  if (!isCurrent(boundary, envelope)) return;
-  boundary.activeConversation.bindCreatedTicket(envelope, sideKey);
-  boundary.bindCreatedTicket(envelope.sessionKey, sideKey);
-  if (!isCurrent(boundary, envelope, sideKey)) return;
-  boundary.activeConversation.mutationAccepted(envelope);
-  // MUST be awaited BEFORE refreshCanonicalAfterMutation's detail refetch
-  // below (RESEARCH.md Pitfall #1) — a fire-and-forget call here would race
-  // the refetch and could leave the note missing from the agent's first
-  // view of the conversation. Never wrapped in its own try/catch here:
+  // The link write starts the instant sideKey is known — it is a property
+  // of the ticket itself, not of what the agent is currently looking at, so
+  // it sits ahead of both isCurrent gates below. Every return path awaits
+  // it (never a dangling promise); the UI reconcile steps that follow stay
+  // behind the gates. Never wrapped in its own try/catch here:
   // assertSideConversationLink already swallows every failure internally
   // (D-04), so wrapping it a second time would just split that contract
   // across two places.
-  await assertSideConversationLink(
+  const linkAssertion = assertSideConversationLink(
     sideKey,
     envelope.parentKey,
     envelope.request.comment.creator[0]?.value ?? null
   );
+
+  if (!isCurrent(boundary, envelope)) {
+    await linkAssertion;
+    return;
+  }
+  boundary.activeConversation.bindCreatedTicket(envelope, sideKey);
+  boundary.bindCreatedTicket(envelope.sessionKey, sideKey);
+  if (!isCurrent(boundary, envelope, sideKey)) {
+    await linkAssertion;
+    return;
+  }
+  boundary.activeConversation.mutationAccepted(envelope);
+  // MUST be awaited BEFORE refreshCanonicalAfterMutation's detail refetch
+  // below (RESEARCH.md Pitfall #1) — a fire-and-forget call here would race
+  // the refetch and could leave the note missing from the agent's first
+  // view of the conversation.
+  await linkAssertion;
   try {
     await refreshCanonicalAfterMutation(
       queryClient,
