@@ -57,7 +57,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **UX-03**: Aktif talep bir yan konuşmaysa panel bunu bildirir, "Üst talebe git" sunar ve yeni yan konuşma açılmasını engeller (iç içe yan konuşma yok)
 - [x] **UX-04**: Alıcı, üçüncü taraf henüz hiç yanıt yazmamışken bile doğru görünür — yanıt alanında ve çözüldü/kapalı durum bloğunda hiçbir koşulda `—` kalmaz
 - [x] **UX-05**: Mesajlarda gönderen adı görünür ("Siz" yerine agent adı), temsilcinin kendi mesajında adının yanında "Siz" rozeti bulunur ve iç notlarda "Salt okunur" ifadesi yer almaz
-- [ ] **UX-06**: Temsilci, yeni konuşma açarken ve açtıktan sonra, oluşan talebin alan/atanan/durum bilgilerinin otomatik dolmadığını söyleyen bir bilgi kutusu görür (ikincisi kalıcı olarak kapatılabilir)
+- [x] **UX-06**: Temsilci, yeni konuşma açarken ve açtıktan sonra, oluşan talebin alan/atanan/durum bilgilerinin otomatik dolmadığını söyleyen bir bilgi kutusu görür (ikincisi kalıcı olarak kapatılabilir)
 - [ ] **UX-07**: Biçimlendirme araçları tek bir popover'da toplanır; geri al/yinele dışarıda kalır ve toolbar ~280px panel genişliğinde yatay kaydırma üretmez
 - [ ] **UX-08**: Panel ~280px genişlik ve ~590px viewport yüksekliğinde kullanılabilir: liste başlığı kırpılmaz ve sohbet ekranında mesaj alanı bugünkünden en az %20 daha yüksektir
 - [x] **UX-09**: Yeni yan konuşma oluşturulduktan sonra `tu.side_conversation_parent` alanının değeri doğrulanabilir şekilde kaydedilmiştir — UX-01'in PATCH'i alanı yeniden tesis eder, böylece konuşma listede her koşulda görünür *(eklendi 2026-08-17; canlı probe `POST /v2/tickets`'ın `fields` dizisinin bu alanı taze create'te kaydetmeyebildiğini gösterdi)*
