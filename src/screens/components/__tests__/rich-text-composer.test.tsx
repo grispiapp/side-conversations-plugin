@@ -71,6 +71,31 @@ function button(label: string): HTMLButtonElement {
   return result;
 }
 
+/** D-18 — the "Aa" FormatMenu trigger, always present in the toolbar. */
+function formatTrigger(): HTMLButtonElement {
+  return button("Biçimlendirme seçenekleri");
+}
+
+/** D-18 — the FormatMenu's `role="menu"` panel, or null while closed. */
+function formatMenuPanel(): HTMLElement | null {
+  return container.querySelector(
+    '[role="menu"][aria-label="Metin biçimlendirme seçenekleri"]'
+  );
+}
+
+/**
+ * Opens the FormatMenu popover if it isn't already open — idempotent so
+ * call sites don't need to track panel state themselves. The seven
+ * formatting actions (Kalın/İtalik/Başlık/Bağlantı/Madde işaretli
+ * liste/Numaralı liste/Alıntı) only exist in the DOM while this panel is
+ * open (D-18).
+ */
+function openFormatMenu(): void {
+  if (!formatMenuPanel()) {
+    act(() => formatTrigger().click());
+  }
+}
+
 function latestHtml(mock: jest.Mock): string {
   const call = mock.mock.calls[mock.mock.calls.length - 1];
   return call?.[0] || "";
@@ -214,7 +239,7 @@ afterEach(() => {
 });
 
 describe("RichTextComposer Tiptap contract", () => {
-  it("offers the complete accessible Turkish toolbar with active states", () => {
+  it("offers a lean four-control direct toolbar (D-18) with the seven formatting actions collapsed behind the Aa popover", () => {
     render(
       <RichTextComposer
         value="<p>Metin</p>"
@@ -224,18 +249,13 @@ describe("RichTextComposer Tiptap contract", () => {
       />
     );
 
-    [
-      "Kalın",
-      "İtalik",
-      "Başlık",
-      "Bağlantı",
-      "Madde işaretli liste",
-      "Numaralı liste",
-      "Alıntı",
-      "Geri al",
-      "Yinele",
-    ].forEach((label) => expect(button(label)).toBeTruthy());
+    // Only four direct controls: Dosya ekle, Aa trigger, Geri al, Yinele.
+    ["Dosya ekle", "Biçimlendirme seçenekleri", "Geri al", "Yinele"].forEach(
+      (label) => expect(button(label)).toBeTruthy()
+    );
 
+    // None of the seven formatting actions exist in the DOM while the
+    // popover is closed.
     [
       "Kalın",
       "İtalik",
@@ -245,12 +265,168 @@ describe("RichTextComposer Tiptap contract", () => {
       "Numaralı liste",
       "Alıntı",
     ].forEach((label) =>
-      expect(button(label).hasAttribute("aria-pressed")).toBe(true)
+      expect(
+        container.querySelector(`button[aria-label="${label}"]`)
+      ).toBeNull()
     );
+
+    expect(formatTrigger().getAttribute("aria-haspopup")).toBe("menu");
+    expect(formatTrigger().getAttribute("aria-expanded")).toBe("false");
+    expect(formatMenuPanel()).toBeNull();
+
     expect(container.textContent).toContain(
       "Yanıt şu kişiye gidecek: Ada <ada@example.test>"
     );
     expect(container.querySelector('button[aria-label="Emoji"]')).toBeNull();
+  });
+
+  it("opens the Aa popover, exposes menuitemcheckbox items with active-state, and closes on outside click/Escape/Tab", () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        recipientLabel="Ada"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    // Selection happens BEFORE opening the popover — once open, focus lives
+    // inside the panel and the panel's own onBlur would close it the moment
+    // focus moved back into the editor (same guard chat-screen.tsx's menu
+    // uses).
+    selectAllEditorContent();
+
+    act(() => formatTrigger().click());
+    expect(formatTrigger().getAttribute("aria-expanded")).toBe("true");
+    const panel = formatMenuPanel();
+    expect(panel).not.toBeNull();
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Kalın");
+
+    const labels = [
+      "Kalın",
+      "İtalik",
+      "Başlık",
+      "Bağlantı",
+      "Madde işaretli liste",
+      "Numaralı liste",
+      "Alıntı",
+    ];
+    labels.forEach((label) => {
+      const item = button(label);
+      expect(item.getAttribute("role")).toBe("menuitemcheckbox");
+      expect(item.getAttribute("aria-checked")).toBe("false");
+    });
+
+    act(() => button("Kalın").click());
+    expect(button("Kalın").getAttribute("aria-checked")).toBe("true");
+    // Toggling bold keeps the panel open (non heading/link items).
+    expect(formatMenuPanel()).not.toBeNull();
+
+    // Escape closes the panel and returns focus to the trigger.
+    act(() =>
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+      )
+    );
+    expect(formatMenuPanel()).toBeNull();
+    expect(document.activeElement).toBe(formatTrigger());
+
+    // Outside mousedown closes the panel.
+    act(() => formatTrigger().click());
+    expect(formatMenuPanel()).not.toBeNull();
+    act(() =>
+      document.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true })
+      )
+    );
+    expect(formatMenuPanel()).toBeNull();
+
+    // Tab closes the panel WITHOUT forcing focus back to the trigger.
+    act(() => formatTrigger().click());
+    expect(formatMenuPanel()).not.toBeNull();
+    act(() =>
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Tab", bubbles: true })
+      )
+    );
+    expect(formatMenuPanel()).toBeNull();
+  });
+
+  it("cycles focus between FormatMenu items with ArrowDown/ArrowUp, wrapping at both ends", () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    act(() => formatTrigger().click());
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Kalın");
+
+    act(() =>
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })
+      )
+    );
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("İtalik");
+
+    act(() =>
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })
+      )
+    );
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Kalın");
+
+    // Wraps from the first item to the last on ArrowUp.
+    act(() =>
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })
+      )
+    );
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Alıntı");
+
+    // Wraps from the last item back to the first on ArrowDown.
+    act(() =>
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })
+      )
+    );
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Kalın");
+  });
+
+  it("closes the Aa popover and opens the existing docked heading sub-panel when Başlık is clicked", () => {
+    render(
+      <RichTextComposer
+        value="<p>Hello</p>"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    selectAllEditorContent();
+    act(() => formatTrigger().click());
+    act(() => button("Başlık").click());
+
+    expect(formatMenuPanel()).toBeNull();
+    expect(
+      container.querySelector('[role="menu"][aria-label="Başlık düzeyi"]')
+    ).not.toBeNull();
+  });
+
+  it("disables the Aa trigger and never opens the popover while the composer is disabled", () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        disabled
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    expect(formatTrigger().disabled).toBe(true);
+    act(() => formatTrigger().click());
+    expect(formatMenuPanel()).toBeNull();
   });
 
   it("formats a selection with Tiptap commands and tracks active marks", () => {
@@ -265,10 +441,11 @@ describe("RichTextComposer Tiptap contract", () => {
     );
 
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("Kalın").click());
 
     expect(onChange).toHaveBeenLastCalledWith("<p><strong>Hello</strong></p>");
-    expect(button("Kalın").getAttribute("aria-pressed")).toBe("true");
+    expect(button("Kalın").getAttribute("aria-checked")).toBe("true");
   });
 
   it("does not reset the selection when the controlled parent mirrors onUpdate", () => {
@@ -286,10 +463,11 @@ describe("RichTextComposer Tiptap contract", () => {
 
     render(<ControlledComposer />);
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("İtalik").click());
 
     expect(editor().innerHTML).toContain("<em>Hello</em>");
-    expect(button("İtalik").getAttribute("aria-pressed")).toBe("true");
+    expect(button("İtalik").getAttribute("aria-checked")).toBe("true");
   });
 
   it("creates safe links through a labelled validated embedded flow with focus return", () => {
@@ -305,7 +483,11 @@ describe("RichTextComposer Tiptap contract", () => {
     );
 
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("Bağlantı").click());
+    // D-18 — clicking "Bağlantı" closes the Aa popover; the item is no
+    // longer in the DOM once its docked sub-panel takes over.
+    expect(formatMenuPanel()).toBeNull();
     const linkInput = container.querySelector<HTMLInputElement>(
       'input[aria-label], input[type="url"]'
     );
@@ -349,10 +531,13 @@ describe("RichTextComposer Tiptap contract", () => {
     expect(onChange).toHaveBeenLastCalledWith(
       '<p><a href="https://example.test/help" target="_blank" rel="noopener noreferrer">Hello</a></p>'
     );
-    expect(document.activeElement).toBe(button("Bağlantı"));
+    // D-18 — "Bağlantı" no longer exists once the popover has closed; focus
+    // returns to the always-mounted "Aa" trigger instead.
+    expect(document.activeElement).toBe(formatTrigger());
     expect(prompt).not.toHaveBeenCalled();
 
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("Bağlantı").click());
     const removeLink = Array.from(
       container.querySelectorAll<HTMLButtonElement>("button")
@@ -360,7 +545,7 @@ describe("RichTextComposer Tiptap contract", () => {
     expect(removeLink).toBeDefined();
     act(() => removeLink?.click());
     expect(onChange).toHaveBeenLastCalledWith("<p>Hello</p>");
-    expect(document.activeElement).toBe(button("Bağlantı"));
+    expect(document.activeElement).toBe(formatTrigger());
   });
 
   it("creates bullet lists, ordered lists and quotes through their own editor commands", () => {
@@ -374,6 +559,7 @@ describe("RichTextComposer Tiptap contract", () => {
       />
     );
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("Madde işaretli liste").click());
     expect(latestHtml(onChange)).toContain("<ul>");
 
@@ -386,6 +572,7 @@ describe("RichTextComposer Tiptap contract", () => {
       />
     );
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("Numaralı liste").click());
     expect(latestHtml(onChange)).toContain("<ol>");
 
@@ -398,6 +585,7 @@ describe("RichTextComposer Tiptap contract", () => {
       />
     );
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("Alıntı").click());
     expect(latestHtml(onChange)).toContain("<blockquote>");
   });
@@ -418,13 +606,16 @@ describe("RichTextComposer Tiptap contract", () => {
     );
 
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("Başlık").click());
+    expect(formatMenuPanel()).toBeNull();
     expect(
       container.querySelector('[role="menu"][aria-label="Başlık düzeyi"]')
     ).not.toBeNull();
     act(() => button(heading).click());
     expect(onChange).toHaveBeenLastCalledWith(expectedHtml);
 
+    openFormatMenu();
     act(() => button("Başlık").click());
     act(() => button("Normal metin").click());
     expect(onChange).toHaveBeenLastCalledWith("<p>Hello</p>");
@@ -442,9 +633,11 @@ describe("RichTextComposer Tiptap contract", () => {
     );
 
     selectAllEditorContent();
+    openFormatMenu();
     act(() => button("Kalın").click());
     expect(latestHtml(onChange)).toContain("<strong>Hello</strong>");
 
+    // D-18 — Geri al/Yinele stay direct toolbar buttons, outside the popover.
     act(() => button("Geri al").click());
     expect(onChange).toHaveBeenLastCalledWith("<p>Hello</p>");
 

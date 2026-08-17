@@ -17,9 +17,11 @@ import Link from "@tiptap/extension-link";
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
+  Fragment,
   ReactNode,
   forwardRef,
   useCallback,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -107,13 +109,27 @@ interface ToolbarAction {
   groupEnd?: boolean;
 }
 
-const TOOLBAR_ACTIONS: ToolbarAction[] = [
+// D-18 — toolbar split into a lean direct-action row and a single "Aa"
+// popover (FORMAT_ACTIONS below). Direct order is locked: attach, then the
+// Aa trigger (separate JSX, not an action object), then undo/redo.
+const DIRECT_ACTIONS: ToolbarAction[] = [
   {
     label: "Dosya ekle",
     icon: <FilePlusIcon />,
     command: "attach",
     groupEnd: true,
   },
+  {
+    label: "Geri al",
+    icon: <CounterClockwiseClockIcon />,
+    command: "undo",
+  },
+  { label: "Yinele", icon: <ReloadIcon />, command: "redo" },
+];
+
+// The seven formatting actions live inside the "Aa" popover (FormatMenu).
+// Order/labels/icons/activeName unchanged from the pre-split toolbar.
+const FORMAT_ACTIONS: ToolbarAction[] = [
   {
     label: "Kalın",
     icon: <FontBoldIcon />,
@@ -137,7 +153,6 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
     icon: <Link2Icon />,
     command: "link",
     activeName: "link",
-    groupEnd: true,
   },
   {
     label: "Madde işaretli liste",
@@ -156,14 +171,7 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
     icon: <QuoteIcon />,
     command: "blockquote",
     activeName: "blockquote",
-    groupEnd: true,
   },
-  {
-    label: "Geri al",
-    icon: <CounterClockwiseClockIcon />,
-    command: "undo",
-  },
-  { label: "Yinele", icon: <ReloadIcon />, command: "redo" },
 ];
 
 type HeadingLevel = 1 | 2 | 3;
@@ -330,20 +338,27 @@ export const RichTextComposer = forwardRef<
       ? sanitizeAuthoredHtml
       : sanitizeUntrustedDraftHtml;
     const lastEmittedHtml = useRef(sanitizeValue(value));
-    const linkTriggerRef = useRef<HTMLButtonElement>(null);
     const linkInputRef = useRef<HTMLInputElement>(null);
-    const headingTriggerRef = useRef<HTMLButtonElement>(null);
     const headingFirstOptionRef = useRef<HTMLButtonElement>(null);
     const attachTriggerRef = useRef<HTMLButtonElement>(null);
     const attachmentGroupRef = useRef<HTMLDivElement | null>(null);
     const attachmentPendingFocusIndexRef = useRef<number | null>(null);
     const previousAttachmentCountRef = useRef(attachments.length);
+    // D-18 — FormatMenu ("Aa" popover) lifecycle refs. `formatItemRefs`
+    // tracks all seven items (for Arrow key navigation); `formatFirstItemRef`
+    // mirrors index 0 for the open-focuses-first-item effect below.
+    const formatTriggerRef = useRef<HTMLButtonElement>(null);
+    const formatMenuRef = useRef<HTMLDivElement>(null);
+    const formatFirstItemRef = useRef<HTMLButtonElement | null>(null);
+    const formatItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
     const linkPanelId = useId();
     const headingPanelId = useId();
+    const formatMenuId = useId();
     const attachmentChipListId = useId();
     const sendLockDescriptionId = useId();
     const [linkEditorOpen, setLinkEditorOpen] = useState(false);
     const [headingMenuOpen, setHeadingMenuOpen] = useState(false);
+    const [formatMenuOpen, setFormatMenuOpen] = useState(false);
     const [linkHref, setLinkHref] = useState("https://");
     const [linkError, setLinkError] = useState("");
     const [editingExistingLink, setEditingExistingLink] = useState(false);
@@ -842,7 +857,71 @@ export const RichTextComposer = forwardRef<
         setLinkError("");
       }
       if (headingMenuOpen) setHeadingMenuOpen(false);
-    }, [disabled, headingMenuOpen, linkEditorOpen]);
+      if (formatMenuOpen) setFormatMenuOpen(false);
+    }, [disabled, formatMenuOpen, headingMenuOpen, linkEditorOpen]);
+
+    // D-18 — FormatMenu ("Aa" popover) accessible lifecycle, copied verbatim
+    // from chat-screen.tsx's proven conversation-options menu (RESEARCH.md
+    // Pattern 3): outside mousedown closes, Escape closes + returns focus,
+    // Tab closes without forcing focus, opening focuses the first item.
+    const closeFormatMenu = useCallback((returnFocus = true) => {
+      setFormatMenuOpen(false);
+      if (returnFocus) formatTriggerRef.current?.focus();
+    }, []);
+
+    useEffect(() => {
+      if (!formatMenuOpen) return;
+
+      formatFirstItemRef.current?.focus();
+
+      const handlePointerDown = (event: MouseEvent) => {
+        const target = event.target as Node;
+        if (
+          formatMenuRef.current?.contains(target) ||
+          formatTriggerRef.current?.contains(target)
+        ) {
+          return;
+        }
+        closeFormatMenu();
+      };
+      const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeFormatMenu();
+        } else if (event.key === "Tab") {
+          closeFormatMenu(false);
+        }
+      };
+
+      document.addEventListener("mousedown", handlePointerDown);
+      document.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.removeEventListener("mousedown", handlePointerDown);
+        document.removeEventListener("keydown", handleKeyDown);
+      };
+    }, [closeFormatMenu, formatMenuOpen]);
+
+    // Arrow-key navigation between the seven `menuitemcheckbox` items,
+    // wrapping at both ends; Home/End jump to the first/last item.
+    const handleFormatItemKeyDown = (
+      event: React.KeyboardEvent<HTMLButtonElement>,
+      index: number
+    ) => {
+      const items = formatItemRefs.current;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        items[(index + 1) % items.length]?.focus();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        items[(index - 1 + items.length) % items.length]?.focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        items[0]?.focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        items[items.length - 1]?.focus();
+      }
+    };
 
     // D-02: once the count drops back below the summary threshold, no
     // residual "collapsed" memory survives — the next time it climbs back to
@@ -888,12 +967,18 @@ export const RichTextComposer = forwardRef<
       setLinkEditorOpen(false);
       setLinkError("");
       setEditingExistingLink(false);
-      linkTriggerRef.current?.focus();
+      // D-18 — "Bağlantı" now only exists inside the FormatMenu popover,
+      // which is already closed by the time this runs (closeFormatMenu(false)
+      // fired when the item was clicked); its DOM node is gone. The "Aa"
+      // trigger is the only stable, always-mounted control to return to.
+      formatTriggerRef.current?.focus();
     };
 
     const closeHeadingMenu = () => {
       setHeadingMenuOpen(false);
-      headingTriggerRef.current?.focus();
+      // Same reasoning as closeLinkEditor above — "Başlık" only exists while
+      // the FormatMenu popover is open.
+      formatTriggerRef.current?.focus();
     };
 
     const applyLink = () => {
@@ -1320,12 +1405,9 @@ export const RichTextComposer = forwardRef<
             <div
               role="toolbar"
               aria-label="Metin biçimlendirme"
-              className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+              className="flex min-w-0 flex-1 items-center gap-0.5"
             >
-              {TOOLBAR_ACTIONS.map((action) => {
-                const pressed = action.activeName
-                  ? (editor?.isActive(action.activeName) ?? false)
-                  : false;
+              {DIRECT_ACTIONS.map((action) => {
                 const unavailable =
                   action.command === "undo"
                     ? !(editor?.can().chain().focus().undo().run() ?? false)
@@ -1334,57 +1416,158 @@ export const RichTextComposer = forwardRef<
                       : false;
 
                 return (
-                  <div
-                    key={action.label}
-                    className="flex shrink-0 items-center gap-0.5"
-                  >
-                    <Button
-                      ref={
-                        action.command === "link"
-                          ? linkTriggerRef
-                          : action.command === "heading"
-                            ? headingTriggerRef
-                            : action.command === "attach"
-                              ? attachTriggerRef
-                              : undefined
-                      }
-                      type="button"
-                      variant="ghost"
-                      size="toolbar"
-                      aria-label={action.label}
-                      aria-pressed={action.activeName ? pressed : undefined}
-                      aria-expanded={
-                        action.command === "link"
-                          ? linkEditorOpen
-                          : action.command === "heading"
-                            ? headingMenuOpen
+                  <Fragment key={action.command}>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <Button
+                        ref={
+                          action.command === "attach"
+                            ? attachTriggerRef
                             : undefined
-                      }
-                      aria-controls={
-                        action.command === "link" && linkEditorOpen
-                          ? linkPanelId
-                          : action.command === "heading" && headingMenuOpen
-                            ? headingPanelId
-                            : undefined
-                      }
-                      title={action.label}
-                      disabled={disabled || !editor || unavailable}
-                      className={cn(
-                        "shrink-0 text-muted-foreground focus-visible:ring-2 focus-visible:ring-offset-0",
-                        pressed && "bg-accent text-foreground"
+                        }
+                        type="button"
+                        variant="ghost"
+                        size="toolbar"
+                        aria-label={action.label}
+                        title={action.label}
+                        disabled={disabled || !editor || unavailable}
+                        className="shrink-0 text-muted-foreground focus-visible:ring-2 focus-visible:ring-offset-0"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => runToolbarAction(action)}
+                      >
+                        {action.icon}
+                      </Button>
+                      {action.groupEnd && (
+                        <span
+                          aria-hidden="true"
+                          className="mx-0.5 h-4 w-px bg-border"
+                        />
                       )}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => runToolbarAction(action)}
-                    >
-                      {action.icon}
-                    </Button>
-                    {action.groupEnd && (
-                      <span
-                        aria-hidden="true"
-                        className="mx-0.5 h-4 w-px bg-border"
-                      />
+                    </div>
+
+                    {/* D-18 — "Aa" FormatMenu trigger+panel sits right after
+                        the "Dosya ekle" button, per the locked toolbar order
+                        [Dosya ekle] [Aa ▾] [Geri al] [Yinele]. */}
+                    {action.command === "attach" && (
+                      <div className="relative shrink-0">
+                        <Button
+                          ref={formatTriggerRef}
+                          type="button"
+                          variant="ghost"
+                          size="toolbar"
+                          aria-label="Biçimlendirme seçenekleri"
+                          aria-haspopup="menu"
+                          aria-expanded={formatMenuOpen}
+                          aria-controls={
+                            formatMenuOpen ? formatMenuId : undefined
+                          }
+                          disabled={disabled || !editor}
+                          className="w-auto gap-0.5 px-1.5 text-muted-foreground"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() =>
+                            setFormatMenuOpen((open) => !open)
+                          }
+                        >
+                          <span className="text-xs font-semibold">Aa</span>
+                          <ChevronDownIcon
+                            className="size-3"
+                            aria-hidden="true"
+                          />
+                        </Button>
+
+                        {formatMenuOpen && (
+                          <div
+                            ref={formatMenuRef}
+                            id={formatMenuId}
+                            role="menu"
+                            aria-label="Metin biçimlendirme seçenekleri"
+                            className="absolute bottom-full left-0 z-20 mb-1 max-h-64 w-56 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg"
+                            onBlur={(event) => {
+                              const nextFocus =
+                                event.relatedTarget as Node | null;
+                              // bold/italic/bulletList/orderedList/blockquote
+                              // (the "toggle and keep the panel open" items,
+                              // see onClick below) call
+                              // `editor.chain().focus()...run()` inside
+                              // `runToolbarAction` — that's an intentional,
+                              // expected focus transfer INTO this composer's
+                              // own editor, not a "focus left the panel"
+                              // signal, so it must not trip this close guard
+                              // (would otherwise silently violate D-18's
+                              // "toggle-and-continue" contract).
+                              if (
+                                nextFocus &&
+                                (formatMenuRef.current?.contains(nextFocus) ||
+                                  editorRef.current?.view.dom.contains(
+                                    nextFocus
+                                  ))
+                              ) {
+                                return;
+                              }
+                              closeFormatMenu(false);
+                            }}
+                          >
+                            {FORMAT_ACTIONS.map((formatAction, index) => (
+                              <button
+                                key={formatAction.command}
+                                ref={(node) => {
+                                  formatItemRefs.current[index] = node;
+                                  if (index === 0) {
+                                    formatFirstItemRef.current = node;
+                                  }
+                                }}
+                                type="button"
+                                role="menuitemcheckbox"
+                                aria-checked={
+                                  formatAction.activeName
+                                    ? (editor?.isActive(
+                                        formatAction.activeName
+                                      ) ?? false)
+                                    : false
+                                }
+                                aria-label={formatAction.label}
+                                aria-expanded={
+                                  formatAction.command === "link"
+                                    ? linkEditorOpen
+                                    : formatAction.command === "heading"
+                                      ? headingMenuOpen
+                                      : undefined
+                                }
+                                aria-controls={
+                                  formatAction.command === "link" &&
+                                  linkEditorOpen
+                                    ? linkPanelId
+                                    : formatAction.command === "heading" &&
+                                        headingMenuOpen
+                                      ? headingPanelId
+                                      : undefined
+                                }
+                                disabled={disabled || !editor}
+                                className="flex min-h-11 w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-foreground hover:bg-accent aria-checked:bg-accent aria-checked:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                                onMouseDown={(event) =>
+                                  event.preventDefault()
+                                }
+                                onKeyDown={(event) =>
+                                  handleFormatItemKeyDown(event, index)
+                                }
+                                onClick={() => {
+                                  runToolbarAction(formatAction);
+                                  if (
+                                    formatAction.command === "heading" ||
+                                    formatAction.command === "link"
+                                  ) {
+                                    closeFormatMenu(false);
+                                  }
+                                }}
+                              >
+                                {formatAction.icon}
+                                <span>{formatAction.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </div>
+                  </Fragment>
                 );
               })}
             </div>
