@@ -28,10 +28,12 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 ## Current Position
 
-Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTED, GAPS FOUND
-Plan: 8 of 8
-Status: Doğrulama 5/9 must-have. SC1 (sessiz iç not) ve SC9 (parent alan tesisi) tek kök nedenle FAIL: `executeCreateMutation`'daki `isCurrent` erken dönüşü `assertSideConversationLink`'i hiç çağırmıyor. UX-07/UX-08 canlı ölçüm bekliyor (`04.2-UAT.md`, 7 madde pending). Sıradaki: `/gsd-plan-phase 04.2 --gaps`
-Last activity: 2026-08-17 — 8/8 plan yürütüldü; code review 2 blocker, doğrulama gaps_found
+Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — GAP PLANS READY
+Plan: 8 of 10 (04.2-09, 04.2-10 gap kapanışı, `gap_closure: true`)
+Status: SC1/SC9 boşlukları için 2 gap planı hazır ve plan-checker'dan geçti (revizyon 1). Kök neden: `executeCreateMutation`'daki `isCurrent` erken dönüşü `assertSideConversationLink`'i hiç çağırmıyor. D-23 eklendi (D-04'ün tek retry'ı iç nottan `tu.side_conversation_parent` alanına geçti). Sıradaki: `/gsd-execute-phase 04.2 --gaps-only`
+Last activity: 2026-08-17 — gap planlama tamam; gereklilik 9/9, karar 23/23, post-planning gap 32/32
+
+**Kapsam dışı, ayrı ele alınacak:** CR-02 — `src/lib/standalone-dev.ts`'teki hardcoded `DEFAULT_DEV_AGENT_EMAIL`/`DEFAULT_DEV_AGENT_NAME` canlı API'ye `creator: us.email` olarak ulaşabiliyor. Kullanıcı kararı: önce JWT/bundle canlı probe'u, sonra ayrı faz.
 
 Progress: [███████░░░] 75%
 
