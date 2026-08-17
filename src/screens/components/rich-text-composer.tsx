@@ -193,7 +193,13 @@ const ATTACHMENT_SUMMARY_THRESHOLD = 3;
 function editorClassName(mode: "compose" | "reply", disabled: boolean): string {
   return cn(
     "rich-text-content w-full flex-1 overflow-y-auto break-words px-4 py-3 text-sm leading-6 outline-none",
-    mode === "compose" ? "min-h-48" : "max-h-40 min-h-24",
+    // D-19 — marker classes for index.css's `@media (max-height: 620px)`
+    // block: these height literals aren't on the `var(--...)` token layer,
+    // so a plain CSS rule keyed off the class name is the only way to
+    // override them in compact mode (RESEARCH Pitfall #5).
+    mode === "compose"
+      ? "min-h-48 side-conversation-editor-compose"
+      : "max-h-40 min-h-24 side-conversation-editor-reply",
     disabled && "cursor-not-allowed bg-muted/30 text-muted-foreground"
   );
 }

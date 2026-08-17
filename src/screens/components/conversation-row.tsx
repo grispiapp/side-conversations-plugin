@@ -29,7 +29,11 @@ export const ConversationRow = observer(
           type="button"
           onClick={onSelect}
           className={cn(
-            "relative flex min-h-[72px] w-full min-w-0 flex-col justify-center bg-card px-[var(--panel-inset)] py-2 text-left focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            // D-19 — the leading marker class below is what index.css's
+            // compact-viewport media block targets to shrink this row's
+            // minimum height on short panels; the existing fixed Tailwind
+            // height class stays as the normal-viewport baseline.
+            "side-conversation-row relative flex min-h-[72px] w-full min-w-0 flex-col justify-center bg-card px-[var(--panel-inset)] py-2 text-left focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             row.hydrationFailed && "opacity-60"
           )}
         >
@@ -90,7 +94,7 @@ export const SkeletonRow: FC = () => {
   return (
     <div
       aria-hidden="true"
-      className="flex min-h-[72px] flex-col justify-center gap-1 bg-card px-[var(--panel-inset)] py-2"
+      className="side-conversation-row flex min-h-[72px] flex-col justify-center gap-1 bg-card px-[var(--panel-inset)] py-2"
     >
       <Skeleton className="h-3 w-2/3" />
       <Skeleton className="h-4 w-4/5" />

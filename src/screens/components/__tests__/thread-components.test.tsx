@@ -557,6 +557,9 @@ describe("RichTextComposer", () => {
     expect(container.textContent).toContain(
       "Yanıt şu kişiye gidecek: Ada Lovelace <ada@example.test>"
     );
+    // D-18 — the seven formatting actions now live inside the "Aa"
+    // FormatMenu popover; open it before looking for their buttons.
+    act(() => button("Biçimlendirme seçenekleri").click());
     [
       "Kalın",
       "İtalik",
@@ -596,6 +599,8 @@ describe("RichTextComposer", () => {
         })
       );
     });
+    // D-18 — open the "Aa" FormatMenu popover before clicking "Kalın".
+    act(() => button("Biçimlendirme seçenekleri").click());
     act(() => button("Kalın").click());
 
     const reportedHtml = onChange.mock.calls[onChange.mock.calls.length - 1][0];

@@ -162,3 +162,40 @@
     @apply overflow-hidden bg-background text-foreground;
   }
 }
+
+/* D-19 — compact viewport token set, gated on the PANEL's own height (not
+   width) via `max-height: 620px`. This is the physical-durability fix for
+   the live-measured 1366×587 preprod baseline (panel ~405px total, feed
+   only ~197px, UX-08). Four targets, matching D-19's own wording exactly:
+   panel header height, panel inset, list-row minimum height, and the reply
+   editor's min/max height — plus the compose editor's own min-height, a
+   discretionary same-rule extension (UI-SPEC "D-19 compact token set").
+   The interactive hit-area floor token is DELIBERATELY left out of this
+   block: every `Button` target stays 40px regardless of viewport height
+   (accessibility floor, UI-SPEC "Accessibility & Safety"). No typography
+   sizing is touched here — D-21: the "her şey zoomlu" UAT report was a
+   local-only dev artefact, not a real product bug, so the global type
+   scale is untouched. Written OUTSIDE any `@layer` (not `@layer
+   components`) so these rules win the specificity fight against the
+   Tailwind utility classes they override (`min-h-[72px]`, `min-h-48`,
+   `max-h-40 min-h-24`) — unlayered rules are emitted after `@tailwind
+   utilities`'s injected content, not before it. */
+@media (max-height: 620px) {
+  :root {
+    --panel-header-height: 2.5rem;
+    --panel-inset: 0.75rem;
+  }
+
+  .side-conversation-row {
+    min-height: 56px;
+  }
+
+  .side-conversation-editor-compose {
+    min-height: 128px;
+  }
+
+  .side-conversation-editor-reply {
+    min-height: 64px;
+    max-height: 112px;
+  }
+}

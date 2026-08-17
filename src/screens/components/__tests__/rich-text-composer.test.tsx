@@ -815,6 +815,39 @@ describe("RichTextComposer Tiptap contract", () => {
     expect(ref.current).toBe(editor());
     expect(document.activeElement).toBe(editor());
   });
+
+  it("carries the compact-viewport marker class matching its mode (D-19)", () => {
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        recipientLabel="Ada"
+        mode="reply"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+    expect(editor().classList.contains("side-conversation-editor-reply")).toBe(
+      true
+    );
+    expect(
+      editor().classList.contains("side-conversation-editor-compose")
+    ).toBe(false);
+
+    render(
+      <RichTextComposer
+        value="<p>Metin</p>"
+        mode="compose"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+      />
+    );
+    expect(
+      editor().classList.contains("side-conversation-editor-compose")
+    ).toBe(true);
+    expect(editor().classList.contains("side-conversation-editor-reply")).toBe(
+      false
+    );
+  });
 });
 
 describe("RichTextComposer attachments (COMP-05/THRD-05)", () => {
