@@ -6,15 +6,15 @@ current_phase: 04.2
 current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 status: verifying
 stopped_at: Phase 04.2 executed 8/8 — verification gaps_found (SC1/SC9)
-last_updated: "2026-08-17T16:05:00.000Z"
+last_updated: "2026-08-17T16:53:53.129Z"
 last_activity: 2026-08-17
-last_activity_desc: Phase 04.2 yürütüldü (8/8) — doğrulama 5/9, SC1 ve SC9 açık
+last_activity_desc: gap planlama tamam; gereklilik 9/9, karar 23/23, post-planning gap 32/32
 progress:
   total_phases: 8
-  completed_phases: 7
-  total_plans: 39
-  completed_plans: 39
-  percent: 88
+  completed_phases: 6
+  total_plans: 41
+  completed_plans: 40
+  percent: 75
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — GAP PLANS READY
-Plan: 8 of 10 (04.2-09, 04.2-10 gap kapanışı, `gap_closure: true`)
+Plan: 9 of 10 (04.2-09, 04.2-10 gap kapanışı, `gap_closure: true`)
 Status: SC1/SC9 boşlukları için 2 gap planı hazır ve plan-checker'dan geçti (revizyon 1). Kök neden: `executeCreateMutation`'daki `isCurrent` erken dönüşü `assertSideConversationLink`'i hiç çağırmıyor. D-23 eklendi (D-04'ün tek retry'ı iç nottan `tu.side_conversation_parent` alanına geçti). Sıradaki: `/gsd-execute-phase 04.2 --gaps-only`
 Last activity: 2026-08-17 — gap planlama tamam; gereklilik 9/9, karar 23/23, post-planning gap 32/32
 
@@ -91,6 +91,7 @@ Progress: [███████░░░] 75%
 | Phase 04.2 P06 | 35min | 3 tasks | 2 files |
 | Phase 04.2 P07 | 25min | 2 tasks | 5 files |
 | Phase 04.2 P08 | 3min | 2 tasks | 1 files |
+| Phase 04.2 P09 | 4min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -178,6 +179,9 @@ Recent decisions affecting current work:
 - [Phase 04.2]: [Phase 04.2, Plan 07]: isHydratedTicket guards on the real object shape ("fieldMap" in ticket), never ticket !== null — switchTicket's provisional ticket is real and reading fieldMap off it must never throw
 - [Phase 04.2]: [Phase 04.2, Plan 07]: isSideConversationTicket(ticket) is the single predicate consumed once per render, feeding both ParentBanner's visibility and the Yeni konuşma button's disabled state — never two independent calls
 - [Phase 04.2]: [Phase 04.2, Plan 08]: 04.2-UAT.md's seven items follow the plan's own numbered action list (folding list-header-truncation into item 6, adding a dedicated parent-banner-block item 4) rather than VALIDATION.md's table grouping verbatim
+- [Phase ?]: [Phase 04.2, Plan 09]: linkAssertion promise created once right after sideKey is known, awaited explicitly at each of the three return points in executeCreateMutation — no dangling promise on either isCurrent early-return
+- [Phase ?]: [Phase 04.2, Plan 09]: patchTicketFields throws synchronously before http.send when the body carries ts.status, enforcing D-15 structurally for this generic field-writer rather than by caller convention
+- [Phase ?]: [Phase 04.2, Plan 09]: D-23 retry body built fresh as its own TicketFieldsPatchRequest literal (never derived from InternalNotePatchRequest) so the type system guarantees the retry cannot carry a comment
 
 ### Pending Todos
 
@@ -222,7 +226,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-17T15:42:12.897Z
+Last session: 2026-08-17T16:53:08.817Z
 Stopped at: Completed 04.2-04-PLAN.md
 Resume file: 
 None
