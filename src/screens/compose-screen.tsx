@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "./components/confirm-dialog";
+import { InfoBox } from "./components/info-box";
 import { MessageField } from "./components/message-field";
 import { RecipientField } from "./components/recipient-field";
 import { SubjectField } from "./components/subject-field";
@@ -133,6 +134,7 @@ export const ComposeScreen = observer(() => {
           className="flex min-h-0 flex-1 flex-col"
           aria-label="Yeni konuşma e-postası"
         >
+          <InfoBox dismissible={false} />
           <RecipientField />
           <SubjectField />
           <MessageField
