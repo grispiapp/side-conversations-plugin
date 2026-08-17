@@ -53,7 +53,7 @@ Requirements for initial release. Each maps to roadmap phases.
 *Canlı UAT geri bildiriminden türetildi (2026-08-17); Phase 04.2'nin sekiz başarı ölçütüyle bire bir eşleşir.*
 
 - [x] **UX-01**: Yeni yan konuşma oluşturulduğunda yan ticket'a ilişkiyi bildiren bir iç not (`publicVisible: false`) düşer — kimseye e-posta gitmez, not panelde de görünür, notun atılamaması konuşmanın kendisini bozmaz
-- [ ] **UX-02**: Sohbet ekranının başlığı yan ticket key'idir ve tıklandığında o talep yeni sekmede açılır; üst talep key'i ayrı bir görsel dille (nötr chip, link değil) gösterilir
+- [x] **UX-02**: Sohbet ekranının başlığı yan ticket key'idir ve tıklandığında o talep yeni sekmede açılır; üst talep key'i ayrı bir görsel dille (nötr chip, link değil) gösterilir
 - [ ] **UX-03**: Aktif talep bir yan konuşmaysa panel bunu bildirir, "Üst talebe git" sunar ve yeni yan konuşma açılmasını engeller (iç içe yan konuşma yok)
 - [x] **UX-04**: Alıcı, üçüncü taraf henüz hiç yanıt yazmamışken bile doğru görünür — yanıt alanında ve çözüldü/kapalı durum bloğunda hiçbir koşulda `—` kalmaz
 - [ ] **UX-05**: Mesajlarda gönderen adı görünür ("Siz" yerine agent adı), temsilcinin kendi mesajında adının yanında "Siz" rozeti bulunur ve iç notlarda "Salt okunur" ifadesi yer almaz

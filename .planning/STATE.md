@@ -6,14 +6,14 @@ current_phase: 04.2
 current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 status: executing
 stopped_at: Phase 04.2 planned — 8 plans across 3 waves
-last_updated: "2026-08-17T14:10:04.555Z"
+last_updated: "2026-08-17T14:25:04.090Z"
 last_activity: 2026-08-17
 last_activity_desc: Phase 04.2 execution started
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 39
-  completed_plans: 32
+  completed_plans: 33
   percent: 75
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Last activity: 2026-08-17 — Phase 04.2 execution started
 
@@ -82,6 +82,7 @@ Progress: [███████░░░] 75%
 | Phase quick-260810-jiw P01 | 25min | 3 tasks | 2 files |
 | Phase quick-260810-m8f P01 | 15min | 3 tasks | 5 files |
 | Phase 04.2 P01 | 20min | 3 tasks | 7 files |
+| Phase 04.2 P02 | 20min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -155,6 +156,9 @@ Recent decisions affecting current work:
 - [Phase quick-260810-m8f]: Repo-as-host deploy model: build/ tracked in git as the deploy artifact; grispi.app serves it directly from /build/, no separate hosting/CI pipeline — Source maps disabled via committed .env.production (not inline shell prefix) so the setting is Windows-shell-safe and always applied regardless of caller
 - [Phase 04.2]: [Phase 04.2, Plan 01]: assertSideConversationLink is awaited unwrapped (no second try/catch) right after mutationAccepted since the helper itself never throws — D-04's silent-failure contract stays in one place
 - [Phase 04.2]: [Phase 04.2, Plan 01]: resolveDetailRecipientFallback ports hydrateSummaries's exact list-path shape to the detail path rather than inventing a new resolution path (D-12 scope limit)
+- [Phase ?]: [Phase 04.2, Plan 02]: buildAgentTicketUrl built via string concatenation (never a template literal) to preserve environment.ts's zero-${ regression gate (T-04.1-01)
+- [Phase ?]: [Phase 04.2, Plan 02]: setEnvironmentState/setAgentName are required (non-optional) BootstrapPluginInitDeps fields, resolved once and fed to both HttpHandler and React state sinks
+- [Phase ?]: [Phase 04.2, Plan 02]: TicketKeyLink/ParentKeyChip take tenantId/environment/ticketKey/parentKey as props rather than reading useGrispi() internally, deferring screen-level wiring to Plan 06/07
 
 ### Pending Todos
 
@@ -199,7 +203,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-17T14:09:50.145Z
+Last session: 2026-08-17T14:24:01.078Z
 Stopped at: Phase 04.2 UI-SPEC approved (6/6 dimensions)
 Resume file: 
 None
