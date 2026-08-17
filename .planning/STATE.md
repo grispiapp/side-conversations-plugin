@@ -37,7 +37,9 @@ Last activity: 2026-08-17 — gap kapanışı yürütüldü (09, 10); test 527/5
 
 **Test borcu (WR-03):** `side-conversation-queries.test.tsx:1244`'teki D-01 sıralama testi `invocationCallOrder` kullanıyor — çağrı sırasını ölçüyor, await tamamlanmasını değil. Hoist sonrası totolojik hâle geldi: `await linkAssertion` satırları silinse hiçbir test kırılmaz. D-01 invariant'ı suite tarafından korunmuyor.
 
-**Kapsam dışı, ayrı ele alınacak:** CR-02 — `src/lib/standalone-dev.ts`'teki hardcoded `DEFAULT_DEV_AGENT_EMAIL`/`DEFAULT_DEV_AGENT_NAME` canlı API'ye `creator: us.email` olarak ulaşabiliyor. Kullanıcı kararı: önce JWT/bundle canlı probe'u, sonra ayrı faz.
+**CR-02 KAPANDI** (quick 260817-tn1, 2026-08-17): hardcoded `DEFAULT_DEV_AGENT_EMAIL`/`DEFAULT_DEV_AGENT_NAME` kaldırıldı. Standalone dev'de e-posta artık token'ın kendi `sub` claim'inden türüyor (`typeof` guard'lı — modül yükleme anında çalışıyor); JWT'de ad claim'i olmadığı için görünen ad yalnızca `REACT_APP_DEV_AGENT_NAME`'den, yani gitignore'lu yerel config'ten geliyor. Kimlik çözülemezse `null` → `!agentEmail` gate'leri göndermeyi kapatıyor (fail-closed, kasıtlı). Plugin modu (`bundle.context.agent`) hiç değişmedi.
+
+**CR-02'nin açık kalan yarısı:** [grispi-context.tsx:87](../src/contexts/grispi-context.tsx) — `plugin = standaloneConfig ? null : getPluginInstance()` dev server gerçek Grispi iframe'ine servis edildiğinde SDK köprüsünü kapatıyor, yani standalone yolu gerçek panelin içinde de kazanıyor. Artık token'ın kendi kimliğini yazdığı için yanlış-atıf hatası değil, ama hâlâ bir hata. Ayrı ele alınacak.
 
 Progress: [███████░░░] 75%
 
@@ -215,6 +217,7 @@ None yet.
 | 260810-fst | Rewrite README for this plugin (manifest + settings sections); drop starter-kit leftovers | 2026-08-10 | 8bf0a6b | — (gsd-fast, inline) |
 | 260810-l0t | Rename UI vocabulary görüşme → konuşma (product name "Yan Görüşmeler" → "Yan Konuşmalar"; yazışma was an intermediate step, superseded) | 2026-08-10 | cf3b68d | [260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan](./quick/260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan/) |
 | 260810-m8f | Repo-as-host deploy: track build/, disable source maps (.env.production), manifest URL → /build/ | 2026-08-10 | 35b15e7 | [260810-m8f-ship-build-output-from-the-repo-untrack-](./quick/260810-m8f-ship-build-output-from-the-repo-untrack-/) |
+| 260817-tn1 | CR-02: standalone dev agent kimliği JWT `sub` claim'inden türetiliyor; hardcoded `DEFAULT_DEV_AGENT_EMAIL`/`NAME` sabitleri kaldırıldı | 2026-08-17 | c6ea10a | [260817-tn1-standalone-dev-de-agent-kimligini-jwt-su](./quick/260817-tn1-standalone-dev-de-agent-kimligini-jwt-su/) |
 
 ### Roadmap Evolution
 
