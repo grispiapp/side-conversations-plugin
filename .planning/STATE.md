@@ -30,8 +30,8 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 Phase: 04.2 (uat-geri-bildirimleri) — NOT PLANNED
 Plan: 0 of 0
-Status: Inserted, awaiting /gsd-plan-phase 04.2 — açık probe: `PATCH /v2/tickets/{key}` + `publicVisible: false`
-Last activity: 2026-08-17 — Phase 04.2 roadmap'e eklendi (hedef + 8 başarı kriteri + canonical refs)
+Status: Planlamaya hazır — CONTEXT (D-01..D-22), RESEARCH (probe CONFIRMED), VALIDATION ve UI-SPEC (6/6 onaylı) tamam. Sıradaki komut: `/gsd-plan-phase 04.2`
+Last activity: 2026-08-17 — UI-SPEC onaylandı; UX-09 (D-22, parent field yeniden tesisi) kapsama eklendi
 
 Progress: [███████░░░] 75%
 

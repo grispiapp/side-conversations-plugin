@@ -60,7 +60,7 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 ## Constraints
 
 - **Tech stack**: Starter'ın yapısı korunur (CRA+craco, React 18, TS 4.9, Tailwind 3, shadcn, MobX, React Query) — mevcut Grispi plugin ekosistemiyle tutarlılık
-- **Platform**: ~372px genişlik iframe, Grispi sağ paneli, her zaman açık tema, UI dili Türkçe
+- **Platform**: Grispi sağ paneli iframe'i, her zaman açık tema, UI dili Türkçe. **Panel genişliği sabit değildir** — kullanıcı sürükleyerek boyutlandırabiliyor; 1366px viewport'ta ~295px, panel yüksekliği ~405px ölçüldü. Layout ~280px genişlik ve ~590px viewport yüksekliğinden yukarı akışkan olmalı. *(düz. 2026-08-17 — canlı ölçüm; önceki "sabit 372px" varsayımı yanlıştı, Faz 1–04.1 dokümanları bu eski sayıyı taşır)*
 - **API**: advanced-search `size` ≤ 10 → sayfalama şart; CC/BCC yok → tek alıcı; webhook yok → polling; SDK köprüsü salt okunur → tüm yazmalar REST
 - **Dependencies**: İlişki field'ı prod'da plugin kurulumuyla otomatik oluşur; geliştirme tenant'ında elle oluşturulur. Plugin manifest kaydı Grispi ekibi onayı gerektirir
 - **Security**: Token bundle'dan gelir, saklanmaz. Ortam ayarı `_grispi_env` settings'ten okunur (tek settings anahtarı). İlişki field key'i (`tu.side_conversation_parent`) ise D-01/D-02 gereği HARDCODE'dur ve settings'ten ASLA okunmaz — alan Grispi tarafından sağlanır, kod yalnızca değerini okur/yazar

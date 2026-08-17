@@ -210,7 +210,7 @@ Plans:
 **Goal:** Temsilci, panelde kiminle konuştuğunu ve hangi talebin üzerinde olduğunu tereddütsüz görür; yan ve üst talep arasında tek tıkla geçebilir; yan konuşma ticket'ı Grispi tarafında ilişkisini taşıyan bir iç notla doğar; ve panel, dar (~280px) ve kısa (~590px) agent ekranlarında kullanılabilir kalır.
 **Mode:** mvp
 **Depends on:** Phase 4
-**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05, UX-06, UX-07, UX-08
+**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-05, UX-06, UX-07, UX-08, UX-09
 **Success Criteria** (what must be TRUE):
 
   1. Yeni yan konuşma oluşturulduğunda yan ticket'a ilişkiyi bildiren bir iç not (`publicVisible: false`) düşer — hiç kimseye e-posta gitmez, not panelde de görünür, notun atılamaması konuşmanın kendisini bozmaz
@@ -221,6 +221,7 @@ Plans:
   6. Temsilci, yeni konuşma açarken ve açtıktan sonra, oluşan talebin alan/atanan/durum bilgilerinin otomatik dolmadığını söyleyen bir bilgi kutusu görür (ikincisi kalıcı olarak kapatılabilir)
   7. Biçimlendirme araçları tek bir popover'da toplanır; geri al/yinele dışarıda kalır ve toolbar ~280px panel genişliğinde yatay kaydırma üretmez
   8. Panel ~280px genişlik ve ~590px viewport yüksekliğinde kullanılabilir: liste başlığı kırpılmaz ve sohbet ekranında mesaj alanı bugünkünden en az %20 daha yüksektir
+  9. Yeni oluşturulan yan konuşmanın `tu.side_conversation_parent` değeri, oluşturmadan hemen sonra yapılan bir okumada doğru okunur — kriter 1'in PATCH'i alanı yeniden tesis eder, konuşma listede her koşulda belirir
 
 **Canonical refs:**
 
@@ -228,7 +229,8 @@ Plans:
 - **SDK'da navigasyon API'si YOK** (v0.3.1 doğrulandı: yalnız `_init`, `currentTicket`, `freeze/release/isFrozen`). Talep linki `https://{tenantId}.grispi.{tld}/tickets/{TICKET-KEY}` olarak kurulur; `tld` ortamdan türetilir (preprod `.net`, prod `.com`, prod_tr `.com.tr` — `GRISPI_BASE_URLS` eşlemesinin aynısı) ve yeni sekmede açılır. Hash'teki `origin` parametresi kullanılmaz (doğrulanmamış girdi)
 - **Panel 372px sabit DEĞİL:** canlı ekran görüntüsünde ~295px ölçüldü ve sürüklenebilir bir tutamağı var. PROJECT.md'deki "372px" kısıtı yanlış; layout ~280px'ten yukarı akışkan olmalı
 - **Zoom sahte alarm:** local'de büyük, preprod'da normal render ediliyor; host uygulama iki durumda da piksel piksel aynı → tarayıcı/OS zoom'u değil, local'e özgü bir artefakt. Bu fazda global tipografi küçültmesi YAPILMAZ, yalnızca yükseklik/genişlik dayanıklılığı ele alınır
-- **Açık probe:** `PATCH /v2/tickets/{key}` gövdesinde `comment.publicVisible: false` ile (a) e-posta göndermiyor ve (b) status'ü beklenmedik şekilde değiştirmiyor mu — plan öncesi `gsocial-test` üzerinde doğrulanmalı. Olumsuzsa iç not akışı create'i iç notla başlatıp e-postayı PATCH'leyecek şekilde ters çevrilir
+- **Probe SONUÇLANDI (2026-08-17, `gsocial-test`):** `PATCH /v2/tickets/{key}` + `comment.publicVisible: false` alıcıya `toId`/`toEmail` bağlamıyor (e-posta gitmiyor) ve `ts.status`'ü değiştirmiyor — **CONFIRMED**, D-01 ters çevrilmeyecek. Preprod agent-UI host'u `{tenant}.grispi.net` de canlı doğrulandı (D-07 sağlam). Ayrıntı: `04.2-RESEARCH.md`
+- **Aynı probe'da bulunan yan etki (UX-09'un gerekçesi):** `POST /v2/tickets`'ın `fields` dizisi `tu.side_conversation_parent`'ı iki bağımsız taze create'te kaydetmedi; `fields`-only `PATCH public/v1/tickets/{key}` anında kaydetti. D-22 gereği UX-01'in PATCH'i bu alanı da yeniden tesis eder — kök-neden araştırması bu fazın kapsamında değil
 
 **Plans:** 0 plans
 

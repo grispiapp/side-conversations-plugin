@@ -60,6 +60,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **UX-06**: Temsilci, yeni konuşma açarken ve açtıktan sonra, oluşan talebin alan/atanan/durum bilgilerinin otomatik dolmadığını söyleyen bir bilgi kutusu görür (ikincisi kalıcı olarak kapatılabilir)
 - [ ] **UX-07**: Biçimlendirme araçları tek bir popover'da toplanır; geri al/yinele dışarıda kalır ve toolbar ~280px panel genişliğinde yatay kaydırma üretmez
 - [ ] **UX-08**: Panel ~280px genişlik ve ~590px viewport yüksekliğinde kullanılabilir: liste başlığı kırpılmaz ve sohbet ekranında mesaj alanı bugünkünden en az %20 daha yüksektir
+- [ ] **UX-09**: Yeni yan konuşma oluşturulduktan sonra `tu.side_conversation_parent` alanının değeri doğrulanabilir şekilde kaydedilmiştir — UX-01'in PATCH'i alanı yeniden tesis eder, böylece konuşma listede her koşulda görünür *(eklendi 2026-08-17; canlı probe `POST /v2/tickets`'ın `fields` dizisinin bu alanı taze create'te kaydetmeyebildiğini gösterdi)*
 
 ## v2 Requirements
 
@@ -124,11 +125,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-06 | Phase 04.2 | Not started |
 | UX-07 | Phase 04.2 | Not started |
 | UX-08 | Phase 04.2 | Not started |
+| UX-09 | Phase 04.2 | Not started |
 
 **Coverage:**
 
-- v1 requirements: 31 total
-- Mapped to phases: 31
+- v1 requirements: 32 total
+- Mapped to phases: 32
 - Unmapped: 0 ✓
 
 ---
