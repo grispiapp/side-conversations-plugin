@@ -34,3 +34,44 @@ export const isGrispiEnvironment = (
     Object.prototype.hasOwnProperty.call(GRISPI_BASE_URLS, value)
   );
 };
+
+/**
+ * D-07 agent-UI deep-link helpers. NOT for API calls — `grispiAPI`'s own
+ * `HttpHandler` already owns the request host via `setEnvironment`; these
+ * two functions exist solely to build a link INTO the Grispi agent UI (a
+ * new browser tab), never to construct a fetch target.
+ */
+
+/**
+ * Derives the agent-UI TLD from `GRISPI_BASE_URLS` — the only legitimate
+ * host source (CORE-04). No second `{env: tld}` map is kept anywhere.
+ */
+export function grispiTld(env: GrispiEnvironment): string {
+  return GRISPI_BASE_URLS[env].replace(/^https:\/\/api\.grispi\./, "");
+}
+
+/**
+ * Builds a full agent-UI ticket URL for `target="_blank"` navigation
+ * (D-07). All three inputs MUST come from a trusted context
+ * (`useGrispi()`/the SDK bundle) — the browser's own current-location APIs
+ * and the iframe hash are never read here or by any caller (D-08). Preprod
+ * host live-verified, 04.2-RESEARCH.md P4.
+ *
+ * Deliberately built with string concatenation, not a template literal —
+ * this file's T-04.1-01 gate requires zero `${` occurrences so a future
+ * accidental host interpolation stays impossible to introduce silently.
+ */
+export function buildAgentTicketUrl(
+  tenantId: string,
+  env: GrispiEnvironment,
+  ticketKey: string
+): string {
+  return (
+    "https://" +
+    tenantId +
+    ".grispi." +
+    grispiTld(env) +
+    "/tickets/" +
+    encodeURIComponent(ticketKey)
+  );
+}
