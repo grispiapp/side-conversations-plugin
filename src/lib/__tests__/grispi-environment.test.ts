@@ -1,4 +1,9 @@
-import { isGrispiEnvironment } from "@/grispi/client/environment";
+import {
+  GRISPI_BASE_URLS,
+  buildAgentTicketUrl,
+  grispiTld,
+  isGrispiEnvironment,
+} from "@/grispi/client/environment";
 
 import {
   parseJwt,
@@ -206,5 +211,59 @@ describe("isGrispiEnvironment", () => {
         throw new Error(`allowlist accepted inherited key ${key}`);
       }
     }
+  });
+});
+
+describe("grispiTld", () => {
+  it.each(Object.keys(GRISPI_BASE_URLS) as (keyof typeof GRISPI_BASE_URLS)[])(
+    "derives the TLD for %s from GRISPI_BASE_URLS (single source of truth)",
+    (env) => {
+      const expectedTld = GRISPI_BASE_URLS[env].replace(
+        /^https:\/\/api\.grispi\./,
+        ""
+      );
+      expect(grispiTld(env)).toBe(expectedTld);
+    }
+  );
+
+  it("never returns a value starting with https:// or a leading dot", () => {
+    for (const env of Object.keys(
+      GRISPI_BASE_URLS
+    ) as (keyof typeof GRISPI_BASE_URLS)[]) {
+      const tld = grispiTld(env);
+      expect(tld.startsWith("https://")).toBe(false);
+      expect(tld.startsWith(".")).toBe(false);
+    }
+  });
+});
+
+describe("buildAgentTicketUrl", () => {
+  it.each(Object.keys(GRISPI_BASE_URLS) as (keyof typeof GRISPI_BASE_URLS)[])(
+    "builds a URL derivable from GRISPI_BASE_URLS for %s (single source of truth)",
+    (env) => {
+      const expectedHostSuffix = `.grispi.${grispiTld(env)}`;
+      const url = buildAgentTicketUrl("gsocial-test", env, "TICKET-1");
+      expect(url).toContain(expectedHostSuffix);
+    }
+  );
+
+  it("keeps the full ticket key in the result, not just a numeric fragment", () => {
+    const url = buildAgentTicketUrl("gsocial-test", "preprod", "TICKET-597");
+    expect(url).toContain("TICKET-597");
+  });
+
+  it("URL-encodes the ticket key", () => {
+    const url = buildAgentTicketUrl("t", "prod", "A/B");
+    expect(url).toContain("A%2FB");
+  });
+
+  it("places tenantId as the first subdomain", () => {
+    const url = buildAgentTicketUrl("gsocial-test", "preprod", "TICKET-1");
+    expect(url.startsWith("https://gsocial-test.grispi.")).toBe(true);
+  });
+
+  it("includes the /tickets/ path segment", () => {
+    const url = buildAgentTicketUrl("gsocial-test", "prod", "TICKET-1");
+    expect(url).toContain("/tickets/");
   });
 });
