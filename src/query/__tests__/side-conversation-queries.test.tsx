@@ -4,7 +4,10 @@ import { Root, createRoot } from "react-dom/client";
 
 import { grispiAPI } from "@/grispi/client/api";
 import { NetworkError } from "@/grispi/client/http-handler";
-import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
+import {
+  SIDE_CONVERSATION_PARENT_FIELD_KEY,
+  formatInternalNoteBody,
+} from "@/lib/side-conversation";
 import { createTestQueryClient } from "@/query/query-client";
 import {
   customerSearchOptions,
@@ -33,6 +36,7 @@ jest.mock("@/grispi/client/api", () => ({
       getTicket: jest.fn(),
       patchTicket: jest.fn(),
       replyTicket: jest.fn(),
+      addInternalNote: jest.fn(),
     },
     customers: {
       search: jest.fn(),
@@ -48,6 +52,7 @@ const mockedCreateTicket = grispiAPI.tickets.createTicket as jest.Mock;
 const mockedGetTicket = grispiAPI.tickets.getTicket as jest.Mock;
 const mockedPatchTicket = grispiAPI.tickets.patchTicket as jest.Mock;
 const mockedReplyTicket = grispiAPI.tickets.replyTicket as jest.Mock;
+const mockedAddInternalNote = grispiAPI.tickets.addInternalNote as jest.Mock;
 const mockedCustomerSearch = grispiAPI.customers.search as jest.Mock;
 const mockedGetUser = grispiAPI.users.getUser as jest.Mock;
 
@@ -1156,6 +1161,148 @@ describe("canonical detail and mutation executors", () => {
     expect(selected.ticketKey).toBe("SIDE-B");
     expect(invalidate).not.toHaveBeenCalled();
     expect(store.getOverlayMessages(2, "SIDE-B")).toEqual([]);
+  });
+
+  describe("executeCreateMutation → silent internal note + parent field (D-01/D-04/D-22)", () => {
+    function createEnvelope(creatorValue: string | undefined = "agent@example.test") {
+      selected = { ticketKey: null, parentKey: "PARENT-1", sessionKey: 1 };
+      return store.startNew({
+        tenantId: "tenant-1",
+        parentKey: "PARENT-1",
+        sessionKey: 1,
+        recipientLabel: "Vendor",
+        subject: "Konu",
+        body: "<p>Merhaba</p>",
+        request: {
+          comment: {
+            body: "<p>Merhaba</p>",
+            publicVisible: true,
+            creator: [{ key: "us.email", value: creatorValue ?? "" }],
+          },
+          fields: [],
+        },
+      });
+    }
+
+    let consoleErrorSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      mockedCreateTicket.mockResolvedValue(makeTicket("SIDE-9"));
+      jest.spyOn(client, "invalidateQueries").mockResolvedValue();
+      jest.spyOn(client, "refetchQueries").mockResolvedValue(undefined as never);
+      consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("calls addInternalNote exactly once with sideKey (not envelope.parentKey) as the first argument", async () => {
+      mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
+      const envelope = createEnvelope();
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      expect(mockedAddInternalNote).toHaveBeenCalledTimes(1);
+      expect(mockedAddInternalNote.mock.calls[0][0]).toBe("SIDE-9");
+      expect(mockedAddInternalNote.mock.calls[0][0]).not.toBe(
+        envelope.parentKey
+      );
+    });
+
+    it("sends the D-02 body, the envelope's own creator email, publicVisible:false, and the D-22 parent field", async () => {
+      mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
+      const envelope = createEnvelope();
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      const body = mockedAddInternalNote.mock.calls[0][1];
+      expect(body.comment.body).toBe(formatInternalNoteBody("PARENT-1"));
+      expect(body.comment.creator).toEqual([
+        { key: "us.email", value: "agent@example.test" },
+      ]);
+      expect(body.comment.publicVisible).toBe(false);
+      expect(body.fields).toEqual([
+        { key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: "PARENT-1" },
+      ]);
+    });
+
+    it("awaits addInternalNote before refreshCanonicalAfterMutation's invalidateQueries (Pitfall #1 — the ordering gate)", async () => {
+      mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
+      const invalidate = client.invalidateQueries as jest.Mock;
+      const envelope = createEnvelope();
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      expect(mockedAddInternalNote).toHaveBeenCalled();
+      expect(invalidate).toHaveBeenCalled();
+      expect(mockedAddInternalNote.mock.invocationCallOrder[0]).toBeLessThan(
+        invalidate.mock.invocationCallOrder[0]
+      );
+    });
+
+    it("retries exactly once on failure, then gives up without a third call", async () => {
+      mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      const envelope = createEnvelope();
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      expect(mockedAddInternalNote).toHaveBeenCalledTimes(2);
+    });
+
+    it("resolves without throwing after two failed attempts, never marks the message failed (mutationFailed not applied), and logs two distinct console.error messages (D-04/D-22)", async () => {
+      mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      const envelope = createEnvelope();
+
+      await expect(
+        executeCreateMutation(client, boundary(), envelope)
+      ).resolves.toBeUndefined();
+
+      // mutationFailed() would flip the overlay message to status:"failed" —
+      // asserting it stayed "sent" proves mutationFailed was never applied
+      // without depending on spying a MobX-wrapped action property.
+      expect(store.getOverlayMessages(1, "SIDE-9")[0]).toMatchObject({
+        status: "sent",
+        errorKind: undefined,
+      });
+      expect(consoleErrorSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+      const messages = consoleErrorSpy.mock.calls.map((call) => call[1]);
+      expect(messages[0]).not.toBe(messages[1]);
+    });
+
+    it("still runs refreshCanonicalAfterMutation's invalidate/refetch steps when addInternalNote fails", async () => {
+      mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      const invalidate = client.invalidateQueries as jest.Mock;
+      const envelope = createEnvelope();
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      expect(invalidate).toHaveBeenCalled();
+    });
+
+    it("skips addInternalNote entirely and logs once when the envelope carries no agent identity", async () => {
+      const envelope = createEnvelope("");
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      expect(mockedAddInternalNote).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("never calls addInternalNote when the agent has switched to a different conversation (isCurrent === false)", async () => {
+      mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
+      const response = deferred<Ticket>();
+      mockedCreateTicket.mockReturnValue(response.promise);
+      const envelope = createEnvelope();
+
+      const mutation = executeCreateMutation(client, boundary(), envelope);
+      selected = { ticketKey: "SIDE-B", parentKey: "PARENT-B", sessionKey: 2 };
+      store.activateSession(2, "SIDE-B");
+      response.resolve(makeTicket("SIDE-9"));
+      await mutation;
+
+      expect(mockedAddInternalNote).not.toHaveBeenCalled();
+    });
   });
 
   it("keeps solve/reopen non-optimistic and requests focus only after canonical OPEN detail", async () => {
