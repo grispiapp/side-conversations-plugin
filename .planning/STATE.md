@@ -4,11 +4,11 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.2
 current_phase_name: uat-geri-bildirimleri
-status: planning
-stopped_at: Phase 04.2 UI-SPEC approved (6/6 dimensions)
-last_updated: "2026-08-17T10:53:15.128Z"
+status: executing
+stopped_at: Phase 04.2 planned — 8 plans across 3 waves
+last_updated: "2026-08-17T11:35:00.000Z"
 last_activity: 2026-08-17
-last_activity_desc: Phase 04.2 roadmap'e eklendi (hedef + 8 başarı kriteri + canonical refs)
+last_activity_desc: Phase 04.2 planlandı — 8 plan / 3 dalga, UX-01..UX-09 ve D-01..D-22 tam kapsamlı
 progress:
   total_phases: 8
   completed_phases: 6
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 ## Current Position
 
-Phase: 04.2 (uat-geri-bildirimleri) — NOT PLANNED
-Plan: 0 of 0
-Status: Planlamaya hazır — CONTEXT (D-01..D-22), RESEARCH (probe CONFIRMED), VALIDATION ve UI-SPEC (6/6 onaylı) tamam. Sıradaki komut: `/gsd-plan-phase 04.2`
-Last activity: 2026-08-17 — UI-SPEC onaylandı; UX-09 (D-22, parent field yeniden tesisi) kapsama eklendi
+Phase: 04.2 (uat-geri-bildirimleri) — PLANNED
+Plan: 0 of 8
+Status: Ready to execute — 8 plan / 3 dalga. Plan-checker VERIFICATION PASSED; gereklilik kapsaması 9/9 (UX-01..UX-09), karar kapsaması 22/22 (D-01..D-22). Sıradaki komut: `/gsd-execute-phase 04.2`
+Last activity: 2026-08-17 — Faz planlandı (PATTERNS.md + 8 PLAN.md); CONTEXT.md'de D-NN madde noktalaması kapı ayrıştırıcısına uyacak şekilde normalize edildi (metin değişmedi)
 
 Progress: [███████░░░] 75%
 
