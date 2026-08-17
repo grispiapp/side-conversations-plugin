@@ -232,11 +232,26 @@ Plans:
 - **Probe SONUÇLANDI (2026-08-17, `gsocial-test`):** `PATCH /v2/tickets/{key}` + `comment.publicVisible: false` alıcıya `toId`/`toEmail` bağlamıyor (e-posta gitmiyor) ve `ts.status`'ü değiştirmiyor — **CONFIRMED**, D-01 ters çevrilmeyecek. Preprod agent-UI host'u `{tenant}.grispi.net` de canlı doğrulandı (D-07 sağlam). Ayrıntı: `04.2-RESEARCH.md`
 - **Aynı probe'da bulunan yan etki (UX-09'un gerekçesi):** `POST /v2/tickets`'ın `fields` dizisi `tu.side_conversation_parent`'ı iki bağımsız taze create'te kaydetmedi; `fields`-only `PATCH public/v1/tickets/{key}` anında kaydetti. D-22 gereği UX-01'in PATCH'i bu alanı da yeniden tesis eder — kök-neden araştırması bu fazın kapsamında değil
 
-**Plans:** 0 plans
+**Plans:** 8 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 04.2 to break down)
+**Wave 1** *(paralel — dosya çakışması yok)*
+
+- [ ] 04.2-01-PLAN.md — Veri katmanı: ilişki iç notu + `tu.side_conversation_parent` yeniden tesisi + detay yolunda alıcı fallback'i (UX-01, UX-04, UX-09)
+- [ ] 04.2-02-PLAN.md — Ortam→agent-UI adresi türetimi, `environment`/`agentName`'in bağlama örülmesi, `TicketKeyLink`/`ParentKeyChip` (UX-02)
+- [ ] 04.2-03-PLAN.md — Gönderen adı, "Siz" rozeti ve iç not etiketi (`thread-message.tsx`) (UX-05)
+- [ ] 04.2-04-PLAN.md — Bilgi kutusu: tenant bazlı kapatma kalıcılığı, `InfoBox` bileşeni, yeni konuşma ekranı yerleşimi (UX-06)
+- [ ] 04.2-05-PLAN.md — Biçimlendirme popover'ı (`Aa`) ve kısa viewport kompakt token seti (UX-07, UX-08)
+
+**Wave 2** *(Wave 1'e bağımlı)*
+
+- [ ] 04.2-06-PLAN.md — Sohbet ekranı: key linki, üst talep chip'i, çözüldü/kapalı alıcı satırı, kimlik prop'ları, bir kerelik bilgi kutusu (UX-02, UX-04, UX-05, UX-06)
+- [ ] 04.2-07-PLAN.md — Liste ekranı: üst-talep bandı + yeni konuşma engeli, dar panel başlık daralması (UX-03, UX-08)
+
+**Wave 3** *(faz kapanışı)*
+
+- [ ] 04.2-08-PLAN.md — Faz kapanış kapısı (suite/tip/derleme + devralınan güvenlik gate'leri) ve `04.2-UAT.md` canlı panel kontrol listesi (UX-01…UX-09)
 
 ### Phase 5: Zenginleştirmeler ve Dayanıklılık
 
