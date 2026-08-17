@@ -1291,8 +1291,9 @@ describe("canonical detail and mutation executors", () => {
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("never calls addInternalNote when the agent has switched to a different conversation (isCurrent === false)", async () => {
+    it("still PATCHes the link when the agent has switched to a different conversation (isCurrent === false), while UI reconcile is skipped", async () => {
       mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
+      const invalidate = client.invalidateQueries as jest.Mock;
       const response = deferred<Ticket>();
       mockedCreateTicket.mockReturnValue(response.promise);
       const envelope = createEnvelope();
@@ -1303,7 +1304,18 @@ describe("canonical detail and mutation executors", () => {
       response.resolve(makeTicket("SIDE-9"));
       await mutation;
 
-      expect(mockedAddInternalNote).not.toHaveBeenCalled();
+      // Gate skipped, PATCH still attempted and awaited (GAP closure).
+      expect(mockedAddInternalNote).toHaveBeenCalledTimes(1);
+      expect(mockedAddInternalNote.mock.calls[0][0]).toBe("SIDE-9");
+      const body = mockedAddInternalNote.mock.calls[0][1];
+      expect(body.fields).toEqual([
+        { key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: "PARENT-1" },
+      ]);
+
+      // UI reconcile steps stay behind the gate: no invalidate, no
+      // mutationAccepted on the abandoned session.
+      expect(invalidate).not.toHaveBeenCalled();
+      expect(store.getOverlayMessages(2, "SIDE-B")).toEqual([]);
     });
   });
 
