@@ -37,6 +37,7 @@ jest.mock("@/grispi/client/api", () => ({
       createTicket: jest.fn(),
       getTicket: jest.fn(),
       patchTicket: jest.fn(),
+      patchTicketFields: jest.fn(),
       replyTicket: jest.fn(),
       addInternalNote: jest.fn(),
     },
@@ -53,6 +54,8 @@ const mockedAdvancedSearch = grispiAPI.tickets.advancedSearch as jest.Mock;
 const mockedCreateTicket = grispiAPI.tickets.createTicket as jest.Mock;
 const mockedGetTicket = grispiAPI.tickets.getTicket as jest.Mock;
 const mockedPatchTicket = grispiAPI.tickets.patchTicket as jest.Mock;
+const mockedPatchTicketFields = grispiAPI.tickets
+  .patchTicketFields as jest.Mock;
 const mockedReplyTicket = grispiAPI.tickets.replyTicket as jest.Mock;
 const mockedAddInternalNote = grispiAPI.tickets.addInternalNote as jest.Mock;
 const mockedCustomerSearch = grispiAPI.customers.search as jest.Mock;
@@ -1243,17 +1246,42 @@ describe("canonical detail and mutation executors", () => {
       );
     });
 
-    it("retries exactly once on failure, then gives up without a third call", async () => {
+    it("D-23: spends the note's retry on the parent field instead — addInternalNote never called twice, patchTicketFields called once with a comment-free fields-only body", async () => {
       mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      mockedPatchTicketFields.mockResolvedValue({ key: "SIDE-9" });
       const envelope = createEnvelope();
 
       await executeCreateMutation(client, boundary(), envelope);
 
-      expect(mockedAddInternalNote).toHaveBeenCalledTimes(2);
+      expect(mockedAddInternalNote).toHaveBeenCalledTimes(1);
+      expect(mockedPatchTicketFields).toHaveBeenCalledTimes(1);
+      expect(mockedPatchTicketFields.mock.calls[0][0]).toBe("SIDE-9");
+      const retryBody = mockedPatchTicketFields.mock.calls[0][1];
+      expect(retryBody.fields).toEqual([
+        { key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: "PARENT-1" },
+      ]);
+      expect(retryBody).not.toHaveProperty("comment");
     });
 
-    it("resolves without throwing after two failed attempts, never marks the message failed (mutationFailed not applied), and logs two distinct console.error messages (D-04/D-22)", async () => {
+    it("D-23: logs exactly one console.error (the lost note) when the parent-field retry succeeds, and keeps the message sent", async () => {
       mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      mockedPatchTicketFields.mockResolvedValue({ key: "SIDE-9" });
+      const envelope = createEnvelope();
+
+      await expect(
+        executeCreateMutation(client, boundary(), envelope)
+      ).resolves.toBeUndefined();
+
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(store.getOverlayMessages(1, "SIDE-9")[0]).toMatchObject({
+        status: "sent",
+        errorKind: undefined,
+      });
+    });
+
+    it("resolves without throwing after both the note and the retry fail, never marks the message failed (mutationFailed not applied), and logs two distinct console.error messages (D-04/D-22/D-23)", async () => {
+      mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      mockedPatchTicketFields.mockRejectedValue(new Error("boom"));
       const envelope = createEnvelope();
 
       await expect(
@@ -1267,9 +1295,17 @@ describe("canonical detail and mutation executors", () => {
         status: "sent",
         errorKind: undefined,
       });
-      expect(consoleErrorSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
       const messages = consoleErrorSpy.mock.calls.map((call) => call[1]);
       expect(messages[0]).not.toBe(messages[1]);
+
+      // D-04/D-23: at most 1 retry total — addInternalNote never called
+      // twice, and the two calls together never exceed 2.
+      expect(mockedAddInternalNote).toHaveBeenCalledTimes(1);
+      expect(
+        mockedAddInternalNote.mock.calls.length +
+          mockedPatchTicketFields.mock.calls.length
+      ).toBeLessThanOrEqual(2);
     });
 
     it("still runs refreshCanonicalAfterMutation's invalidate/refetch steps when addInternalNote fails", async () => {
