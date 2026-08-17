@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 04.2
-current_phase_name: uat-geri-bildirimleri
+current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 status: executing
 stopped_at: Phase 04.2 planned — 8 plans across 3 waves
-last_updated: "2026-08-17T11:35:00.000Z"
+last_updated: "2026-08-17T14:10:04.555Z"
 last_activity: 2026-08-17
-last_activity_desc: Phase 04.2 planlandı — 8 plan / 3 dalga, UX-01..UX-09 ve D-01..D-22 tam kapsamlı
+last_activity_desc: Phase 04.2 execution started
 progress:
   total_phases: 8
   completed_phases: 6
-  total_plans: 31
-  completed_plans: 31
+  total_plans: 39
+  completed_plans: 32
   percent: 75
 ---
 
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayrılmadan yürütebilmeli; talep sahibi bu yazışmaları asla görmemeli.
-**Current focus:** Phase 04.2 — uat-geri-bildirimleri
+**Current focus:** Phase 04.2 — uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 
 ## Current Position
 
-Phase: 04.2 (uat-geri-bildirimleri) — PLANNED
-Plan: 0 of 8
-Status: Ready to execute — 8 plan / 3 dalga. Plan-checker VERIFICATION PASSED; gereklilik kapsaması 9/9 (UX-01..UX-09), karar kapsaması 22/22 (D-01..D-22). Sıradaki komut: `/gsd-execute-phase 04.2`
-Last activity: 2026-08-17 — Faz planlandı (PATTERNS.md + 8 PLAN.md); CONTEXT.md'de D-NN madde noktalaması kapı ayrıştırıcısına uyacak şekilde normalize edildi (metin değişmedi)
+Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTING
+Plan: 2 of 8
+Status: Ready to execute
+Last activity: 2026-08-17 — Phase 04.2 execution started
 
 Progress: [███████░░░] 75%
 
@@ -81,6 +81,7 @@ Progress: [███████░░░] 75%
 | Phase 04.1 P02 | ~15min | 2 tasks | 4 files |
 | Phase quick-260810-jiw P01 | 25min | 3 tasks | 2 files |
 | Phase quick-260810-m8f P01 | 15min | 3 tasks | 5 files |
+| Phase 04.2 P01 | 20min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04.1, Plan 02]: README documents the TR-mandatory _grispi_env rule and hyphen trap as explicit prose warnings, since JWT dev claim genuinely cannot distinguish prod from prod_tr — documentation is the only mitigation for T-04.1-06 — Plan 04.1-02 Task 2
 - [Phase quick-260810-jiw]: WR-02 closed: HttpHandler.setEnvironment and GrispiAPI.setEnvironment proven end-to-end via 11 new behavioral tests; mutation-resistance empirically confirmed via 3 probes (headline no-op mutants + host-constant collision), all restored
 - [Phase quick-260810-m8f]: Repo-as-host deploy model: build/ tracked in git as the deploy artifact; grispi.app serves it directly from /build/, no separate hosting/CI pipeline — Source maps disabled via committed .env.production (not inline shell prefix) so the setting is Windows-shell-safe and always applied regardless of caller
+- [Phase 04.2]: [Phase 04.2, Plan 01]: assertSideConversationLink is awaited unwrapped (no second try/catch) right after mutationAccepted since the helper itself never throws — D-04's silent-failure contract stays in one place
+- [Phase 04.2]: [Phase 04.2, Plan 01]: resolveDetailRecipientFallback ports hydrateSummaries's exact list-path shape to the detail path rather than inventing a new resolution path (D-12 scope limit)
 
 ### Pending Todos
 
@@ -196,7 +199,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-17T10:53:15.122Z
+Last session: 2026-08-17T14:09:50.145Z
 Stopped at: Phase 04.2 UI-SPEC approved (6/6 dimensions)
 Resume file: 
-.planning/phases/04.2-uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-/04.2-UI-SPEC.md
+None
