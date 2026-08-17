@@ -94,9 +94,25 @@ beforeEach(() => {
   mockGrispi = {
     ticket: { key: "PARENT-1" },
     tenantId: "tenant-1",
+    environment: "prod",
     loading: false,
   };
 });
+
+function sideConversationTicket(parentKey: string | null = "PARENT-9") {
+  return {
+    key: "SC-ACTIVE",
+    fieldMap:
+      parentKey === null
+        ? {}
+        : {
+            "tu.side_conversation_parent": {
+              key: "tu.side_conversation_parent",
+              value: parentKey,
+            },
+          },
+  };
+}
 
 afterEach(() => {
   act(() => root.unmount());
@@ -272,4 +288,113 @@ it("delegates surfaced Query errors to the retry action", () => {
   act(() => retry?.click());
 
   expect(mockListQuery.refetch).toHaveBeenCalledTimes(1);
+});
+
+describe("D-11 — active ticket is itself a side conversation", () => {
+  it("does not show the banner and behaves normally when the ticket is not a side conversation", () => {
+    render(<ConversationsListScreen />);
+
+    expect(container.textContent).not.toContain("Bu talep bir yan konuşma");
+    expect(container.querySelector('[role="list"]')).not.toBeNull();
+  });
+
+  it("shows the banner and hides the conversation list when the active ticket is a side conversation", () => {
+    mockGrispi.ticket = sideConversationTicket("PARENT-9");
+
+    render(<ConversationsListScreen />);
+
+    expect(container.textContent).toContain("Bu talep bir yan konuşma");
+    expect(container.querySelector('[role="list"]')).toBeNull();
+    expect(container.querySelector('[role="status"]')).toBeNull();
+    expect(container.textContent).not.toContain("Henüz yan konuşma yok");
+  });
+
+  it("keeps the new-conversation button in the DOM but disabled, with an explanatory accessible name, and blocks the click", () => {
+    mockGrispi.ticket = sideConversationTicket("PARENT-9");
+
+    render(<ConversationsListScreen />);
+
+    const button = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Yeni konuşma başlatılamaz — bu talep zaten bir yan konuşma"]'
+    );
+    expect(button).not.toBeNull();
+    expect(button?.disabled).toBe(true);
+
+    act(() => button?.click());
+    expect(mockStore.panelNavigation.openCompose).not.toHaveBeenCalled();
+  });
+
+  it("stays safely hidden for the provisional (field-map-less) switchTicket ticket, then appears once hydrated", () => {
+    mockGrispi.ticket = { key: "SC-ACTIVE" };
+
+    render(<ConversationsListScreen />);
+    expect(container.textContent).not.toContain("Bu talep bir yan konuşma");
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        '[aria-label="Yeni konuşma başlat"]'
+      )?.disabled
+    ).toBe(false);
+
+    mockGrispi.ticket = sideConversationTicket("PARENT-9");
+    render(<></>);
+    render(<ConversationsListScreen />);
+
+    expect(container.textContent).toContain("Bu talep bir yan konuşma");
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        '[aria-label="Yeni konuşma başlatılamaz — bu talep zaten bir yan konuşma"]'
+      )?.disabled
+    ).toBe(true);
+  });
+
+  it("keeps the new-conversation button's visible text collapsible at narrow width while the accessible name stays full", () => {
+    render(<ConversationsListScreen />);
+
+    const button = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Yeni konuşma başlat"]'
+    );
+    const label = button?.querySelector("span");
+    expect(label?.className).toContain("min-[320px]:inline");
+    expect(button?.getAttribute("aria-label")).toBe("Yeni konuşma başlat");
+  });
+});
+
+describe("ParentBanner (UX-03, D-11)", () => {
+  it("shows the parent key as a neutral chip and a real deep link CTA", () => {
+    mockGrispi.ticket = sideConversationTicket("PARENT-9");
+
+    render(<ConversationsListScreen />);
+
+    expect(container.textContent).toContain("üst talep");
+    expect(container.textContent).toContain("PARENT-9");
+    const cta = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>("a")
+    ).find((a) => a.textContent?.includes("Üst talebe git"));
+    expect(cta?.getAttribute("target")).toBe("_blank");
+    expect(cta?.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(cta?.getAttribute("href")).toContain("PARENT-9");
+  });
+
+  it("shows informational copy but no link when tenantId/environment are unresolved", () => {
+    mockGrispi.ticket = sideConversationTicket("PARENT-9");
+    mockGrispi.tenantId = null;
+    mockGrispi.environment = null;
+
+    render(<ConversationsListScreen />);
+
+    expect(container.textContent).toContain("Bu talep bir yan konuşma");
+    const cta = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>("a")
+    ).find((a) => a.textContent?.includes("Üst talebe git"));
+    expect(cta).toBeUndefined();
+  });
+
+  it("never renders an alert role or destructive tone", () => {
+    mockGrispi.ticket = sideConversationTicket("PARENT-9");
+
+    render(<ConversationsListScreen />);
+
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.querySelector(".text-destructive")).toBeNull();
+  });
 });
