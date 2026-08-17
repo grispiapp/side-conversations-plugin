@@ -1,4 +1,5 @@
 import { ComposeScreen } from "../compose-screen";
+import { InfoBox } from "../components/info-box";
 import { act } from "react";
 import { Root, createRoot } from "react-dom/client";
 
@@ -164,5 +165,94 @@ describe("ComposeScreen create mutation wiring", () => {
     ).toHaveBeenCalledTimes(1);
     expect(mockStore.compose.submit).toHaveBeenCalledTimes(1);
     expect(mockCreateMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the D-17 info-box copy", () => {
+    act(() => root.render(<ComposeScreen />));
+
+    expect(container.textContent).toContain(
+      "Bu işlem yeni bir talep oluşturur. Alan, atanan ve durum bilgileri otomatik dolmaz; gerekiyorsa talep ekranından manuel ayarlayın."
+    );
+  });
+
+  it("renders the info box before the recipient field (DOM order, D-16(a))", () => {
+    act(() => root.render(<ComposeScreen />));
+
+    const infoParagraph = Array.from(container.querySelectorAll("p")).find(
+      (p) => p.textContent?.includes("Bu işlem yeni bir talep oluşturur")
+    );
+    const recipientNode = Array.from(container.querySelectorAll("div")).find(
+      (div) => div.textContent === "Recipient"
+    );
+
+    expect(infoParagraph).toBeDefined();
+    expect(recipientNode).toBeDefined();
+    expect(
+      infoParagraph!.compareDocumentPosition(recipientNode!) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("never renders an info-box dismiss button here (D-16(a): persistent)", () => {
+    act(() => root.render(<ComposeScreen />));
+
+    expect(
+      container.querySelector('button[aria-label="Bilgi kutusunu kapat"]')
+    ).toBeNull();
+  });
+});
+
+describe("InfoBox", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("dismissible=false: shows the D-17 copy and renders no button", () => {
+    act(() => root.render(<InfoBox dismissible={false} />));
+
+    expect(container.textContent).toContain(
+      "Bu işlem yeni bir talep oluşturur. Alan, atanan ve durum bilgileri otomatik dolmaz; gerekiyorsa talep ekranından manuel ayarlayın."
+    );
+    expect(container.querySelectorAll("button")).toHaveLength(0);
+  });
+
+  it("dismissible=true: renders exactly one button with the locked aria-label, calling onDismiss once per click", () => {
+    const onDismiss = jest.fn();
+    act(() => root.render(<InfoBox dismissible onDismiss={onDismiss} />));
+
+    const buttons = container.querySelectorAll("button");
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].getAttribute("aria-label")).toBe(
+      "Bilgi kutusunu kapat"
+    );
+
+    act(() => buttons[0].click());
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("is never a live region (no aria-live, role=status, or role=alert)", () => {
+    act(() => root.render(<InfoBox dismissible={false} />));
+
+    expect(container.querySelector("[aria-live]")).toBeNull();
+    expect(container.querySelector('[role="status"]')).toBeNull();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("hides the info icon from the accessibility tree", () => {
+    act(() => root.render(<InfoBox dismissible={false} />));
+
+    const icon = container.querySelector("svg");
+    expect(icon).not.toBeNull();
+    expect(icon!.getAttribute("aria-hidden")).toBe("true");
   });
 });
