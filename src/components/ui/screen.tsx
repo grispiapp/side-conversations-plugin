@@ -71,7 +71,7 @@ export const ScreenHeader: FC<ScreenHeaderProps> = ({
         </Button>
       )}
       <div className={cn("min-w-0 flex-1", !onBack && "pl-2")}>
-        <div className="min-w-0 truncate text-left">{resolvedTitle}</div>
+        <div className="min-w-0 truncate text-left leading-5">{resolvedTitle}</div>
         {subtitle !== undefined && (
           <div className="min-w-0 truncate text-left text-xs text-muted-foreground">
             {subtitle}

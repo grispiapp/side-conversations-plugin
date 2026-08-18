@@ -320,26 +320,30 @@ export const ChatScreen = observer(() => {
       <Screen>
         <ScreenHeader
           title={
-            sideKey && tenantId && environment ? (
-              <TicketKeyLink
-                tenantId={tenantId}
-                environment={environment}
-                ticketKey={sideKey}
-              />
-            ) : (
-              <span className="text-sm font-semibold text-foreground">
-                {sideKey ?? "Yeni konuşma"}
-              </span>
-            )
-          }
-          subtitle={
-            <span className="flex min-w-0 items-center gap-1.5">
+            // Her iki key aynı satırda: başlık satırında 164px boşta duruyordu,
+            // alt satır ise doluydu ve konuyu kesiyordu. Yan yana durmaları
+            // D-10'un görsel ayrımını (mor mono link ↔ nötr "üst talep" chip'i)
+            // hatırlamak yerine doğrudan görünür kılıyor.
+            <span className="flex min-w-0 items-center gap-2">
+              {sideKey && tenantId && environment ? (
+                <TicketKeyLink
+                  tenantId={tenantId}
+                  environment={environment}
+                  ticketKey={sideKey}
+                />
+              ) : (
+                <span className="text-sm font-semibold text-foreground">
+                  {sideKey ?? "Yeni konuşma"}
+                </span>
+              )}
               {parentKey && (
                 <ParentKeyChip parentKey={parentKey} size="compact" />
               )}
-              <span className="min-w-0 flex-1 truncate">
-                Konu: {subject || "Konu yok"}
-              </span>
+            </span>
+          }
+          subtitle={
+            <span className="block min-w-0 truncate">
+              Konu: {subject || "Konu yok"}
             </span>
           }
           onBack={() => {

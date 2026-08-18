@@ -29,7 +29,7 @@ export function TicketKeyLink({
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`${ticketKey} talebini yeni sekmede aç`}
-      className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm leading-5
                  font-mono text-sm font-semibold text-primary
                  underline decoration-primary/40 underline-offset-2
                  hover:decoration-primary
