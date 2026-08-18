@@ -148,7 +148,11 @@ describe("ThreadMessage", () => {
         onRetry={jest.fn()}
       />
     );
-    expect(container.textContent).toContain("İç not");
+    // D-15 revised (live UAT 2026-08-17): label is "Dahili not" and the note
+    // names its author instead of replacing them.
+    expect(container.textContent).toContain("Ada Lovelace");
+    expect(container.textContent).toContain("Dahili not");
+    expect(container.textContent).not.toContain("İç not");
     expect(
       container.querySelector('[data-testid="thread-message-m3"]')?.className
     ).toContain("border-l-amber-500");
@@ -171,8 +175,42 @@ describe("ThreadMessage", () => {
           onRetry={jest.fn()}
         />
       );
-      expect(container.textContent).toContain("İç not");
+      expect(container.textContent).toContain("Dahili not");
       expect(container.textContent).not.toContain("Salt okunur");
+      expect(container.textContent).not.toContain("İç not");
+      // The author is named, but an internal note never carries the "Siz"
+      // badge even when the active agent wrote it.
+      expect(container.textContent).toContain("Ada Lovelace");
+      expect(
+        container.querySelector('[data-testid="sender-badge"]')
+      ).toBeNull();
+      // The type label is its own shrink-0 element, so a narrow panel
+      // truncates the author and never the message type.
+      expect(
+        container.querySelector('[data-testid="sender-type"]')?.className
+      ).toContain("shrink-0");
+    });
+
+    it("lets the internal-note label stand alone when no author resolves, with no orphan separator", () => {
+      render(
+        <ThreadMessage
+          message={{
+            ...baseMessage,
+            id: "m-internal-anon",
+            internal: true,
+            senderName: undefined,
+            senderEmail: undefined,
+          }}
+          onRetry={jest.fn()}
+        />
+      );
+      expect(
+        container.querySelector('[data-testid="sender-name"]')?.textContent
+      ).toBe("Dahili not");
+      expect(
+        container.querySelector('[data-testid="sender-type"]')
+      ).toBeNull();
+      expect(container.textContent).not.toContain("· Dahili not");
     });
 
     it("shows each agent's real name on an own-direction message, with 'Siz' only for the active agent", () => {

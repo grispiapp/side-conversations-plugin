@@ -41,13 +41,32 @@ export interface ThreadMessageProps {
  * bir bayraktır; rozeti adın YERİNE değil YANINA render etmek çağıranın işi
  * (D-14).
  */
+/**
+ * D-15 (revised 2026-08-17 by live UAT): the label is "Dahili not", and the
+ * note now names its author instead of replacing them. Rendered as a
+ * separate `shrink-0` element rather than folded into the name string, so a
+ * narrow panel truncates the AUTHOR and never the message TYPE — losing
+ * "which kind of message is this" is worse than losing a surname.
+ */
+const INTERNAL_NOTE_LABEL = "Dahili not";
+
 function senderLabel(
   message: ThreadMessageData,
   showFullSender: boolean,
   agentEmail: string | null | undefined,
   agentName: string | null | undefined
-): { text: string; isCurrentAgent: boolean } {
-  if (message.internal) return { text: "İç not", isCurrentAgent: false };
+): { text: string; isCurrentAgent: boolean; typeLabel?: string } {
+  if (message.internal) {
+    // Same API-sourced identity as any other message (comment.creator).
+    const author = message.senderName || message.senderEmail || null;
+    return {
+      // With no resolvable author the label stands alone — never an orphan
+      // separator, never "Dahili not · Dahili not".
+      text: author ?? INTERNAL_NOTE_LABEL,
+      isCurrentAgent: false,
+      typeLabel: author ? INTERNAL_NOTE_LABEL : undefined,
+    };
+  }
 
   const pendingOwnFallback =
     message.direction === "own" && !message.senderName
@@ -169,12 +188,11 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
   onRetry,
 }) => {
   const [quoteOpen, setQuoteOpen] = useState(false);
-  const { text: senderText, isCurrentAgent } = senderLabel(
-    message,
-    showFullSender,
-    agentEmail,
-    agentName
-  );
+  const {
+    text: senderText,
+    isCurrentAgent,
+    typeLabel,
+  } = senderLabel(message, showFullSender, agentEmail, agentName);
   // This component re-sanitizes `MessageVM`'s already-sanitized HTML as a
   // defense-in-depth second pass (doc-comment below). The second pass MUST
   // follow the same direction rule as the first (normalizeComment) or an
@@ -231,6 +249,14 @@ export const ThreadMessage: FC<ThreadMessageProps> = ({
           >
             {senderText}
           </span>
+          {typeLabel && (
+            <span
+              data-testid="sender-type"
+              className="shrink-0 font-medium text-amber-800/80"
+            >
+              · {typeLabel}
+            </span>
+          )}
           {isCurrentAgent && (
             <span
               data-testid="sender-badge"
