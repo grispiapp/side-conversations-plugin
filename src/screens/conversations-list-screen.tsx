@@ -19,6 +19,7 @@ import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 import { HttpError, NetworkError } from "@/grispi/client/http-handler";
 import {
+  isHydratedTicket,
   isSideConversationTicket,
   parentKeyOfTicket,
 } from "@/lib/side-conversation";
@@ -35,12 +36,25 @@ export const ConversationsListScreen = observer(() => {
   const createActionRef = useRef<HTMLButtonElement>(null);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
 
-  // D-11 — a single predicate feeds BOTH the banner's visibility and the
-  // "Yeni konuşma" button's disabled state; they must never diverge. Safe
-  // in the switchTicket hydration-flash window (RESEARCH Pitfall #2): both
-  // read false until the real field map is in.
+  // D-11 — the banner's visibility and the "Yeni konuşma" button's disabled
+  // state have OPPOSITE safe directions in the switchTicket hydration-flash
+  // window, so they deliberately diverge there.
+  //
+  // `switchTicket` sets a provisional `{ key }`-only ticket and hydrates in
+  // the background WITHOUT flipping the global `loading` flag (documented in
+  // grispi-context.tsx). So this screen renders fully while `fieldMap` is
+  // still absent, and `isSideConversationTicket` cannot yet tell a normal
+  // ticket from a side conversation.
+  //
+  //   Banner  — fail closed = stay ABSENT. Showing a banner we cannot prove
+  //             would be a wrong claim about the active ticket.
+  //   Button  — fail closed = stay DISABLED. Leaving it enabled let the agent
+  //             click through the window and open a nested side conversation,
+  //             which D-11 forbids outright (live UAT bypass, 2026-08-17).
   const isSideConversation = isSideConversationTicket(ticket);
   const parentKey = parentKeyOfTicket(ticket);
+  // Unknown counts as blocked: only a hydrated ticket can prove it is safe.
+  const blockNewConversation = isSideConversation || !isHydratedTicket(ticket);
 
   useEffect(() => {
     if (list.isPending) return;
@@ -68,13 +82,17 @@ export const ConversationsListScreen = observer(() => {
             ref={createActionRef}
             size="sm"
             variant="ghost"
+            // The blocked label is a claim about the ticket, so it is used
+            // ONLY when that claim is proven. During hydration the button is
+            // disabled with the normal label — dimmed, but never explaining
+            // itself with something we cannot yet know.
             aria-label={
               isSideConversation
                 ? NEW_CONVERSATION_BLOCKED_LABEL
                 : NEW_CONVERSATION_LABEL
             }
             title={isSideConversation ? NEW_CONVERSATION_BLOCKED_LABEL : undefined}
-            disabled={isSideConversation}
+            disabled={blockNewConversation}
             className="gap-1 px-2 text-primary"
             onClick={() => panelNavigation.openCompose()}
           >

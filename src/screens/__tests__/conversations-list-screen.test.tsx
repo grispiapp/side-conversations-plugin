@@ -92,7 +92,10 @@ beforeEach(() => {
     fetchNextPage: jest.fn(),
   };
   mockGrispi = {
-    ticket: { key: "PARENT-1" },
+    // Hydrated normal ticket (empty fieldMap = not a side conversation).
+    // A provisional `{ key }`-only ticket now disables the create button,
+    // so the default fixture has to represent a LOADED ticket.
+    ticket: { key: "PARENT-1", fieldMap: {} },
     tenantId: "tenant-1",
     environment: "prod",
     loading: false,
@@ -324,16 +327,22 @@ describe("D-11 — active ticket is itself a side conversation", () => {
     expect(mockStore.panelNavigation.openCompose).not.toHaveBeenCalled();
   });
 
-  it("stays safely hidden for the provisional (field-map-less) switchTicket ticket, then appears once hydrated", () => {
+  it("hides the banner but DISABLES create for the provisional (field-map-less) switchTicket ticket, then shows both once hydrated", () => {
     mockGrispi.ticket = { key: "SC-ACTIVE" };
 
     render(<ConversationsListScreen />);
+    // Banner fails closed by staying absent — we cannot prove the claim yet.
     expect(container.textContent).not.toContain("Bu talep bir yan konuşma");
+    // Button fails closed by staying DISABLED. Leaving it enabled here let a
+    // fast click through the hydration window open a nested side
+    // conversation, which D-11 forbids (live UAT bypass, 2026-08-17).
+    // The label stays the normal one: the blocked label is a claim about the
+    // ticket, and during hydration that claim is not yet provable.
     expect(
       container.querySelector<HTMLButtonElement>(
         '[aria-label="Yeni konuşma başlat"]'
       )?.disabled
-    ).toBe(false);
+    ).toBe(true);
 
     mockGrispi.ticket = sideConversationTicket("PARENT-9");
     render(<></>);

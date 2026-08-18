@@ -317,10 +317,15 @@ describe("RichTextComposer Tiptap contract", () => {
       expect(item.getAttribute("aria-checked")).toBe("false");
     });
 
+    // Selecting ANY item closes the panel (live UAT, 2026-08-17). The panel
+    // opens upward over the composer, so leaving it open hid the very text
+    // the toggle just affected.
     act(() => button("Kalın").click());
+    expect(formatMenuPanel()).toBeNull();
+
+    // Reopening surfaces the new active state on the same item.
+    act(() => formatTrigger().click());
     expect(button("Kalın").getAttribute("aria-checked")).toBe("true");
-    // Toggling bold keeps the panel open (non heading/link items).
-    expect(formatMenuPanel()).not.toBeNull();
 
     // Escape closes the panel and returns focus to the trigger.
     act(() =>
@@ -445,6 +450,9 @@ describe("RichTextComposer Tiptap contract", () => {
     act(() => button("Kalın").click());
 
     expect(onChange).toHaveBeenLastCalledWith("<p><strong>Hello</strong></p>");
+    // Selecting an item closes the panel, so reopen it to read the item's
+    // active state back.
+    openFormatMenu();
     expect(button("Kalın").getAttribute("aria-checked")).toBe("true");
   });
 
@@ -467,6 +475,9 @@ describe("RichTextComposer Tiptap contract", () => {
     act(() => button("İtalik").click());
 
     expect(editor().innerHTML).toContain("<em>Hello</em>");
+    // Selecting an item closes the panel, so reopen it to read the item's
+    // active state back.
+    openFormatMenu();
     expect(button("İtalik").getAttribute("aria-checked")).toBe("true");
   });
 

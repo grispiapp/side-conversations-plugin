@@ -1490,22 +1490,13 @@ export const RichTextComposer = forwardRef<
                             onBlur={(event) => {
                               const nextFocus =
                                 event.relatedTarget as Node | null;
-                              // bold/italic/bulletList/orderedList/blockquote
-                              // (the "toggle and keep the panel open" items,
-                              // see onClick below) call
-                              // `editor.chain().focus()...run()` inside
-                              // `runToolbarAction` — that's an intentional,
-                              // expected focus transfer INTO this composer's
-                              // own editor, not a "focus left the panel"
-                              // signal, so it must not trip this close guard
-                              // (would otherwise silently violate D-18's
-                              // "toggle-and-continue" contract).
+                              // Focus moving into the editor no longer needs
+                              // an exemption: every item now closes the panel
+                              // itself, and a click straight into the editor
+                              // should close it too.
                               if (
                                 nextFocus &&
-                                (formatMenuRef.current?.contains(nextFocus) ||
-                                  editorRef.current?.view.dom.contains(
-                                    nextFocus
-                                  ))
+                                formatMenuRef.current?.contains(nextFocus)
                               ) {
                                 return;
                               }
@@ -1556,13 +1547,17 @@ export const RichTextComposer = forwardRef<
                                   handleFormatItemKeyDown(event, index)
                                 }
                                 onClick={() => {
+                                  // Every item closes the panel (live UAT,
+                                  // 2026-08-17). The panel opens UPWARD over
+                                  // the composer at w-56/max-h-64, so while it
+                                  // is open the agent cannot see the text the
+                                  // toggle just affected — "toggle-and-
+                                  // continue" only pays off when the result is
+                                  // visible. `false` keeps focus where
+                                  // runToolbarAction put it (the editor), so
+                                  // typing continues with the mark active.
                                   runToolbarAction(formatAction);
-                                  if (
-                                    formatAction.command === "heading" ||
-                                    formatAction.command === "link"
-                                  ) {
-                                    closeFormatMenu(false);
-                                  }
+                                  closeFormatMenu(false);
                                 }}
                               >
                                 {formatAction.icon}
