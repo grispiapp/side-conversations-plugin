@@ -556,11 +556,25 @@ describe("ChatScreen Query-owned session wiring", () => {
     render(<ChatScreen />);
 
     expect(container.textContent).toContain("Kapalı");
+    // The menu trigger stays ENABLED on a closed conversation (2026-08-17
+    // live UAT): parent navigation lives in it now, and navigating away is
+    // not an edit. "Terminal" is enforced by the lifecycle item being
+    // absent, asserted below — not by locking the whole menu.
+    const closedMenuTrigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Konuşma seçenekleri"]'
+    );
+    expect(closedMenuTrigger?.disabled).toBe(false);
+    act(() => closedMenuTrigger?.click());
     expect(
-      container.querySelector<HTMLButtonElement>(
-        '[aria-label="Konuşma seçenekleri"]'
-      )?.disabled
-    ).toBe(true);
+      container.querySelector('[aria-label="Tekrar aç"]')
+    ).toBeNull();
+    expect(
+      container.querySelector('[aria-label="Çözüldü olarak işaretle"]')
+    ).toBeNull();
+    expect(
+      container.querySelector('[aria-label="Üst talebe git: PARENT-7"]')
+    ).not.toBeNull();
+    act(() => closedMenuTrigger?.click());
     expect(
       container.querySelector('[role="textbox"][aria-label="Yanıt"]')
     ).toBeNull();
@@ -680,16 +694,42 @@ describe("ChatScreen header composition (D-06/D-07/D-08/D-10)", () => {
     expect(header?.querySelector("a")).toBeNull();
   });
 
-  it("renders the parent ticket key as a neutral chip, never a link", () => {
+  it("keeps the parent ticket key out of the cramped header entirely", () => {
     render(<ChatScreen />);
 
+    // 2026-08-17 live UAT: two keys + subject + two buttons did not fit the
+    // 48px header and the chip was clipped mid-glyph. The parent key moved
+    // into the "..." menu — it is navigated to occasionally, not read
+    // constantly. This also removes any chance of confusing the two keys.
     const header = container.querySelector("header");
-    expect(header?.textContent).toContain("üst talep");
-    expect(header?.textContent).toContain("PARENT-7");
-    const links = Array.from(header?.querySelectorAll("a") ?? []);
-    links.forEach((link) => {
-      expect(link.textContent).not.toContain("PARENT-7");
-    });
+    expect(header?.textContent).not.toContain("PARENT-7");
+    expect(header?.textContent).not.toContain("üst talep");
+    // The side ticket's own key is still the header title, still a link.
+    expect(header?.querySelector("a")?.textContent).toContain("SC-42");
+  });
+
+  it("offers parent navigation in the menu as a new-tab link built from the resolved environment", () => {
+    render(<ChatScreen />);
+
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Konuşma seçenekleri"]')
+        ?.click()
+    );
+
+    const parentLink = container.querySelector<HTMLAnchorElement>(
+      '[aria-label="Üst talebe git: PARENT-7"]'
+    );
+    expect(parentLink?.tagName).toBe("A");
+    expect(parentLink?.getAttribute("role")).toBe("menuitem");
+    // D-07/D-08: new tab, noopener, host from tenant + resolved environment
+    // only — never window.open, never the iframe hash origin.
+    expect(parentLink?.target).toBe("_blank");
+    expect(parentLink?.rel).toContain("noopener");
+    expect(parentLink?.rel).toContain("noreferrer");
+    expect(parentLink?.getAttribute("href")).toBe(
+      "https://tenant-1.grispi.net/tickets/PARENT-7"
+    );
   });
 
   it("keeps the 'Konu:' prefix and its empty-subject placeholder in the subtitle", () => {

@@ -1,6 +1,5 @@
 import { ConfirmDialog } from "./components/confirm-dialog";
 import { InfoBox } from "./components/info-box";
-import { ParentKeyChip } from "./components/parent-key-chip";
 import { RichTextComposer } from "./components/rich-text-composer";
 import { ThreadMessage } from "./components/thread-message";
 import { TicketKeyLink } from "./components/ticket-key-link";
@@ -12,6 +11,8 @@ import {
 } from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { buildAgentTicketUrl } from "@/grispi/client/environment";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -91,7 +92,6 @@ export const ChatScreen = observer(() => {
   const messageRefs = useRef(new Map<string, HTMLElement>());
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const menuItemRef = useRef<HTMLButtonElement | null>(null);
   const screenRootRef = useRef<HTMLDivElement | null>(null);
 
   // Task 3 (D-16b): "created in this session" latch — true only for
@@ -160,7 +160,9 @@ export const ChatScreen = observer(() => {
   useEffect(() => {
     if (!menuOpen) return;
 
-    menuItemRef.current?.focus();
+    // First available item — the lifecycle entry is absent on a closed
+    // conversation, where only parent navigation remains.
+    (menuItemRefs.current.filter(Boolean) as HTMLElement[])[0]?.focus();
 
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -315,31 +317,63 @@ export const ChatScreen = observer(() => {
       : null;
   const lifecycleActionLabel = solved ? "Tekrar aç" : "Çözüldü olarak işaretle";
 
+  // The "..." menu's two independent capabilities. Kept separate so a closed
+  // conversation still offers parent navigation (2026-08-17 live UAT).
+  const canLifecycleAction =
+    Boolean(sideKey) && !detail.isPending && !detail.isError && !closed;
+  const parentUrl =
+    parentKey && tenantId && environment
+      ? buildAgentTicketUrl(tenantId, environment, parentKey)
+      : null;
+  const canGoParent = parentUrl !== null;
+  // Arrow/Home/End cycling needs a real item list once the menu holds more
+  // than one entry; a single shared ref could only ever refocus itself.
+  const menuItemRefs = useRef<(HTMLElement | null)[]>([]);
+  const handleMenuItemKeyDown = (
+    event: React.KeyboardEvent<HTMLElement>,
+    index: number
+  ) => {
+    const items = menuItemRefs.current.filter(Boolean) as HTMLElement[];
+    if (items.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      items[(index + 1) % items.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      items[(index - 1 + items.length) % items.length]?.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      items[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+    }
+  };
+
   return (
     <div ref={screenRootRef} className="contents">
       <Screen>
         <ScreenHeader
           title={
-            // Her iki key aynı satırda: başlık satırında 164px boşta duruyordu,
-            // alt satır ise doluydu ve konuyu kesiyordu. Yan yana durmaları
-            // D-10'un görsel ayrımını (mor mono link ↔ nötr "üst talep" chip'i)
-            // hatırlamak yerine doğrudan görünür kılıyor.
-            <span className="flex min-w-0 items-center gap-2">
-              {sideKey && tenantId && environment ? (
-                <TicketKeyLink
-                  tenantId={tenantId}
-                  environment={environment}
-                  ticketKey={sideKey}
-                />
-              ) : (
-                <span className="text-sm font-semibold text-foreground">
-                  {sideKey ?? "Yeni konuşma"}
-                </span>
-              )}
-              {parentKey && (
-                <ParentKeyChip parentKey={parentKey} size="compact" />
-              )}
-            </span>
+            // Yalnızca YAN ticket'ın anahtarı. Üst talep anahtarı 2026-08-17
+            // canlı UAT'ında buradan çıkarıldı: iki anahtar + konu + iki düğme
+            // 48px'lik header'a sığmıyordu ve chip harfin ortasından
+            // kırpılıyordu (sarmalayıcı `truncate`, çocuklar `shrink-0`, yani
+            // kimse küçülmüyor ve kap sert kesiyor — ellipsis bile çıkmıyor).
+            // Üst talep sürekli OKUNAN değil ara sıra GİDİLEN bir bilgi, o
+            // yüzden "..." menüsüne taşındı. D-10 key'lerin nasıl görüneceğini
+            // tanımlar, nerede duracağını değil.
+            sideKey && tenantId && environment ? (
+              <TicketKeyLink
+                tenantId={tenantId}
+                environment={environment}
+                ticketKey={sideKey}
+              />
+            ) : (
+              <span className="text-sm font-semibold text-foreground">
+                {sideKey ?? "Yeni konuşma"}
+              </span>
+            )
           }
           subtitle={
             <span className="block min-w-0 truncate">
@@ -362,9 +396,11 @@ export const ChatScreen = observer(() => {
                 aria-label="Konuşma seçenekleri"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                disabled={
-                  !sideKey || detail.isPending || detail.isError || closed
-                }
+                // Menüde artık iki eylem var; tetik yalnızca İKİSİ de
+                // kullanılamazken kapanır. Eskiden yaşam-döngüsü koşulları
+                // tetikte duruyordu, bu da kapalı bir konuşmada üst talebe
+                // gitmeyi imkânsız kılardı.
+                disabled={!canLifecycleAction && !canGoParent}
                 onClick={() => {
                   if (menuOpen) closeMenu();
                   else setMenuOpen(true);
@@ -386,38 +422,57 @@ export const ChatScreen = observer(() => {
                     closeMenu(false);
                   }}
                 >
-                  <button
-                    ref={menuItemRef}
-                    type="button"
-                    role="menuitem"
-                    aria-label={lifecycleActionLabel}
-                    disabled={activeConversation.lifecyclePending !== null}
-                    className="min-h-11 w-full rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "ArrowDown" ||
-                        event.key === "ArrowUp" ||
-                        event.key === "Home" ||
-                        event.key === "End"
-                      ) {
-                        event.preventDefault();
-                        menuItemRef.current?.focus();
+                  {canLifecycleAction && (
+                    <button
+                      ref={(node) => {
+                        menuItemRefs.current[0] = node;
+                      }}
+                      type="button"
+                      role="menuitem"
+                      aria-label={lifecycleActionLabel}
+                      disabled={activeConversation.lifecyclePending !== null}
+                      className="min-h-11 w-full rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
+                      onKeyDown={(event) => handleMenuItemKeyDown(event, 0)}
+                      onClick={() => {
+                        closeMenu();
+                        if (!lifecycleParams) return;
+                        if (solved) {
+                          executeEnvelope(
+                            activeConversation.reopen(lifecycleParams)
+                          );
+                        } else {
+                          setSolveDialogOpen(true);
+                        }
+                      }}
+                    >
+                      {lifecycleActionLabel}
+                    </button>
+                  )}
+                  {parentUrl && parentKey && (
+                    // A real anchor, not a scripted window.open: same D-07/D-08
+                    // contract as TicketKeyLink (new tab, noopener, URL built
+                    // only from trusted tenant + resolved environment).
+                    <a
+                      ref={(node) => {
+                        menuItemRefs.current[canLifecycleAction ? 1 : 0] = node;
+                      }}
+                      role="menuitem"
+                      href={parentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Üst talebe git: ${parentKey}`}
+                      className="flex min-h-11 w-full items-center justify-between gap-2 rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                      onKeyDown={(event) =>
+                        handleMenuItemKeyDown(event, canLifecycleAction ? 1 : 0)
                       }
-                    }}
-                    onClick={() => {
-                      closeMenu();
-                      if (!lifecycleParams) return;
-                      if (solved) {
-                        executeEnvelope(
-                          activeConversation.reopen(lifecycleParams)
-                        );
-                      } else {
-                        setSolveDialogOpen(true);
-                      }
-                    }}
-                  >
-                    {lifecycleActionLabel}
-                  </button>
+                      onClick={() => closeMenu(false)}
+                    >
+                      <span>Üst talebe git</span>
+                      <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                        {parentKey}
+                      </span>
+                    </a>
+                  )}
                 </div>
               )}
             </div>

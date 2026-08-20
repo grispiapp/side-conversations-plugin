@@ -117,6 +117,9 @@ describe("side-conversation row projection", () => {
       hasUnseen: false,
       lastPublicCommentAt: null,
       hydrationFailed: true,
+      // Raw status survives even a failed hydration: it comes from the
+      // advanced-search summary, not from the ticket fetch that failed.
+      statusName: "status",
     });
   });
 
@@ -146,6 +149,7 @@ describe("side-conversation row projection", () => {
       summary: "",
       hasUnseen: false,
       hydrationFailed: false,
+      statusName: null,
     };
     const rows: ConversationRowVM[] = [
       {

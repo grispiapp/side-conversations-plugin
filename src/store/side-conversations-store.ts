@@ -22,6 +22,13 @@ export interface ConversationRowVM {
   hasUnseen: boolean;
   lastPublicCommentAt: number | null;
   hydrationFailed: boolean;
+  /**
+   * Raw status NAME from advanced-search, kept alongside `lifecycle`.
+   * `lifecycle` collapses six statuses into three buckets (open/solved/
+   * closed), which cannot tell Yeni from Açık from Beklemede — the
+   * single-letter status tag needs the uncollapsed value.
+   */
+  statusName: string | null;
 }
 
 const SUMMARY_MAX_LENGTH = 140;
@@ -112,6 +119,7 @@ export function projectConversationRow(
       hasUnseen: false,
       lastPublicCommentAt: null,
       hydrationFailed: true,
+      statusName: summary.status?.name ?? null,
     };
   }
 
@@ -134,6 +142,7 @@ export function projectConversationRow(
     summary: truncatedSummary,
     ...state,
     hydrationFailed: false,
+    statusName: summary.status?.name ?? null,
   };
 }
 

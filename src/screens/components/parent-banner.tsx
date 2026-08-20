@@ -51,7 +51,12 @@ export function ParentBanner({
           konuşma başlatılamaz.
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      {/* Stacked, not side by side: the chip carries a full ticket key and
+          the button a four-word label — together they overflowed the panel
+          (2026-08-17 live UAT). Vertical also reads better here, since the
+          chip is the SUBJECT of the sentence above and the button is the
+          action on it. */}
+      <div className="flex w-full flex-col items-center gap-2">
         <ParentKeyChip parentKey={parentKey} />
         {href ? (
           <Button variant="outline" size="sm" asChild>

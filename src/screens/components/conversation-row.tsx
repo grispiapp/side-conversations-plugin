@@ -1,6 +1,8 @@
 import { observer } from "mobx-react-lite";
 import { FC, forwardRef } from "react";
 
+import { StatusTag } from "./status-tag";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
@@ -43,8 +45,19 @@ export const ConversationRow = observer(
               className="absolute inset-y-0 left-0 w-[3px] bg-primary"
             />
           )}
+          {/* Identity line. The status square leads so it forms a scannable
+              column down the list's left edge, then the side ticket's OWN key
+              — the subject below carries the PARENT key in its prefill, so
+              without this the conversation's own number appeared nowhere.
+              Only the email flexes; everything else is shrink-0, so a narrow
+              panel eats the address and never the identifiers. */}
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
-            <span className="min-w-0 truncate font-mono">
+            <StatusTag statusName={row.statusName} />
+            <span className="shrink-0 font-mono font-semibold text-foreground">
+              {row.key}
+            </span>
+            <span className="shrink-0 text-muted-foreground">·</span>
+            <span className="min-w-0 truncate font-mono text-muted-foreground">
               {row.recipientEmail}
             </span>
             <span className="shrink-0 text-muted-foreground">·</span>
