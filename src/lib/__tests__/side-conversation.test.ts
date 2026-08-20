@@ -1,6 +1,7 @@
 import {
   SIDE_CONVERSATION_PARENT_FIELD_KEY,
   formatInternalNoteBody,
+  formatParentLinkNoteBody,
   formatPrefillSubject,
   formatRequesterField,
   isHydratedTicket,
@@ -49,8 +50,76 @@ describe("formatInternalNoteBody", () => {
     expect(first).toBe(second);
   });
 
-  it("never emits HTML tags (plain text only)", () => {
+  it("stays plain text when no URL is available — an unresolved tenant/environment must degrade to readable text, never a broken href", () => {
     expect(formatInternalNoteBody("X-1")).not.toMatch(/<[^>]+>/);
+    expect(formatInternalNoteBody("X-1", null)).not.toMatch(/<[^>]+>/);
+  });
+
+  it("links the key when a URL is available, with no target — a same-tab link (2026-08-17 decision)", () => {
+    const body = formatInternalNoteBody(
+      "TICKET-563",
+      "https://t.grispi.net/tickets/TICKET-563"
+    );
+    expect(body).toContain(
+      '<a href="https://t.grispi.net/tickets/TICKET-563">TICKET-563</a>'
+    );
+    expect(body).not.toContain("target=");
+    // The locked D-02 wording is unchanged around the link.
+    expect(body).toContain("talebinin yan konuşmasıdır");
+    expect(body).toContain("Talep sahibi bu yazışmayı görmez.");
+  });
+});
+
+describe("formatParentLinkNoteBody", () => {
+  it("names the side ticket and its recipient", () => {
+    const body = formatParentLinkNoteBody("TICKET-605", "kargo@grr.la");
+    expect(body).toContain("TICKET-605");
+    expect(body).toContain("Alıcı: kargo@grr.la.");
+    expect(body).toContain("Talep sahibi bu yazışmayı görmez.");
+  });
+
+  it("drops the recipient clause entirely when the address is unknown — never a dangling 'Alıcı:'", () => {
+    const body = formatParentLinkNoteBody("TICKET-605", null);
+    expect(body).toContain("TICKET-605");
+    expect(body).not.toContain("Alıcı:");
+  });
+
+  it("links the side ticket key when a URL is available, same-tab", () => {
+    const body = formatParentLinkNoteBody(
+      "TICKET-605",
+      null,
+      "https://t.grispi.net/tickets/TICKET-605"
+    );
+    expect(body).toContain(
+      '<a href="https://t.grispi.net/tickets/TICKET-605">TICKET-605</a>'
+    );
+    expect(body).not.toContain("target=");
+  });
+
+  it("escapes the recipient address — it is agent-typed input written into the CUSTOMER's ticket, so an unescaped interpolation would be a stored injection", () => {
+    const body = formatParentLinkNoteBody(
+      "TICKET-605",
+      '<img src=x onerror="alert(1)">'
+    );
+    // What matters is that no live markup survives: the angle brackets and
+    // quotes are neutralised, so the payload can only ever be read as text.
+    // The literal characters "onerror=" remaining inside that escaped text
+    // are inert — asserting their absence would test the wrong thing.
+    expect(body).not.toContain("<img");
+    expect(body).not.toMatch(/<[a-z]/i);
+    expect(body).toContain("&lt;img");
+    expect(body).toContain("&quot;");
+  });
+
+  it("escapes the key and the URL too", () => {
+    const body = formatParentLinkNoteBody(
+      '"><script>alert(1)</script>',
+      null,
+      '" onmouseover="alert(1)'
+    );
+    expect(body).not.toContain("<script");
+    expect(body).not.toContain('onmouseover="alert(1)"');
+    expect(body).toContain("&lt;script");
   });
 });
 

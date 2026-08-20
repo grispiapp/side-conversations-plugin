@@ -10,7 +10,12 @@ import {
 } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
+import { useGrispi } from "@/contexts/grispi-context";
 import { grispiAPI } from "@/grispi/client/api";
+import {
+  GrispiEnvironment,
+  buildAgentTicketUrl,
+} from "@/grispi/client/environment";
 import { NetworkError } from "@/grispi/client/http-handler";
 import {
   ConversationLifecycleStatus,
@@ -27,6 +32,7 @@ import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
 import {
   SIDE_CONVERSATION_PARENT_FIELD_KEY,
   formatInternalNoteBody,
+  formatParentLinkNoteBody,
   isValidEmail,
 } from "@/lib/side-conversation";
 import {
@@ -43,6 +49,7 @@ import {
 import {
   AdvancedSearchResponse,
   Comment,
+  CreateTicketRequest,
   Customer,
   InternalNotePatchRequest,
   SideTicketSummary,
@@ -636,10 +643,76 @@ async function refreshCanonicalAfterMutation(
  * load-bearing parent field; its own failure logs a separate `console.error`
  * (D-22) so the two losses never share a line.
  */
+export interface SideConversationNoteContext {
+  tenantId: string;
+  environment: GrispiEnvironment | null;
+  /** From the create request's own `ts.requester`; null when unreadable. */
+  recipientEmail: string | null;
+}
+
+/** Same-tab agent-UI URL, or null when the trusted inputs aren't resolved. */
+function noteTicketUrl(
+  context: SideConversationNoteContext | undefined,
+  ticketKey: string
+): string | null {
+  if (!context?.environment || !context.tenantId) return null;
+  return buildAgentTicketUrl(context.tenantId, context.environment, ticketKey);
+}
+
+/**
+ * The PARENT ticket's counterpart note (2026-08-17 user decision reversing
+ * D-05). Written to the CUSTOMER's ticket, so `publicVisible: false` is
+ * load-bearing — the probe that confirmed it sends no mail was run on the
+ * same endpoint with the same flag.
+ *
+ * Same failure policy as the side-ticket note (D-04): one attempt, then a
+ * console.error and nothing else. A missing cross-reference must never
+ * break the conversation the agent just started, and it is never surfaced
+ * to them.
+ */
+async function postParentLinkNote(
+  sideKey: string,
+  parentKey: string,
+  agentEmail: string,
+  context: SideConversationNoteContext | undefined
+): Promise<void> {
+  try {
+    await grispiAPI.tickets.addInternalNote(parentKey, {
+      comment: {
+        body: formatParentLinkNoteBody(
+          sideKey,
+          context?.recipientEmail ?? null,
+          noteTicketUrl(context, sideKey)
+        ),
+        publicVisible: false,
+        creator: [{ key: "us.email", value: agentEmail }],
+        channel: "WEB",
+      },
+    });
+  } catch {
+    console.error(
+      "side-conversation-queries",
+      "parent-ticket link note PATCH failed — the parent ticket will not reference this side conversation",
+      parentKey
+    );
+  }
+}
+
+/** Inverse of `formatRequesterField` (which prefixes a bare `:`). */
+function readRequesterEmail(request: CreateTicketRequest): string | null {
+  const raw = request.fields?.find(
+    (field) => field.key === "ts.requester"
+  )?.value;
+  if (typeof raw !== "string") return null;
+  const email = raw.startsWith(":") ? raw.slice(1) : raw;
+  return email.trim() || null;
+}
+
 export async function assertSideConversationLink(
   sideKey: string,
   parentKey: string,
-  agentEmail: string | null
+  agentEmail: string | null,
+  context?: SideConversationNoteContext
 ): Promise<void> {
   if (!agentEmail) {
     console.error(
@@ -652,7 +725,7 @@ export async function assertSideConversationLink(
 
   const body: InternalNotePatchRequest = {
     comment: {
-      body: formatInternalNoteBody(parentKey),
+      body: formatInternalNoteBody(parentKey, noteTicketUrl(context, parentKey)),
       publicVisible: false,
       creator: [{ key: "us.email", value: agentEmail }],
       channel: "WEB",
@@ -660,9 +733,10 @@ export async function assertSideConversationLink(
     fields: [{ key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: parentKey }],
   };
 
+  let noteSent = false;
   try {
     await grispiAPI.tickets.addInternalNote(sideKey, body);
-    return;
+    noteSent = true;
   } catch {
     console.error(
       "side-conversation-queries",
@@ -671,23 +745,35 @@ export async function assertSideConversationLink(
     );
   }
 
-  try {
-    await grispiAPI.tickets.patchTicketFields(sideKey, {
-      fields: [{ key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: parentKey }],
-    });
-  } catch {
-    console.error(
-      "side-conversation-queries",
-      "tu.side_conversation_parent re-assertion failed after retry — listing may not find this ticket",
-      sideKey
-    );
+  // D-23: the note's single retry is spent on the parent field instead.
+  if (!noteSent) {
+    try {
+      await grispiAPI.tickets.patchTicketFields(sideKey, {
+        fields: [{ key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: parentKey }],
+      });
+    } catch {
+      console.error(
+        "side-conversation-queries",
+        "tu.side_conversation_parent re-assertion failed after retry — listing may not find this ticket",
+        sideKey
+      );
+    }
   }
+
+  // Unconditional, and last. The two notes live on different tickets, so
+  // the side note failing says nothing about whether the parent's
+  // cross-reference can be written. Ordered after the D-22 writes because
+  // that field is what makes the conversation findable at all — a cosmetic
+  // cross-reference must never delay it. Swallows its own failures
+  // (postParentLinkNote), so it cannot disturb anything above.
+  await postParentLinkNote(sideKey, parentKey, agentEmail, context);
 }
 
 export async function executeCreateMutation(
   queryClient: QueryClient,
   boundary: MutationBoundary,
-  envelope: Extract<MutationEnvelope, { kind: "create" }>
+  envelope: Extract<MutationEnvelope, { kind: "create" }>,
+  environment: GrispiEnvironment | null = null
 ): Promise<void> {
   if (!isCurrent(boundary, envelope)) return;
   boundary.activeConversation.mutationStarted(envelope);
@@ -712,7 +798,15 @@ export async function executeCreateMutation(
   const linkAssertion = assertSideConversationLink(
     sideKey,
     envelope.parentKey,
-    envelope.request.comment.creator[0]?.value ?? null
+    envelope.request.comment.creator[0]?.value ?? null,
+    {
+      tenantId: envelope.tenantId,
+      environment,
+      // Recovered from the request we just sent rather than threaded through
+      // a widened envelope: this IS the value the server received, so the
+      // note can never name a different recipient than the ticket has.
+      recipientEmail: readRequesterEmail(envelope.request),
+    }
   );
 
   if (!isCurrent(boundary, envelope)) {
@@ -809,10 +903,13 @@ export async function executeStatusMutation(
 
 export function useCreateSideConversationMutation(boundary: MutationBoundary) {
   const queryClient = useQueryClient();
+  // Only piece of note context that isn't already on the envelope; read here
+  // so executeCreateMutation itself stays free of React context.
+  const { environment } = useGrispi();
   return useMutation({
     mutationKey: ["side-conversation", "create"],
     mutationFn: (envelope: Extract<MutationEnvelope, { kind: "create" }>) =>
-      executeCreateMutation(queryClient, boundary, envelope),
+      executeCreateMutation(queryClient, boundary, envelope, environment),
   });
 }
 

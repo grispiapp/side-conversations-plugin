@@ -49,8 +49,66 @@ export function formatPrefillSubject(
  * this plugin can also read. Plain text only, never composer-authored HTML —
  * no HTML-cleaning step of any kind is needed or applied here.
  */
-export function formatInternalNoteBody(parentKey: string): string {
-  return `Bu talep, ${parentKey} talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.`;
+/**
+ * Minimal HTML escape for values interpolated into a note body.
+ *
+ * The recipient address is agent-typed input and the note is written to a
+ * CUSTOMER-FACING ticket, so an unescaped interpolation would be a stored
+ * injection into the host agent UI. Ticket keys are escaped too — cheaper
+ * than reasoning about whether the server can ever hand back a odd key.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Renders a ticket key as a plain same-tab anchor when a URL is available,
+ * or as escaped text when it is not (unresolved tenant/environment must
+ * degrade to readable text, never to a broken href).
+ *
+ * Deliberately emits NO `target` (2026-08-17 user decision: "normal link,
+ * not a new tab"). Note that when this body is rendered back inside OUR
+ * panel, `normalizeAnchor` in html-sanitizer.ts re-adds `target="_blank"`
+ * — that is intentional and not overridden here: a same-tab navigation
+ * inside the plugin iframe would load the full agent UI into a ~300px
+ * frame. The parent ticket's copy renders in Grispi's own UI, which never
+ * passes through our sanitizer, so there it stays a normal same-tab link.
+ */
+function ticketKeyMarkup(key: string, url: string | null): string {
+  const safeKey = escapeHtml(key);
+  return url ? `<a href="${escapeHtml(url)}">${safeKey}</a>` : safeKey;
+}
+
+/**
+ * D-02 — wording is fixed and never read from settings. Revised 2026-08-17
+ * (live UAT) so the key is a link; the words themselves are unchanged.
+ */
+export function formatInternalNoteBody(
+  parentKey: string,
+  parentUrl: string | null = null
+): string {
+  return `Bu talep, ${ticketKeyMarkup(parentKey, parentUrl)} talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.`;
+}
+
+/**
+ * The PARENT ticket's counterpart note (2026-08-17 user decision, reversing
+ * D-05's "üst talebe ayrıca not düşülmez"). Written to the customer's own
+ * ticket, so it carries the same `publicVisible: false` guarantee as the
+ * side-ticket note and names both the new side ticket and its recipient.
+ */
+export function formatParentLinkNoteBody(
+  sideKey: string,
+  recipientEmail: string | null,
+  sideUrl: string | null = null
+): string {
+  const who = recipientEmail
+    ? ` Alıcı: ${escapeHtml(recipientEmail)}.`
+    : "";
+  return `Bu talep için bir yan konuşma açıldı: ${ticketKeyMarkup(sideKey, sideUrl)}.${who} Talep sahibi bu yazışmayı görmez.`;
 }
 
 /**

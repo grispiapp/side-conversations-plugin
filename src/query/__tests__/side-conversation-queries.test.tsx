@@ -1202,17 +1202,98 @@ describe("canonical detail and mutation executors", () => {
       consoleErrorSpy.mockRestore();
     });
 
-    it("calls addInternalNote exactly once with sideKey (not envelope.parentKey) as the first argument", async () => {
+    it("notes BOTH tickets — side ticket first (it carries the load-bearing D-22 field), parent ticket last and comment-only", async () => {
       mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
       const envelope = createEnvelope();
 
       await executeCreateMutation(client, boundary(), envelope);
 
-      expect(mockedAddInternalNote).toHaveBeenCalledTimes(1);
+      expect(mockedAddInternalNote).toHaveBeenCalledTimes(2);
+
+      // Side ticket first: its body carries the parent-field re-assertion,
+      // which is what makes the conversation findable at all.
       expect(mockedAddInternalNote.mock.calls[0][0]).toBe("SIDE-9");
-      expect(mockedAddInternalNote.mock.calls[0][0]).not.toBe(
-        envelope.parentKey
+      expect(mockedAddInternalNote.mock.calls[0][1].fields).toEqual([
+        { key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: "PARENT-1" },
+      ]);
+
+      // Parent ticket last, and NEVER with fields: writing the parent-link
+      // field onto the parent would mark the customer's own ticket as a
+      // side conversation and lock its panel (D-11).
+      expect(mockedAddInternalNote.mock.calls[1][0]).toBe(envelope.parentKey);
+      expect(mockedAddInternalNote.mock.calls[1][1].fields).toBeUndefined();
+      expect(mockedAddInternalNote.mock.calls[1][1].comment.publicVisible).toBe(
+        false
       );
+      // Names the new side ticket (2026-08-17 decision). This fixture sends
+      // no ts.requester, so the recipient clause degrades away rather than
+      // rendering an empty "Alıcı:" — the populated branch is covered below.
+      expect(mockedAddInternalNote.mock.calls[1][1].comment.body).toContain(
+        "SIDE-9"
+      );
+      expect(mockedAddInternalNote.mock.calls[1][1].comment.body).not.toContain(
+        "Alıcı:"
+      );
+    });
+
+    it("names the recipient in the parent note, read back from the create request's own ts.requester", async () => {
+      mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
+      selected = { ticketKey: null, parentKey: "PARENT-1", sessionKey: 1 };
+      const envelope = store.startNew({
+        tenantId: "tenant-1",
+        parentKey: "PARENT-1",
+        sessionKey: 1,
+        recipientLabel: "Vendor",
+        subject: "Konu",
+        body: "<p>Merhaba</p>",
+        request: {
+          comment: {
+            body: "<p>Merhaba</p>",
+            publicVisible: true,
+            creator: [{ key: "us.email", value: "agent@example.test" }],
+          },
+          // Production shape: formatRequesterField prefixes a bare ":".
+          fields: [{ key: "ts.requester", value: ":kargo@grr.la" }],
+        },
+      });
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      expect(mockedAddInternalNote.mock.calls[1][1].comment.body).toContain(
+        "kargo@grr.la"
+      );
+      // The ":" is a wire-format prefix, never part of the address shown.
+      expect(mockedAddInternalNote.mock.calls[1][1].comment.body).not.toContain(
+        ":kargo@grr.la"
+      );
+    });
+
+    it("still notes the parent when the side-ticket note fails — the two tickets are independent", async () => {
+      mockedAddInternalNote
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockResolvedValue({ key: "PARENT-1" });
+      mockedPatchTicketFields.mockResolvedValue({ key: "SIDE-9" });
+
+      await executeCreateMutation(client, boundary(), createEnvelope());
+
+      expect(mockedAddInternalNote).toHaveBeenCalledTimes(2);
+      expect(mockedAddInternalNote.mock.calls[1][0]).toBe("PARENT-1");
+    });
+
+    it("never lets a failed parent note disturb the side conversation", async () => {
+      mockedAddInternalNote
+        .mockResolvedValueOnce({ key: "SIDE-9" })
+        .mockRejectedValue(new Error("boom"));
+
+      await expect(
+        executeCreateMutation(client, boundary(), createEnvelope())
+      ).resolves.toBeUndefined();
+
+      expect(store.getOverlayMessages(1, "SIDE-9")[0]).toMatchObject({
+        status: "sent",
+        errorKind: undefined,
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     });
 
     it("sends the D-02 body, the envelope's own creator email, publicVisible:false, and the D-22 parent field", async () => {
@@ -1247,13 +1328,17 @@ describe("canonical detail and mutation executors", () => {
     });
 
     it("D-23: spends the note's retry on the parent field instead — addInternalNote never called twice, patchTicketFields called once with a comment-free fields-only body", async () => {
-      mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      // Only the SIDE note fails; the parent note is a separate ticket and
+      // is allowed to succeed so it cannot pollute these counts.
+      mockedAddInternalNote
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockResolvedValue({ key: "PARENT-1" });
       mockedPatchTicketFields.mockResolvedValue({ key: "SIDE-9" });
       const envelope = createEnvelope();
 
       await executeCreateMutation(client, boundary(), envelope);
 
-      expect(mockedAddInternalNote).toHaveBeenCalledTimes(1);
+      expect(mockedAddInternalNote.mock.calls[0][0]).toBe("SIDE-9");
       expect(mockedPatchTicketFields).toHaveBeenCalledTimes(1);
       expect(mockedPatchTicketFields.mock.calls[0][0]).toBe("SIDE-9");
       const retryBody = mockedPatchTicketFields.mock.calls[0][1];
@@ -1264,7 +1349,9 @@ describe("canonical detail and mutation executors", () => {
     });
 
     it("D-23: logs exactly one console.error (the lost note) when the parent-field retry succeeds, and keeps the message sent", async () => {
-      mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      mockedAddInternalNote
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockResolvedValue({ key: "PARENT-1" });
       mockedPatchTicketFields.mockResolvedValue({ key: "SIDE-9" });
       const envelope = createEnvelope();
 
@@ -1280,7 +1367,9 @@ describe("canonical detail and mutation executors", () => {
     });
 
     it("resolves without throwing after both the note and the retry fail, never marks the message failed (mutationFailed not applied), and logs two distinct console.error messages (D-04/D-22/D-23)", async () => {
-      mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      mockedAddInternalNote
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockResolvedValue({ key: "PARENT-1" });
       mockedPatchTicketFields.mockRejectedValue(new Error("boom"));
       const envelope = createEnvelope();
 
@@ -1299,12 +1388,16 @@ describe("canonical detail and mutation executors", () => {
       const messages = consoleErrorSpy.mock.calls.map((call) => call[1]);
       expect(messages[0]).not.toBe(messages[1]);
 
-      // D-04/D-23: at most 1 retry total — addInternalNote never called
-      // twice, and the two calls together never exceed 2.
-      expect(mockedAddInternalNote).toHaveBeenCalledTimes(1);
+      // D-04/D-23: at most 1 retry total, counted over the SIDE ticket's
+      // writes only. The parent ticket's note is a separate ticket with its
+      // own single attempt, so it is excluded here rather than inflating the
+      // ceiling it is not part of.
+      const sideNoteCalls = mockedAddInternalNote.mock.calls.filter(
+        (call) => call[0] === "SIDE-9"
+      );
+      expect(sideNoteCalls).toHaveLength(1);
       expect(
-        mockedAddInternalNote.mock.calls.length +
-          mockedPatchTicketFields.mock.calls.length
+        sideNoteCalls.length + mockedPatchTicketFields.mock.calls.length
       ).toBeLessThanOrEqual(2);
     });
 
@@ -1341,7 +1434,8 @@ describe("canonical detail and mutation executors", () => {
       await mutation;
 
       // Gate skipped, PATCH still attempted and awaited (GAP closure).
-      expect(mockedAddInternalNote).toHaveBeenCalledTimes(1);
+      // Two calls now: the side ticket's note, then the parent's.
+      expect(mockedAddInternalNote).toHaveBeenCalledTimes(2);
       expect(mockedAddInternalNote.mock.calls[0][0]).toBe("SIDE-9");
       const body = mockedAddInternalNote.mock.calls[0][1];
       expect(body.fields).toEqual([

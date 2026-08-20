@@ -335,7 +335,14 @@ export interface InternalNotePatchRequest {
     creator: [{ key: "us.email"; value: string }];
     channel: "WEB";
   };
-  fields: Array<{ key: string; value: string }>;
+  /**
+   * OPTIONAL on purpose. The side ticket's note rides along with the D-22
+   * parent-field re-assertion, but the PARENT ticket's counterpart note
+   * must send NO fields at all: writing that field onto the parent would
+   * mark the customer's own ticket as a side conversation and make the
+   * panel refuse to open new conversations on it (D-11).
+   */
+  fields?: Array<{ key: string; value: string }>;
 }
 
 /**
