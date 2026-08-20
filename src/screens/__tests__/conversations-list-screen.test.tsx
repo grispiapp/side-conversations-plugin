@@ -122,6 +122,32 @@ afterEach(() => {
   container.remove();
 });
 
+it("offers a manual refresh that calls refetch and locks itself while a fetch is in flight", () => {
+  render(<ConversationsListScreen />);
+
+  const refresh = container.querySelector<HTMLButtonElement>(
+    '[aria-label="Yan konuşmaları yenile"]'
+  );
+  expect(refresh).not.toBeNull();
+  expect(refresh?.disabled).toBe(false);
+
+  act(() => refresh?.click());
+  expect(mockListQuery.refetch).toHaveBeenCalledTimes(1);
+});
+
+it("disables the refresh control while fetching so a click burst cannot queue refetches", () => {
+  mockListQuery = { ...mockListQuery, isFetching: true };
+  render(<ConversationsListScreen />);
+
+  const refresh = container.querySelector<HTMLButtonElement>(
+    '[aria-label="Yan konuşmaları yenile"]'
+  );
+  expect(refresh?.disabled).toBe(true);
+  expect(refresh?.querySelector("svg")?.getAttribute("class")).toContain(
+    "animate-spin"
+  );
+});
+
 it("passes the activating row key through the native row button boundary", () => {
   render(<ConversationsListScreen />);
 

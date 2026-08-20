@@ -4,7 +4,7 @@ import { ErrorCard } from "./components/error-card";
 import { ListFooter } from "./components/list-footer";
 import { ParentBanner } from "./components/parent-banner";
 import { LoadingScreen } from "./loading-screen";
-import { PlusIcon } from "@radix-ui/react-icons";
+import { PlusIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
 import { useEffect, useRef } from "react";
 
@@ -23,6 +23,7 @@ import {
   isSideConversationTicket,
   parentKeyOfTicket,
 } from "@/lib/side-conversation";
+import { cn } from "@/lib/utils";
 import { useSideConversationsQuery } from "@/query/side-conversation-queries";
 
 const NEW_CONVERSATION_LABEL = "Yeni konuşma başlat";
@@ -78,6 +79,32 @@ export const ConversationsListScreen = observer(() => {
       <ScreenHeader
         title={<ScreenTitle>Yan Konuşmalar</ScreenTitle>}
         trailing={
+          <>
+            {/* Manual refresh (2026-08-17 user request). Deliberately icon-only:
+                the header already carries the title and the create action, and
+                a third labelled control does not survive the ~280px floor.
+                Disabled while a fetch is in flight so a burst of clicks cannot
+                queue refetches. Phase 5's SYNC-01 adds automatic background
+                refresh; this stays as its manual counterpart. */}
+            <Button
+              type="button"
+              size="header"
+              variant="ghost"
+              aria-label="Yan konuşmaları yenile"
+              title="Yenile"
+              disabled={list.isPending || list.isFetching}
+              onClick={() => {
+                void list.refetch();
+              }}
+            >
+              <ReloadIcon
+                className={cn(
+                  "size-4",
+                  list.isFetching && "animate-spin"
+                )}
+                aria-hidden="true"
+              />
+            </Button>
           <Button
             ref={createActionRef}
             size="sm"
@@ -99,6 +126,7 @@ export const ConversationsListScreen = observer(() => {
             <PlusIcon className="size-4" aria-hidden="true" />
             <span className="hidden min-[320px]:inline">Yeni konuşma</span>
           </Button>
+          </>
         }
       />
       <ScreenContent>
