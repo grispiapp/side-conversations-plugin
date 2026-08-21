@@ -631,7 +631,7 @@ async function refreshCanonicalAfterMutation(
 
 /**
  * D-01/D-04/D-22/D-23 — appends the silent internal note + re-asserts the
- * `tu.side_conversation_parent` field on the freshly created side ticket.
+ * `tp.side_conversation_parent` field on the freshly created side ticket.
  * NEVER throws: a failure here must never surface to the agent or convert
  * an already-committed create into a resendable failure (D-04).
  *
@@ -686,7 +686,7 @@ async function postParentLinkNote(
         ),
         publicVisible: false,
         creator: [{ key: "us.email", value: agentEmail }],
-        channel: "WEB",
+        channel: "INTEGRATION",
       },
     });
   } catch {
@@ -728,7 +728,7 @@ export async function assertSideConversationLink(
       body: formatInternalNoteBody(parentKey, noteTicketUrl(context, parentKey)),
       publicVisible: false,
       creator: [{ key: "us.email", value: agentEmail }],
-      channel: "WEB",
+      channel: "INTEGRATION",
     },
     fields: [{ key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: parentKey }],
   };
@@ -754,7 +754,7 @@ export async function assertSideConversationLink(
     } catch {
       console.error(
         "side-conversation-queries",
-        "tu.side_conversation_parent re-assertion failed after retry — listing may not find this ticket",
+        "tp.side_conversation_parent re-assertion failed after retry — listing may not find this ticket",
         sideKey
       );
     }

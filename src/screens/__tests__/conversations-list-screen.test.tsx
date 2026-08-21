@@ -109,8 +109,8 @@ function sideConversationTicket(parentKey: string | null = "PARENT-9") {
       parentKey === null
         ? {}
         : {
-            "tu.side_conversation_parent": {
-              key: "tu.side_conversation_parent",
+            "tp.side_conversation_parent": {
+              key: "tp.side_conversation_parent",
               value: parentKey,
             },
           },

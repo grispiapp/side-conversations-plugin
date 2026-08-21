@@ -101,7 +101,7 @@ export class Tickets {
 
   /**
    * D-01/D-02 — appends a silent internal note (`publicVisible: false`) to
-   * an already-created side ticket and re-asserts its `tu.side_conversation_
+   * an already-created side ticket and re-asserts its `tp.side_conversation_
    * parent` field (D-22). Deliberately a SIBLING of `replyTicket` above —
    * never calls it, never shares its request type (`InternalNotePatchRequest`
    * narrows `publicVisible` to `false`, `ReplyTicketPatchRequest` narrows it

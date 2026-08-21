@@ -216,9 +216,9 @@ describe("Tickets.addInternalNote", () => {
         body: "Bu talep, TICKET-563 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
         publicVisible: false,
         creator: [{ key: "us.email", value: "agent@example.com" }],
-        channel: "WEB",
+        channel: "INTEGRATION",
       },
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-563" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-563" }],
     };
 
     await tickets.addInternalNote("TICKET-601", body);
@@ -240,9 +240,9 @@ describe("Tickets.addInternalNote", () => {
         body: "Bu talep, A/B talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
         publicVisible: false,
         creator: [{ key: "us.email", value: "agent@example.com" }],
-        channel: "WEB",
+        channel: "INTEGRATION",
       },
-      fields: [{ key: "tu.side_conversation_parent", value: "A/B" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "A/B" }],
     };
 
     await tickets.addInternalNote("A/B", body);
@@ -250,22 +250,22 @@ describe("Tickets.addInternalNote", () => {
     expect(send.mock.calls[0][0]).toBe("v2/tickets/A%2FB");
   });
 
-  it("sends comment.publicVisible false and comment.channel WEB", async () => {
+  it("sends comment.publicVisible false and comment.channel INTEGRATION", async () => {
     const body: InternalNotePatchRequest = {
       comment: {
         body: "Bu talep, TICKET-1 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
         publicVisible: false,
         creator: [{ key: "us.email", value: "agent@example.com" }],
-        channel: "WEB",
+        channel: "INTEGRATION",
       },
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-1" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-1" }],
     };
 
     await tickets.addInternalNote("TICKET-1", body);
 
     const sentBody = JSON.parse(send.mock.calls[0][1].body);
     expect(sentBody.comment.publicVisible).toBe(false);
-    expect(sentBody.comment.channel).toBe("WEB");
+    expect(sentBody.comment.channel).toBe("INTEGRATION");
   });
 
   it("carries the parent ticket key in fields[0] under the side-conversation field key", async () => {
@@ -274,16 +274,16 @@ describe("Tickets.addInternalNote", () => {
         body: "Bu talep, TICKET-9 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
         publicVisible: false,
         creator: [{ key: "us.email", value: "agent@example.com" }],
-        channel: "WEB",
+        channel: "INTEGRATION",
       },
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-9" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-9" }],
     };
 
     await tickets.addInternalNote("TICKET-9", body);
 
     const sentBody = JSON.parse(send.mock.calls[0][1].body);
     expect(sentBody.fields).toEqual([
-      { key: "tu.side_conversation_parent", value: "TICKET-9" },
+      { key: "tp.side_conversation_parent", value: "TICKET-9" },
     ]);
   });
 
@@ -293,9 +293,9 @@ describe("Tickets.addInternalNote", () => {
         body: "Bu talep, TICKET-2 talebinin yan konuşmasıdır. Talep sahibi bu yazışmayı görmez.",
         publicVisible: false,
         creator: [{ key: "us.email", value: "agent@example.com" }],
-        channel: "WEB",
+        channel: "INTEGRATION",
       },
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-2" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-2" }],
     };
 
     await tickets.addInternalNote("TICKET-2", body);
@@ -397,7 +397,7 @@ describe("Tickets.patchTicketFields", () => {
 
   it("PATCHes public/v1/tickets/{key}, never v2/tickets (D-23)", async () => {
     const body: TicketFieldsPatchRequest = {
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-563" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-563" }],
     };
 
     await tickets.patchTicketFields("TICKET-601", body);
@@ -415,7 +415,7 @@ describe("Tickets.patchTicketFields", () => {
 
   it("encodes the ticket key in the URL", async () => {
     const body: TicketFieldsPatchRequest = {
-      fields: [{ key: "tu.side_conversation_parent", value: "A/B" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "A/B" }],
     };
 
     await tickets.patchTicketFields("A/B", body);
@@ -425,7 +425,7 @@ describe("Tickets.patchTicketFields", () => {
 
   it("sends a body carrying only the fields key, never a comment", async () => {
     const body: TicketFieldsPatchRequest = {
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-9" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-9" }],
     };
 
     await tickets.patchTicketFields("TICKET-9", body);
@@ -436,20 +436,20 @@ describe("Tickets.patchTicketFields", () => {
 
   it("carries the caller's key/value pair through unchanged", async () => {
     const body: TicketFieldsPatchRequest = {
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-9" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-9" }],
     };
 
     await tickets.patchTicketFields("TICKET-9", body);
 
     const sentBody = JSON.parse(send.mock.calls[0][1].body);
     expect(sentBody.fields).toEqual([
-      { key: "tu.side_conversation_parent", value: "TICKET-9" },
+      { key: "tp.side_conversation_parent", value: "TICKET-9" },
     ]);
   });
 
   it("sends the auth headers, same as patchTicket", async () => {
     const body: TicketFieldsPatchRequest = {
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-2" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-2" }],
     };
 
     await tickets.patchTicketFields("TICKET-2", body);
@@ -474,7 +474,7 @@ describe("Tickets.patchTicketFields", () => {
 
   it("is idempotent — sending the same body twice produces two identical requests", async () => {
     const body: TicketFieldsPatchRequest = {
-      fields: [{ key: "tu.side_conversation_parent", value: "TICKET-9" }],
+      fields: [{ key: "tp.side_conversation_parent", value: "TICKET-9" }],
     };
 
     await tickets.patchTicketFields("TICKET-9", body);

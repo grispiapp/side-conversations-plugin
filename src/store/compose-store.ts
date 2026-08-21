@@ -212,7 +212,7 @@ export class ComposeStore {
           key: "ts.requester",
           value: formatRequesterField(this.recipientEmail),
         },
-        { key: "tu.side_conversation_parent", value: effectiveParentKey },
+        { key: "tp.side_conversation_parent", value: effectiveParentKey },
       ],
     };
 

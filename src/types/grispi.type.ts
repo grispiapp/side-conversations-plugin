@@ -320,8 +320,12 @@ export interface ReplyTicketPatchRequest {
  * publicVisible`'s own `true` literal is never widened either; the two
  * types must never merge.
  *
+ * `comment.channel` is `"INTEGRATION"`, not the `"WEB"` of the two public
+ * paths above — these notes are written by the plugin, not typed by an agent
+ * in the Grispi web UI.
+ *
  * `fields` (D-22, added 2026-08-17 on RESEARCH.md's adjacent finding): the
- * same PATCH re-asserts `tu.side_conversation_parent` with the parent
+ * same PATCH re-asserts `tp.side_conversation_parent` with the parent
  * ticket's key. A live probe showed `POST /v2/tickets`'s `fields` array can
  * fail to persist this field on a freshly created ticket, but a follow-up
  * `fields`-only PATCH persists it immediately — this type carries that
@@ -333,7 +337,7 @@ export interface InternalNotePatchRequest {
     body: string;
     publicVisible: false;
     creator: [{ key: "us.email"; value: string }];
-    channel: "WEB";
+    channel: "INTEGRATION";
   };
   /**
    * OPTIONAL on purpose. The side ticket's note rides along with the D-22
@@ -347,7 +351,7 @@ export interface InternalNotePatchRequest {
 
 /**
  * `PATCH public/v1/tickets/{key}` fields-only body — D-23, `assertSide
- * ConversationLink`'s ONE retry step for the `tu.side_conversation_parent`
+ * ConversationLink`'s ONE retry step for the `tp.side_conversation_parent`
  * re-assertion. No `comment` member: a comment PATCH APPENDS, so repeating
  * `InternalNotePatchRequest` on retry would leave two identical internal
  * notes (D-03 — notes are never hidden); this shape makes that structurally

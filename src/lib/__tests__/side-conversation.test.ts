@@ -12,9 +12,9 @@ import {
 import { Ticket } from "@/types/grispi.type";
 
 describe("SIDE_CONVERSATION_PARENT_FIELD_KEY", () => {
-  it("is exactly tu.side_conversation_parent (CORE-01 / D-01 / D-02 guard)", () => {
+  it("is exactly tp.side_conversation_parent (CORE-01 / D-01 / D-02 guard)", () => {
     expect(SIDE_CONVERSATION_PARENT_FIELD_KEY).toBe(
-      "tu.side_conversation_parent"
+      "tp.side_conversation_parent"
     );
   });
 });

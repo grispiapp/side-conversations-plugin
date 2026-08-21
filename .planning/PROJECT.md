@@ -63,7 +63,7 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 - **Platform**: Grispi sağ paneli iframe'i, her zaman açık tema, UI dili Türkçe. **Panel genişliği sabit değildir** — kullanıcı sürükleyerek boyutlandırabiliyor; 1366px viewport'ta ~295px, panel yüksekliği ~405px ölçüldü. Layout ~280px genişlik ve ~590px viewport yüksekliğinden yukarı akışkan olmalı. *(düz. 2026-08-17 — canlı ölçüm; önceki "sabit 372px" varsayımı yanlıştı, Faz 1–04.1 dokümanları bu eski sayıyı taşır)*
 - **API**: advanced-search `size` ≤ 10 → sayfalama şart; CC/BCC yok → tek alıcı; webhook yok → polling; SDK köprüsü salt okunur → tüm yazmalar REST
 - **Dependencies**: İlişki field'ı prod'da plugin kurulumuyla otomatik oluşur; geliştirme tenant'ında elle oluşturulur. Plugin manifest kaydı Grispi ekibi onayı gerektirir
-- **Security**: Token bundle'dan gelir, saklanmaz. Ortam ayarı `_grispi_env` settings'ten okunur (tek settings anahtarı). İlişki field key'i (`tu.side_conversation_parent`) ise D-01/D-02 gereği HARDCODE'dur ve settings'ten ASLA okunmaz — alan Grispi tarafından sağlanır, kod yalnızca değerini okur/yazar
+- **Security**: Token bundle'dan gelir, saklanmaz. Ortam ayarı `_grispi_env` settings'ten okunur (tek settings anahtarı). İlişki field key'i (`tp.side_conversation_parent`) ise D-01/D-02 gereği HARDCODE'dur ve settings'ten ASLA okunmaz — alan Grispi tarafından sağlanır, kod yalnızca değerini okur/yazar
 
 ## Key Decisions
 
@@ -72,7 +72,7 @@ Temsilci, talebi çözmek için gereken harici yazışmaları talepten hiç ayr�
 | Yan görüşme = ayrı Grispi ticket'ı ("side ticket"); requester = harici alıcı | E-posta gidiş/dönüşü Grispi'nin native ticket mail kanalıyla akar; ek backend gerekmez | — Pending |
 | İlk yorum: creator = temsilci, publicVisible = true | Alıcıya mail otomatik gider; Davut davranışı doğruladı | ✓ Good |
 | İlişki: side ticket'ta `tu.*` parent-key field'ı; listeleme advanced-search ile | Parent'ta registry field gereksizleşti; tek doğruluk kaynağı, race yok | — Pending |
-| Field key sabit: `tu.side_conversation_parent`; field plugin kurulumunda otomatik oluşturulur | Davut kararı (Faz 1 tartışması, 22 Tem): provisioning Grispi kurulum tarafında; settings'e gerek yok | — Pending |
+| Field key sabit: `tp.side_conversation_parent`; field plugin kurulumunda otomatik oluşturulur | Davut kararı (Faz 1 tartışması, 22 Tem): provisioning Grispi kurulum tarafında; settings'e gerek yok | — Pending |
 | Kapalı durumu = side ticket `ts.status` (SOLVED/CLOSED) | Ayrı state field'ı gerektirmez; Grispi'nin native reopen davranışından yararlanır | — Pending |
 | Durum rozetleri "sıra kimde" semantiği: Yanıt bekleniyor / Yeni yanıt / Kapalı | Temsilcinin gerçek sorusu "beklediğim cevap geldi mi?"; son yorumun yazar rolünden türetilir | — Pending |
 | Okunmamışlık localStorage'da (`ticketKey → lastSeenAt`) | Server-side görülme takibi yok; cihaz bazlı kısıt kabul edildi | — Pending |

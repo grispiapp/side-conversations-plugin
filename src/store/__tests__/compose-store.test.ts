@@ -46,7 +46,7 @@ describe("ComposeStore mutation-envelope seam", () => {
       request: {
         fields: expect.arrayContaining([
           {
-            key: "tu.side_conversation_parent",
+            key: "tp.side_conversation_parent",
             value: "PARENT-OLD",
           },
         ]),

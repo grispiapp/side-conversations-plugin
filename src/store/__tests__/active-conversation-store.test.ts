@@ -20,7 +20,7 @@ function createRequest(body = "<p>Merhaba</p>"): CreateTicketRequest {
     fields: [
       { key: "ts.subject", value: "[PARENT-1] Konu" },
       { key: "ts.requester", value: ":vendor@example.test" },
-      { key: "tu.side_conversation_parent", value: "PARENT-1" },
+      { key: "tp.side_conversation_parent", value: "PARENT-1" },
     ],
   };
 }

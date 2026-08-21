@@ -2,7 +2,7 @@
 
 A plugin that runs in the right-hand panel (~372px iframe) of a Grispi ticket page. It lets an agent start, run and track separate email threads with third parties — a supplier, a courier, another team — in the context of a ticket, **without ever involving the ticket requester**.
 
-Each side conversation is created as its own Grispi **side ticket** and linked back to the parent ticket through the `tu.side_conversation_parent` custom field. The requester never sees these threads.
+Each side conversation is created as its own Grispi **side ticket** and linked back to the parent ticket through the `tp.side_conversation_parent` custom field. The requester never sees these threads.
 
 ---
 
@@ -63,7 +63,7 @@ Resolved **before** the plugin issues its first request. A wrong or missing valu
 
 | Field                         | Purpose                                                    |
 | ----------------------------- | ---------------------------------------------------------- |
-| `tu.side_conversation_parent` | Marks a ticket as a side conversation and links it to its parent |
+| `tp.side_conversation_parent` | Marks a ticket as a side conversation and links it to its parent |
 
 This field is **hardcoded, never read from settings**, and is **provisioned automatically by Grispi** when the plugin is installed on a tenant. The code only ever reads and writes its value — it never manages the field's existence. You do not need to create it by hand.
 

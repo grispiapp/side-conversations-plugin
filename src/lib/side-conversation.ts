@@ -9,7 +9,7 @@ import { Ticket } from "@/types/grispi.type";
  * automatically by Grispi when the plugin is installed on a tenant — this
  * codebase only ever reads/writes its value, never its existence.
  */
-export const SIDE_CONVERSATION_PARENT_FIELD_KEY = "tu.side_conversation_parent";
+export const SIDE_CONVERSATION_PARENT_FIELD_KEY = "tp.side_conversation_parent";
 
 /**
  * `ts.requester` needs a colon-prefixed email to bind (existing or
