@@ -11,9 +11,12 @@ export type ConversationBadge = "new-reply" | "awaiting-reply" | "closed";
 export type ConversationLifecycleStatus = "open" | "solved" | "closed";
 
 // CONFIRMED live (Plan 02 / Task 1 probe, 2026-07-23, gsocial-test tenant):
-// SOLVED={id:4,name:"Solved"}, CLOSED={id:5,name:"Closed"}.
-const SOLVED_STATUS_ID = 4;
-const CLOSED_STATUS_ID = 5;
+// SOLVED={id:4,name:"Solved"}, CLOSED={id:5,name:"Closed"}. Exported so
+// side-conversations-store.ts's Task 2 row patch can reverse-map a
+// lifecycle back to the id `deriveBadge` expects, from this single
+// probe-confirmed source instead of a second hardcoded pair.
+export const SOLVED_STATUS_ID = 4;
+export const CLOSED_STATUS_ID = 5;
 
 export function parseConversationLifecycleStatus(
   value: unknown

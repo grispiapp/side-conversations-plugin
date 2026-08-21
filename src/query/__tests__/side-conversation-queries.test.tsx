@@ -23,6 +23,7 @@ import {
 } from "@/query/side-conversation-queries";
 import { ActiveConversationStore } from "@/store/active-conversation-store";
 import { RootStore } from "@/store/root-store";
+import { ConversationRowVM } from "@/store/side-conversations-store";
 import {
   AdvancedSearchResponse,
   Customer,
@@ -1034,16 +1035,17 @@ describe("canonical detail and mutation executors", () => {
     container.remove();
   });
 
-  it("passes the exact reply request, accepts the transport once, then awaits exact list/detail convergence", async () => {
+  it("passes the exact reply request, accepts the transport once, then refetches detail BEFORE patching the row and stale-marking the list (B1/B3 order)", async () => {
     const envelope = replyEnvelope();
-    const listRefresh = deferred<void>();
     const detailRefresh = deferred<void>();
     mockedReplyTicket.mockResolvedValue({ key: "SIDE-1" });
     client.setQueryData(["side-conversation", "tenant-1", "SIDE-1"], {
       sideKey: "SIDE-1",
       recipientLabel: "Vendor",
       subject: "Konu",
+      lifecycle: "open",
       solved: false,
+      reopenable: false,
       messages: [
         {
           id: "comment-10",
@@ -1059,7 +1061,7 @@ describe("canonical detail and mutation executors", () => {
     });
     const invalidate = jest
       .spyOn(client, "invalidateQueries")
-      .mockReturnValue(listRefresh.promise);
+      .mockResolvedValue();
     const refetch = jest
       .spyOn(client, "refetchQueries")
       .mockReturnValue(detailRefresh.promise);
@@ -1070,16 +1072,8 @@ describe("canonical detail and mutation executors", () => {
     }
     expect(mockedReplyTicket).toHaveBeenCalledWith("SIDE-1", envelope.request);
     expect(mockedReplyTicket.mock.calls[0][1]).toBe(envelope.request);
-    expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["side-conversations", "tenant-1", "PARENT-1"],
-      exact: true,
-      refetchType: "all",
-    });
-    expect(refetch).not.toHaveBeenCalled();
-    expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("sent");
-
-    listRefresh.resolve();
-    await Promise.resolve();
+    // Detail refetch is now the FIRST cache operation after the transport
+    // accepts — nothing list-related runs while it's still in flight.
     expect(refetch).toHaveBeenCalledWith(
       {
         queryKey: ["side-conversation", "tenant-1", "SIDE-1"],
@@ -1088,10 +1082,18 @@ describe("canonical detail and mutation executors", () => {
       },
       { throwOnError: true }
     );
+    expect(invalidate).not.toHaveBeenCalled();
     expect(store.getOverlayMessages(1, "SIDE-1")[0].status).toBe("sent");
 
     detailRefresh.resolve();
     await mutation;
+
+    // Invalidate is stale-mark only (B1) — no forced network refetch.
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["side-conversations", "tenant-1", "PARENT-1"],
+      exact: true,
+      refetchType: "none",
+    });
     expect(store.getOverlayMessages(1, "SIDE-1")).toEqual([]);
   });
 
@@ -1313,17 +1315,24 @@ describe("canonical detail and mutation executors", () => {
       ]);
     });
 
-    it("awaits addInternalNote before refreshCanonicalAfterMutation's invalidateQueries (Pitfall #1 — the ordering gate)", async () => {
+    // WR-03 (still open, tracked in STATE.md): this test measures call
+    // ORDER via invocationCallOrder, not await completion — it would still
+    // pass if the `await linkAssertion` lines above it were deleted. Task 2
+    // only re-anchors it from `invalidateQueries` (now the LAST cache op in
+    // refreshCanonicalAfterMutation, B3) to `refetchQueries` (now the
+    // FIRST), so it keeps measuring "runs after the note" rather than
+    // becoming vacuously true. The tautology itself is untouched.
+    it("awaits addInternalNote before refreshCanonicalAfterMutation's first cache operation (Pitfall #1 — the ordering gate)", async () => {
       mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
-      const invalidate = client.invalidateQueries as jest.Mock;
+      const refetch = client.refetchQueries as jest.Mock;
       const envelope = createEnvelope();
 
       await executeCreateMutation(client, boundary(), envelope);
 
       expect(mockedAddInternalNote).toHaveBeenCalled();
-      expect(invalidate).toHaveBeenCalled();
+      expect(refetch).toHaveBeenCalled();
       expect(mockedAddInternalNote.mock.invocationCallOrder[0]).toBeLessThan(
-        invalidate.mock.invocationCallOrder[0]
+        refetch.mock.invocationCallOrder[0]
       );
     });
 
@@ -1401,14 +1410,35 @@ describe("canonical detail and mutation executors", () => {
       ).toBeLessThanOrEqual(2);
     });
 
-    it("still runs refreshCanonicalAfterMutation's invalidate/refetch steps when addInternalNote fails", async () => {
+    it("still runs refreshCanonicalAfterMutation's refetch/invalidate steps when addInternalNote fails", async () => {
       mockedAddInternalNote.mockRejectedValue(new Error("boom"));
+      // Seed the detail this nested describe's mocked (no-op) refetchQueries
+      // would otherwise leave empty — B3 moved invalidate to run AFTER the
+      // detail is read, so without this the mocked getTicket() (reset, no
+      // implementation in this describe) would throw inside the fetchQuery
+      // fallback before invalidate is ever reached.
+      client.setQueryData(["side-conversation", "tenant-1", "SIDE-9"], {
+        sideKey: "SIDE-9",
+        recipientLabel: "Vendor",
+        subject: "Konu",
+        lifecycle: "open",
+        solved: false,
+        reopenable: false,
+        messages: [],
+        latestRelevantExternalAt: null,
+      });
+      const refetch = client.refetchQueries as jest.Mock;
       const invalidate = client.invalidateQueries as jest.Mock;
       const envelope = createEnvelope();
 
       await executeCreateMutation(client, boundary(), envelope);
 
-      expect(invalidate).toHaveBeenCalled();
+      expect(refetch).toHaveBeenCalled();
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: ["side-conversations", "tenant-1", "PARENT-1"],
+        exact: true,
+        refetchType: "none",
+      });
     });
 
     it("skips addInternalNote entirely and logs once when the envelope carries no agent identity", async () => {
@@ -1476,6 +1506,182 @@ describe("canonical detail and mutation executors", () => {
     await executeStatusMutation(client, boundary(), reopen);
     expect(store.lifecyclePending).toBeNull();
     expect(store.consumeComposerFocus(1, "SIDE-1")).toBe(true);
+  });
+
+  describe("refreshCanonicalAfterMutation row patch (Task 2 B1/B3)", () => {
+    const listKey = ["side-conversations", "tenant-1", "PARENT-1"];
+    const detailKey = ["side-conversation", "tenant-1", "SIDE-1"];
+
+    function makeRow(overrides: Partial<ConversationRowVM> = {}): ConversationRowVM {
+      return {
+        key: "SIDE-1",
+        recipientEmail: "vendor@example.test",
+        requesterId: 7,
+        subject: "Konu",
+        summary: "Eski özet",
+        lifecycle: "open",
+        actionBadge: "awaiting-reply",
+        hasUnseen: false,
+        lastPublicCommentAt: 500,
+        hydrationFailed: false,
+        statusName: "Open",
+        ...overrides,
+      };
+    }
+
+    function seedList(rows: ConversationRowVM[]) {
+      client.setQueryData(listKey, {
+        pages: [
+          {
+            rows,
+            pageNumber: 0,
+            totalPages: 1,
+            totalSize: rows.length,
+            numberOfElements: rows.length,
+          },
+        ],
+        pageParams: [0],
+      });
+    }
+
+    type ListCache = {
+      pages: { rows: ConversationRowVM[] }[];
+    };
+
+    beforeEach(() => {
+      jest.spyOn(client, "refetchQueries").mockResolvedValue(undefined as never);
+    });
+
+    it("regression 1: solve patches the row's status/badge in the list AND leaves the list isInvalidated (new state visible on return)", async () => {
+      store.activateSession(1, "SIDE-1");
+      const solve = store.setSolved({
+        tenantId: "tenant-1",
+        parentKey: "PARENT-1",
+        sideKey: "SIDE-1",
+        sessionKey: 1,
+        solved: false,
+      });
+      if (!solve) throw new Error("solve envelope missing");
+      mockedPatchTicket.mockResolvedValue({ key: "SIDE-1" });
+
+      seedList([makeRow()]);
+      const beforePatch = client.getQueryState(listKey);
+
+      client.setQueryData(detailKey, {
+        sideKey: "SIDE-1",
+        recipientLabel: "Vendor",
+        subject: "Konu",
+        lifecycle: "solved",
+        solved: true,
+        reopenable: true,
+        messages: [
+          {
+            id: "comment-1",
+            direction: "incoming",
+            body: "<p>Yeni son mesaj</p>",
+            status: "sent",
+            createdAt: 2_000,
+            internal: false,
+          },
+        ],
+        latestRelevantExternalAt: 2_000,
+      });
+
+      await executeStatusMutation(client, boundary(), solve);
+
+      const patched = client.getQueryData<ListCache>(listKey);
+      expect(patched?.pages[0].rows[0]).toMatchObject({
+        key: "SIDE-1",
+        lifecycle: "solved",
+        actionBadge: null,
+        summary: "Yeni son mesaj",
+        statusName: "Solved",
+        hasUnseen: false,
+      });
+
+      const afterPatch = client.getQueryState(listKey);
+      // B1: isInvalidated survives the patch (setQueryData clears it,
+      // invalidateQueries(refetchType:"none") sets it again right after —
+      // this is the sıralama tuzağı regression lock).
+      expect(afterPatch?.isInvalidated).toBe(true);
+      expect(afterPatch?.dataUpdatedAt).toBe(beforePatch?.dataUpdatedAt);
+    });
+
+    it("regression 2: a reply patches the list row's preview text and last-activity timestamp", async () => {
+      store.activateSession(1, "SIDE-1");
+      const reply = replyEnvelope();
+      mockedReplyTicket.mockResolvedValue({ key: "SIDE-1" });
+
+      seedList([makeRow({ summary: "Eski önizleme" })]);
+
+      client.setQueryData(detailKey, {
+        sideKey: "SIDE-1",
+        recipientLabel: "Vendor",
+        subject: "Konu",
+        lifecycle: "open",
+        solved: false,
+        reopenable: false,
+        messages: [
+          {
+            id: "comment-1",
+            direction: "incoming",
+            body: "<p>Eski</p>",
+            status: "sent",
+            createdAt: 500,
+            internal: false,
+          },
+          {
+            id: "comment-2",
+            direction: "own",
+            body: "<p>Taze önizleme</p>",
+            status: "sent",
+            createdAt: 3_000,
+            internal: false,
+          },
+        ],
+        latestRelevantExternalAt: null,
+      });
+
+      await executeReplyMutation(client, boundary(), reply);
+
+      const patched = client.getQueryData<ListCache>(listKey);
+      expect(patched?.pages[0].rows[0]).toMatchObject({
+        summary: "Taze önizleme",
+        lastPublicCommentAt: 3_000,
+      });
+    });
+
+    it("regression 4: leaves the list cache reference unchanged when the row isn't in any cached page — invalidate still stale-marks it so a session-fresh conversation appears on the next remount", async () => {
+      store.activateSession(1, "SIDE-1");
+      const reply = replyEnvelope();
+      mockedReplyTicket.mockResolvedValue({ key: "SIDE-1" });
+
+      // "SIDE-1" (the mutated conversation) is deliberately absent — this is
+      // the shape of a conversation created THIS session that the list has
+      // never fetched.
+      seedList([makeRow({ key: "SIDE-OTHER" })]);
+      const before = client.getQueryData(listKey);
+
+      client.setQueryData(detailKey, {
+        sideKey: "SIDE-1",
+        recipientLabel: "Vendor",
+        subject: "Konu",
+        lifecycle: "open",
+        solved: false,
+        reopenable: false,
+        messages: [],
+        latestRelevantExternalAt: null,
+      });
+
+      await executeReplyMutation(client, boundary(), reply);
+
+      const after = client.getQueryData(listKey);
+      // React Query's setQueryData no-ops (no dispatch) when the updater
+      // returns undefined — the cache object stays byte-identical, never a
+      // fabricated row (T-itv-01).
+      expect(after).toBe(before);
+      expect(client.getQueryState(listKey)?.isInvalidated).toBe(true);
+    });
   });
 });
 

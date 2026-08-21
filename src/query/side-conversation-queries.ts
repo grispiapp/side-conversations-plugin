@@ -1,5 +1,6 @@
 import { sideConversationKeys } from "./query-keys";
 import {
+  InfiniteData,
   QueryClient,
   infiniteQueryOptions,
   queryOptions,
@@ -44,6 +45,7 @@ import {
   ConversationRowVM,
   RECIPIENT_UNKNOWN_PLACEHOLDER,
   dedupeAndSortConversationRows,
+  patchConversationRowFromDetail,
   projectConversationRow,
 } from "@/store/side-conversations-store";
 import {
@@ -115,7 +117,6 @@ function requireIdentity(value: string | null, identityName: string): string {
 }
 
 async function hydrateSummaries(
-  tenantId: string,
   summaries: SideTicketSummary[]
 ): Promise<ConversationRowVM[]> {
   const hydration = await Promise.allSettled(
@@ -123,7 +124,6 @@ async function hydrateSummaries(
   );
   let rows = hydration.map((outcome, index) =>
     projectConversationRow(
-      tenantId,
       summaries[index],
       outcome.status === "fulfilled" ? outcome.value : null
     )
@@ -143,7 +143,6 @@ async function hydrateSummaries(
       if (outcome.status !== "fulfilled") return;
       const rowIndex = failedIndexes[repairIndex];
       repairedRows[rowIndex] = projectConversationRow(
-        tenantId,
         summaries[rowIndex],
         outcome.value
       );
@@ -183,7 +182,6 @@ async function hydrateSummaries(
 }
 
 async function fetchSideConversationPage(
-  tenantId: string,
   parentKey: string,
   page: number
 ): Promise<SideConversationListPage> {
@@ -201,7 +199,7 @@ async function fetchSideConversationPage(
       },
       { size: SIDE_CONVERSATION_PAGE_SIZE, page }
     );
-  const rows = await hydrateSummaries(tenantId, response.content);
+  const rows = await hydrateSummaries(response.content);
 
   return {
     rows,
@@ -219,9 +217,13 @@ export function sideConversationListOptions(
   return infiniteQueryOptions({
     queryKey: sideConversationKeys.list(tenantId, parentKey),
     queryFn: ({ pageParam }) => {
+      // Task 2 (B2): tenantId is validated here (the "identity resolved
+      // before querying" invariant) but no longer THREADED into the
+      // fetch/projection chain below — nothing in it reads localStorage
+      // anymore, and dropping the parameter makes that structurally true
+      // rather than a convention someone could quietly break again.
       requireIdentity(tenantId, "tenantId");
       return fetchSideConversationPage(
-        tenantId!,
         requireIdentity(parentKey, "parentKey"),
         pageParam
       );
@@ -331,10 +333,19 @@ export function useSideConversationDetailQuery(
         scrollTargetMessageId
       );
     }
+    // B1 (Task 2): stale-mark only. `isInvalidated` survives `staleTime`
+    // (query-core's isStaleByTime checks it first), so the list refetches
+    // exactly once — the next time the agent actually looks at it (a real
+    // unmount/remount, see app.tsx) — instead of an eager advanced-search +
+    // per-row getTicket N+1 while the agent is still reading this detail,
+    // or even while the list screen isn't mounted at all ("all" used to
+    // fetch it either way). Do not "clean up" this call — it is what turns
+    // the freshly-read unread dot back off on next visit (D-16/render-time
+    // hasUnseen, side-conversations-store.ts).
     void queryClient.invalidateQueries({
       queryKey: sideConversationKeys.list(tenantId, parentKey),
       exact: true,
-      refetchType: "all",
+      refetchType: "none",
     });
   }, [
     activeConversation,
@@ -583,17 +594,41 @@ function errorKind(error: unknown): "network" | "server" {
   return error instanceof NetworkError ? "network" : "server";
 }
 
+/**
+ * B3 (Task 2) — locates the one list row matching `sideKey` across every
+ * cached page and returns a new cache object with only that row replaced.
+ * Returns `undefined` (query-core's "no-op, don't dispatch" signal —
+ * queryClient.js's setQueryData) when the row isn't in any cached page:
+ * a session-fresh conversation the list has never seen must NOT become a
+ * fabricated row here (T-itv-01) — it arrives for real via the invalidate
+ * this patch runs alongside, on the list's next remount.
+ */
+function patchConversationListCache(
+  previous: InfiniteData<SideConversationListPage> | undefined,
+  sideKey: string,
+  detail: SideConversationDetail
+): InfiniteData<SideConversationListPage> | undefined {
+  if (!previous) return undefined;
+
+  let found = false;
+  const pages = previous.pages.map((page) => {
+    const rowIndex = page.rows.findIndex((row) => row.key === sideKey);
+    if (rowIndex === -1) return page;
+    found = true;
+    const rows = [...page.rows];
+    rows[rowIndex] = patchConversationRowFromDetail(rows[rowIndex], detail);
+    return { ...page, rows };
+  });
+
+  return found ? { ...previous, pages } : undefined;
+}
+
 async function refreshCanonicalAfterMutation(
   queryClient: QueryClient,
   boundary: MutationBoundary,
   envelope: MutationEnvelope,
   sideKey: string
 ): Promise<void> {
-  await queryClient.invalidateQueries({
-    queryKey: sideConversationKeys.list(envelope.tenantId, envelope.parentKey),
-    exact: true,
-    refetchType: "all",
-  });
   if (!isCurrent(boundary, envelope, sideKey)) return;
 
   const detailKey = sideConversationKeys.detail(envelope.tenantId, sideKey);
@@ -615,6 +650,33 @@ async function refreshCanonicalAfterMutation(
     });
   }
   if (!isCurrent(boundary, envelope, sideKey)) return;
+
+  // B3 — patch the one list row from the fresh detail BEFORE invalidating.
+  // `setQueryData` clears the list query's `isInvalidated` flag (query-core
+  // successState), so invalidate MUST run after it, never before: the
+  // reverse order would leave the list "fresh but only partially patched"
+  // for a full `staleTime`, silently skipping its next remount refetch.
+  const listKey = sideConversationKeys.list(
+    envelope.tenantId,
+    envelope.parentKey
+  );
+  const listQueryState =
+    queryClient.getQueryState<InfiniteData<SideConversationListPage>>(
+      listKey
+    );
+  queryClient.setQueryData<InfiniteData<SideConversationListPage>>(
+    listKey,
+    (previous: InfiniteData<SideConversationListPage> | undefined) =>
+      patchConversationListCache(previous, sideKey, detail!),
+    { updatedAt: listQueryState?.dataUpdatedAt }
+  );
+  // B1 — stale-mark only; see the detail effect's own invalidate above for
+  // why this never fetches on its own.
+  void queryClient.invalidateQueries({
+    queryKey: listKey,
+    exact: true,
+    refetchType: "none",
+  });
 
   boundary.activeConversation.reconcileCanonical(
     envelope.sessionKey,

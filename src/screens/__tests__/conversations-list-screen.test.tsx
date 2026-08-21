@@ -45,7 +45,7 @@ function projectedClosedRow() {
     comments: [],
     fieldMap: {},
   } as unknown as Ticket;
-  return projectConversationRow("tenant-1", summary, ticket);
+  return projectConversationRow(summary, ticket);
 }
 
 let container: HTMLDivElement;
