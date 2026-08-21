@@ -7,8 +7,8 @@ current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 status: verifying
 stopped_at: Phase 04.2 executed 8/8 — verification gaps_found (SC1/SC9)
 last_updated: "2026-08-17T16:59:04.355Z"
-last_activity: 2026-08-17
-last_activity_desc: gap planlama tamam; gereklilik 9/9, karar 23/23, post-planning gap 32/32
+last_activity: 2026-08-21
+last_activity_desc: "quick 260821-itv: sohbet ekranına manuel Yenile + gereksiz liste refetch temizliği; test 564/564"
 progress:
   total_phases: 8
   completed_phases: 7
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTED, UAT BEKLİYOR
 Plan: 10 of 10 (04.2-09, 04.2-10 gap kapanışı tamamlandı)
 Status: Doğrulama `human_needed`, 8/9 must-have (5/9 → 8/9). SC1 KAPANDI — `assertSideConversationLink` artık `isCurrent` kapısının önünde ve her dönüş yolunda await ediliyor. SC9'un "yazma her zaman denenir" yarısı kapandı; "alan gerçekten kalıcı olur" yarısı canlı ölçüm bekliyor. Sıradaki: `/gsd-verify-work 04.2` (7 madde)
-Last activity: 2026-08-17 — gap kapanışı yürütüldü (09, 10); test 527/527, D-22'nin gerekçe hatası düzeltildi
+Last activity: 2026-08-21 — quick 260821-itv: sohbet ekranına manuel `Yenile` + gereksiz liste refetch'lerinin temizliği; test 564/564. (Phase 04.2 doğrulaması hâlâ `human_needed` — sıradaki iş değişmedi.)
 
 **SC9 kalan risk (kullanıcı kararı 2026-08-17 — bilinçli olarak canlı UAT'a bırakıldı):** mutlu yolda `tu.side_conversation_parent` yalnızca `/v2` PATCH'inin `fields` dizisiyle yazılıyor ve bu mekanizma hiç probe edilmedi; kanıtlanmış `public/v1` fields-only PATCH'i yalnızca `catch`'te. Aynı `/v2` yüzeyi POST'ta bu alanı 2/2 düşürmüştü. Ayrıntı + düzeltme reçetesi: `04.2-UAT.md` madde 7, `04.2-REVIEW-GAPS.md` CR-01, CONTEXT.md'deki D-22 düzeltme notu.
 
@@ -219,6 +219,7 @@ None yet.
 | 260810-m8f | Repo-as-host deploy: track build/, disable source maps (.env.production), manifest URL → /build/ | 2026-08-10 | 35b15e7 | [260810-m8f-ship-build-output-from-the-repo-untrack-](./quick/260810-m8f-ship-build-output-from-the-repo-untrack-/) |
 | 260817-tn1 | CR-02: standalone dev agent kimliği JWT `sub` claim'inden türetiliyor; hardcoded `DEFAULT_DEV_AGENT_EMAIL`/`NAME` sabitleri kaldırıldı | 2026-08-17 | c6ea10a | [260817-tn1-standalone-dev-de-agent-kimligini-jwt-su](./quick/260817-tn1-standalone-dev-de-agent-kimligini-jwt-su/) |
 | 260821-p3c | İlişki field key'i `tu.side_conversation_parent` → `tp.side_conversation_parent`; dahili notlar `comment.channel` "WEB" yerine "INTEGRATION" gönderiyor | 2026-08-21 | 263bbf8 | — (gsd-fast, inline) |
+| 260821-itv | Sohbet ekranına manuel `Yenile` (menüde ilk sıra) + gereksiz liste refetch'lerinin temizliği; canlı ölçüm: konuşma açmak 5→1, çöz 10→2 istek | 2026-08-21 | fd8f948 | [260821-itv-chat-ekranina-manuel-yenileme-gereksiz-i](./quick/260821-itv-chat-ekranina-manuel-yenileme-gereksiz-i/) |
 
 ### Roadmap Evolution
 
