@@ -281,6 +281,53 @@ describe("GrispiProvider — WR-01 pre-bootstrap SDK ticket-update gate", () => 
 
     consoleErrorSpy.mockRestore();
   });
+
+  it("Task 3: logs the payload diagnostic exactly once, still calls getTicket exactly once with the event's key, and never throws on a fieldMap-less ticket", async () => {
+    const consoleInfoSpy = jest
+      .spyOn(console, "info")
+      .mockImplementation(() => {});
+
+    const bundle = makeBundle();
+    const { pluginStub, resolveInit } = makeDeferredPluginStub(bundle);
+    const loaded = loadGrispiProvider(pluginStub);
+
+    renderProvider(loaded, loaded.react.createElement("div", null, "child"));
+
+    await activeAct!(async () => {
+      await resolveInit();
+      await Promise.resolve();
+    });
+
+    mockGetTicket.mockClear();
+    consoleInfoSpy.mockClear();
+
+    // No `fieldMap` on this payload at all — the diagnostic must degrade
+    // to hasFieldMap:false/fieldMapKeyCount:0 rather than throw.
+    await expect(
+      activeAct!(async () => {
+        pluginStub.currentTicketUpdated!(makeTicket("DIAGNOSTIC-TICKET"));
+        await Promise.resolve();
+      })
+    ).resolves.not.toThrow();
+
+    const diagnosticCalls = consoleInfoSpy.mock.calls.filter(
+      (call) => call[1] === "currentTicketUpdated payload diagnostic"
+    );
+    expect(diagnosticCalls).toHaveLength(1);
+    expect(diagnosticCalls[0][2]).toMatchObject({
+      hasFieldMap: false,
+      fieldMapKeyCount: 0,
+      hasParentField: false,
+    });
+    expect(diagnosticCalls[0][2].keys).toContain("key");
+
+    // switchTicket's own behavior is untouched — one getTicket call, with
+    // the event's ticket key.
+    expect(mockGetTicket).toHaveBeenCalledTimes(1);
+    expect(mockGetTicket).toHaveBeenCalledWith("DIAGNOSTIC-TICKET");
+
+    consoleInfoSpy.mockRestore();
+  });
 });
 
 describe("GrispiProvider — standalone mode context values (D-07/D-13)", () => {

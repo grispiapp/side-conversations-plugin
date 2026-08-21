@@ -15,6 +15,7 @@ import {
   StandaloneDevConfig,
   getStandaloneDevConfig,
 } from "@/lib/standalone-dev";
+import { SIDE_CONVERSATION_PARENT_FIELD_KEY } from "@/lib/side-conversation";
 import { Settings, Ticket } from "@/types/grispi.type";
 
 import { bootstrapPluginInit } from "./plugin-bootstrap";
@@ -239,6 +240,37 @@ export const GrispiProvider: React.FC<{
     });
 
     plugin.currentTicketUpdated = async (ticket: Ticket) => {
+      // Task 3 (behavior-neutral diagnostic, UNVERIFIED hypothesis): reports
+      // the SDK payload's real shape so a live Grispi session can prove or
+      // disprove whether it already carries `fieldMap` — if it does, the
+      // `getTicket` call below may be skippable. Placed before the
+      // environment gate on purpose: events dropped by that gate are still
+      // diagnostically interesting. Never throws — every access here is
+      // defensive, even against a null/malformed payload.
+      try {
+        const payload = ticket as Ticket | null | undefined;
+        const keys =
+          payload && typeof payload === "object" ? Object.keys(payload) : [];
+        const fieldMap = payload?.fieldMap;
+        const hasFieldMap = Boolean(fieldMap);
+        console.info(
+          "grispi-context",
+          "currentTicketUpdated payload diagnostic",
+          {
+            keys,
+            hasFieldMap,
+            fieldMapKeyCount: hasFieldMap
+              ? Object.keys(fieldMap as object).length
+              : 0,
+            hasParentField:
+              hasFieldMap &&
+              SIDE_CONVERSATION_PARENT_FIELD_KEY in (fieldMap as object),
+          }
+        );
+      } catch {
+        // Diagnostic must never disturb the real handler below.
+      }
+
       // WR-01 (04.1-REVIEW.md) / CORE-04 — the handler stays registered
       // synchronously (a handler that exists but no-ops is always safe for
       // the SDK to invoke; registering it late would leave a window where
