@@ -135,6 +135,7 @@ function makeDetail(overrides: Record<string, unknown> = {}) {
       latestRelevantExternalAt: 1_000,
     },
     isPending: false,
+    isFetching: false,
     isError: false,
     error: null,
     refetch: jest.fn(),
@@ -460,9 +461,11 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(trigger?.getAttribute("aria-haspopup")).toBe("menu");
 
     click("Konuşma seçenekleri");
+    // Menü açılış odağı artık türetilmiş sıranın ilk öğesini (Yenile) hedef
+    // alıyor — bu test o sözleşmeyi sabitliyor.
     const item =
       container.querySelector<HTMLButtonElement>('[role="menuitem"]');
-    expect(item?.textContent).toBe("Çözüldü olarak işaretle");
+    expect(item?.textContent).toBe("Yenile");
     expect(document.activeElement).toBe(item);
     expect(item?.className).toContain("min-h-11");
 
@@ -653,6 +656,194 @@ describe("ChatScreen Query-owned session wiring", () => {
     expect(
       mockStore.panelNavigation.confirmDiscardReplyAndReturnToList
     ).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ChatScreen refresh menu item (Task 1: manual detail refetch)", () => {
+  it("puts Yenile first, calls detail.refetch() exactly once on click, closes the menu and refocuses the trigger", () => {
+    const refetch = jest.fn();
+    mockDetail = makeDetail({ refetch });
+    render(<ChatScreen />);
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Konuşma seçenekleri"]'
+    );
+    click("Konuşma seçenekleri");
+    const first =
+      container.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    expect(first?.textContent).toBe("Yenile");
+    expect(first?.getAttribute("aria-label")).toBe("Konuşmayı yenile");
+
+    click("Yenile");
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("disables Yenile and spins the trigger icon while a fetch is in flight, even after the menu closes", () => {
+    mockDetail = makeDetail({ isFetching: true });
+    render(<ChatScreen />);
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Konuşma seçenekleri"]'
+    );
+    expect(trigger?.querySelector("svg")?.getAttribute("class")).toContain(
+      "animate-spin"
+    );
+
+    click("Konuşma seçenekleri");
+    const yenile = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+    ).find((el) => el.textContent === "Yenile");
+    expect(yenile?.disabled).toBe(true);
+
+    act(() => {
+      document.body.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true })
+      );
+    });
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+    // Feedback survives menu close — the trigger is the only channel left.
+    expect(trigger?.querySelector("svg")?.getAttribute("class")).toContain(
+      "animate-spin"
+    );
+  });
+
+  it("shows the static dots icon and an enabled Yenile item once no fetch is in flight", () => {
+    render(<ChatScreen />);
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Konuşma seçenekleri"]'
+    );
+    expect(trigger?.querySelector("svg")?.getAttribute("class")).not.toContain(
+      "animate-spin"
+    );
+
+    click("Konuşma seçenekleri");
+    const yenile = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+    ).find((el) => el.textContent === "Yenile");
+    expect(yenile?.disabled).toBe(false);
+  });
+
+  it("never renders Yenile while sideKey is null (no conversation created yet)", () => {
+    mockStore.panelNavigation.selectedConversation = {
+      ticketKey: null,
+      parentKey: "PARENT-7",
+      sessionKey: 8,
+    };
+    mockDetail = makeDetail({ data: undefined });
+    render(<ChatScreen />);
+
+    click("Konuşma seçenekleri");
+    expect(
+      Array.from(
+        container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+      ).some((el) => el.textContent === "Yenile")
+    ).toBe(false);
+    expect(
+      container.querySelector('[aria-label="Üst talebe git: PARENT-7"]')
+    ).not.toBeNull();
+  });
+
+  it("keeps the trigger enabled and offers Yenile on a closed conversation even without a resolvable parent URL", () => {
+    mockStore.panelNavigation.selectedConversation = {
+      ticketKey: "SC-42",
+      parentKey: null,
+      sessionKey: 8,
+    };
+    mockDetail = makeDetail({
+      data: {
+        ...makeDetail().data,
+        lifecycle: "closed",
+        solved: true,
+        reopenable: false,
+      },
+    });
+    render(<ChatScreen />);
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Konuşma seçenekleri"]'
+    );
+    expect(trigger?.disabled).toBe(false);
+
+    click("Konuşma seçenekleri");
+    expect(
+      Array.from(
+        container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+      ).map((el) => el.textContent)
+    ).toEqual(["Yenile"]);
+  });
+
+  it("derives keyboard order from the menu items array: ArrowDown/ArrowUp wrap and Home/End jump across all three items", () => {
+    render(<ChatScreen />);
+    click("Konuşma seçenekleri");
+
+    const items = Array.from(
+      container.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    );
+    expect(items.map((el) => el.getAttribute("aria-label"))).toEqual([
+      "Konuşmayı yenile",
+      "Çözüldü olarak işaretle",
+      "Üst talebe git: PARENT-7",
+    ]);
+
+    act(() => {
+      items[0].dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(document.activeElement).toBe(items[1]);
+
+    act(() => {
+      items[1].dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(document.activeElement).toBe(items[2]);
+
+    act(() => {
+      items[2].dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(document.activeElement).toBe(items[0]);
+
+    act(() => {
+      items[0].dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowUp",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(document.activeElement).toBe(items[2]);
+
+    act(() => {
+      items[2].dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Home", bubbles: true, cancelable: true })
+      );
+    });
+    expect(document.activeElement).toBe(items[0]);
+
+    act(() => {
+      items[0].dispatchEvent(
+        new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true })
+      );
+    });
+    expect(document.activeElement).toBe(items[2]);
   });
 });
 

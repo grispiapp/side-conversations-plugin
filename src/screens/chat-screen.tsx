@@ -317,10 +317,13 @@ export const ChatScreen = observer(() => {
       : null;
   const lifecycleActionLabel = solved ? "Tekrar aç" : "Çözüldü olarak işaretle";
 
-  // The "..." menu's two independent capabilities. Kept separate so a closed
-  // conversation still offers parent navigation (2026-08-17 live UAT).
+  // The "..." menu's three independent capabilities. Kept separate so a
+  // closed conversation still offers parent navigation (2026-08-17 live UAT)
+  // and so a not-yet-created conversation simply omits refresh.
   const canLifecycleAction =
     Boolean(sideKey) && !detail.isPending && !detail.isError && !closed;
+  const canRefresh = Boolean(sideKey);
+  const refreshBusy = detail.isPending || detail.isFetching;
   const parentUrl =
     parentKey && tenantId && environment
       ? buildAgentTicketUrl(tenantId, environment, parentKey)
@@ -329,6 +332,14 @@ export const ChatScreen = observer(() => {
   // Arrow/Home/End cycling needs a real item list once the menu holds more
   // than one entry; a single shared ref could only ever refocus itself.
   const menuItemRefs = useRef<(HTMLElement | null)[]>([]);
+  // Single source of truth for both render order and keyboard index math —
+  // a fourth item can never silently desync `menuItemRefs.current[N]`.
+  const menuItems: Array<"refresh" | "lifecycle" | "parent"> = [
+    ...(canRefresh ? (["refresh"] as const) : []),
+    ...(canLifecycleAction ? (["lifecycle"] as const) : []),
+    ...(canGoParent ? (["parent"] as const) : []),
+  ];
+  menuItemRefs.current.length = menuItems.length;
   const handleMenuItemKeyDown = (
     event: React.KeyboardEvent<HTMLElement>,
     index: number
@@ -396,17 +407,24 @@ export const ChatScreen = observer(() => {
                 aria-label="Konuşma seçenekleri"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                // Menüde artık iki eylem var; tetik yalnızca İKİSİ de
+                // Menüde artık üç eylem var; tetik yalnızca ÜÇÜ de
                 // kullanılamazken kapanır. Eskiden yaşam-döngüsü koşulları
                 // tetikte duruyordu, bu da kapalı bir konuşmada üst talebe
                 // gitmeyi imkânsız kılardı.
-                disabled={!canLifecycleAction && !canGoParent}
+                disabled={!canRefresh && !canLifecycleAction && !canGoParent}
                 onClick={() => {
                   if (menuOpen) closeMenu();
                   else setMenuOpen(true);
                 }}
               >
-                <DotsHorizontalIcon className="size-5" aria-hidden="true" />
+                {detail.isFetching ? (
+                  <ReloadIcon
+                    className="size-5 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <DotsHorizontalIcon className="size-5" aria-hidden="true" />
+                )}
               </Button>
 
               {menuOpen && (
@@ -422,17 +440,51 @@ export const ChatScreen = observer(() => {
                     closeMenu(false);
                   }}
                 >
+                  {/* Liste ekranında ikon düğmesi, burada menü öğesi olmasının
+                      nedeni header genişliği: ~280px panelde başlık alanı
+                      172px, üçüncü bir 40px ikon düğmesi onu 132px'e
+                      düşürür — 2026-08-17 UAT'ının üst talep chip'ini bu
+                      header'dan çıkarmasına yol açan aynı sıkışma. Asimetri
+                      kasıtlıdır. */}
+                  {canRefresh && (
+                    <button
+                      ref={(node) => {
+                        menuItemRefs.current[menuItems.indexOf("refresh")] =
+                          node;
+                      }}
+                      type="button"
+                      role="menuitem"
+                      aria-label="Konuşmayı yenile"
+                      disabled={refreshBusy}
+                      className="min-h-11 w-full rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
+                      onKeyDown={(event) =>
+                        handleMenuItemKeyDown(event, menuItems.indexOf("refresh"))
+                      }
+                      onClick={() => {
+                        closeMenu();
+                        void detail.refetch();
+                      }}
+                    >
+                      Yenile
+                    </button>
+                  )}
                   {canLifecycleAction && (
                     <button
                       ref={(node) => {
-                        menuItemRefs.current[0] = node;
+                        menuItemRefs.current[menuItems.indexOf("lifecycle")] =
+                          node;
                       }}
                       type="button"
                       role="menuitem"
                       aria-label={lifecycleActionLabel}
                       disabled={activeConversation.lifecyclePending !== null}
                       className="min-h-11 w-full rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
-                      onKeyDown={(event) => handleMenuItemKeyDown(event, 0)}
+                      onKeyDown={(event) =>
+                        handleMenuItemKeyDown(
+                          event,
+                          menuItems.indexOf("lifecycle")
+                        )
+                      }
                       onClick={() => {
                         closeMenu();
                         if (!lifecycleParams) return;
@@ -454,7 +506,8 @@ export const ChatScreen = observer(() => {
                     // only from trusted tenant + resolved environment).
                     <a
                       ref={(node) => {
-                        menuItemRefs.current[canLifecycleAction ? 1 : 0] = node;
+                        menuItemRefs.current[menuItems.indexOf("parent")] =
+                          node;
                       }}
                       role="menuitem"
                       href={parentUrl}
@@ -463,7 +516,10 @@ export const ChatScreen = observer(() => {
                       aria-label={`Üst talebe git: ${parentKey}`}
                       className="flex min-h-11 w-full items-center justify-between gap-2 rounded px-3 py-2 text-left text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                       onKeyDown={(event) =>
-                        handleMenuItemKeyDown(event, canLifecycleAction ? 1 : 0)
+                        handleMenuItemKeyDown(
+                          event,
+                          menuItems.indexOf("parent")
+                        )
                       }
                       onClick={() => closeMenu(false)}
                     >
