@@ -218,6 +218,7 @@ None yet.
 | 260810-l0t | Rename UI vocabulary görüşme → konuşma (product name "Yan Görüşmeler" → "Yan Konuşmalar"; yazışma was an intermediate step, superseded) | 2026-08-10 | cf3b68d | [260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan](./quick/260810-l0t-rename-ui-vocabulary-gorusme-yazisma-yan/) |
 | 260810-m8f | Repo-as-host deploy: track build/, disable source maps (.env.production), manifest URL → /build/ | 2026-08-10 | 35b15e7 | [260810-m8f-ship-build-output-from-the-repo-untrack-](./quick/260810-m8f-ship-build-output-from-the-repo-untrack-/) |
 | 260817-tn1 | CR-02: standalone dev agent kimliği JWT `sub` claim'inden türetiliyor; hardcoded `DEFAULT_DEV_AGENT_EMAIL`/`NAME` sabitleri kaldırıldı | 2026-08-17 | c6ea10a | [260817-tn1-standalone-dev-de-agent-kimligini-jwt-su](./quick/260817-tn1-standalone-dev-de-agent-kimligini-jwt-su/) |
+| 260821-p3c | İlişki field key'i `tu.side_conversation_parent` → `tp.side_conversation_parent`; dahili notlar `comment.channel` "WEB" yerine "INTEGRATION" gönderiyor | 2026-08-21 | 263bbf8 | — (gsd-fast, inline) |
 
 ### Roadmap Evolution
 
