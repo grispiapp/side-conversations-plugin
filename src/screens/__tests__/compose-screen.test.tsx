@@ -5,6 +5,8 @@ import { Root, createRoot } from "react-dom/client";
 
 const mockCreateMutate = jest.fn();
 let mockStore: any;
+/** Mutable so a test can hand ComposeScreen a hydrated, branded parent. */
+let mockTicket: any;
 
 jest.mock("@/contexts/store-context", () => ({
   useStore: () => mockStore,
@@ -14,7 +16,7 @@ jest.mock("@/contexts/grispi-context", () => ({
   useGrispi: () => ({
     tenantId: "tenant-1",
     agentEmail: "agent@example.test",
-    ticket: { key: "PARENT-LIVE" },
+    ticket: mockTicket,
   }),
 }));
 
@@ -62,6 +64,9 @@ describe("ComposeScreen create mutation wiring", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     mockCreateMutate.mockReset();
+    // Provisional (field-map-less) parent by default — the same shape
+    // switchTicket sets before hydration completes.
+    mockTicket = { key: "PARENT-LIVE" };
     const createdEnvelope = { kind: "create", clientMessageId: "msg-create" };
     mockStore = {
       compose: {
@@ -129,7 +134,8 @@ describe("ComposeScreen create mutation wiring", () => {
         "agent@example.test",
         "PARENT-LIVE",
         13,
-        []
+        [],
+        null
       );
       const returnedEnvelope =
         await mockStore.compose.submit.mock.results[0].value;
@@ -139,6 +145,24 @@ describe("ComposeScreen create mutation wiring", () => {
       expect(mockCreateMutate).toHaveBeenCalledWith(returnedEnvelope);
     }
   );
+
+  it("forwards the hydrated parent's brand id to submit (quick-260902-dhy)", async () => {
+    mockTicket = {
+      key: "PARENT-LIVE",
+      fieldMap: { "ts.brand": { key: "ts.brand", value: "7" } },
+    };
+    act(() => root.render(<ComposeScreen />));
+    await click("Gönder");
+
+    expect(mockStore.compose.submit).toHaveBeenCalledWith(
+      "tenant-1",
+      "agent@example.test",
+      "PARENT-LIVE",
+      13,
+      [],
+      "7"
+    );
+  });
 
   it("guards same-tick double submit before reserving a second pending session", async () => {
     let resolveSubmit!: (value: unknown) => void;

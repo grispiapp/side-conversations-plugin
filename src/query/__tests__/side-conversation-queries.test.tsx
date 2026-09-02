@@ -3,9 +3,10 @@ import { ReactElement, act } from "react";
 import { Root, createRoot } from "react-dom/client";
 
 import { grispiAPI } from "@/grispi/client/api";
-import { NetworkError } from "@/grispi/client/http-handler";
+import { HttpError, NetworkError } from "@/grispi/client/http-handler";
 import {
   SIDE_CONVERSATION_PARENT_FIELD_KEY,
+  TICKET_BRAND_FIELD_KEY,
   formatInternalNoteBody,
 } from "@/lib/side-conversation";
 import { createTestQueryClient } from "@/query/query-client";
@@ -1168,6 +1169,143 @@ describe("canonical detail and mutation executors", () => {
     expect(selected.ticketKey).toBe("SIDE-B");
     expect(invalidate).not.toHaveBeenCalled();
     expect(store.getOverlayMessages(2, "SIDE-B")).toEqual([]);
+  });
+
+  describe("executeCreateMutation → disabled-brand fallback (quick-260902-dhy)", () => {
+    function brandedEnvelope(brandId: string | null = "7") {
+      selected = { ticketKey: null, parentKey: "PARENT-1", sessionKey: 1 };
+      return store.startNew({
+        tenantId: "tenant-1",
+        parentKey: "PARENT-1",
+        sessionKey: 1,
+        recipientLabel: "Vendor",
+        subject: "Konu",
+        body: "<p>Merhaba</p>",
+        request: {
+          comment: {
+            body: "<p>Merhaba</p>",
+            publicVisible: true,
+            creator: [{ key: "us.email", value: "agent@example.test" }],
+          },
+          fields: [
+            { key: SIDE_CONVERSATION_PARENT_FIELD_KEY, value: "PARENT-1" },
+            ...(brandId
+              ? [{ key: TICKET_BRAND_FIELD_KEY, value: brandId }]
+              : []),
+          ],
+        },
+      });
+    }
+
+    let consoleWarnSpy: jest.SpyInstance;
+    let consoleErrorSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      mockedAddInternalNote.mockResolvedValue({ key: "SIDE-9" });
+      jest.spyOn(client, "invalidateQueries").mockResolvedValue();
+      jest.spyOn(client, "refetchQueries").mockResolvedValue(undefined as never);
+      consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleWarnSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("retries once without ts.brand when the server rejects the brand with 422", async () => {
+      mockedCreateTicket
+        .mockRejectedValueOnce(
+          new HttpError(422, {
+            message: "Brand 'Adres 2' is disabled and cannot be set on a ticket.",
+          })
+        )
+        .mockResolvedValueOnce(makeTicket("SIDE-9"));
+      const envelope = brandedEnvelope("2");
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      expect(mockedCreateTicket).toHaveBeenCalledTimes(2);
+      expect(mockedCreateTicket.mock.calls[0][0].fields).toContainEqual({
+        key: TICKET_BRAND_FIELD_KEY,
+        value: "2",
+      });
+      expect(
+        mockedCreateTicket.mock.calls[1][0].fields.some(
+          (field: { key: string }) => field.key === TICKET_BRAND_FIELD_KEY
+        )
+      ).toBe(false);
+      // Everything else survives the retry untouched.
+      expect(mockedCreateTicket.mock.calls[1][0].fields).toContainEqual({
+        key: SIDE_CONVERSATION_PARENT_FIELD_KEY,
+        value: "PARENT-1",
+      });
+      expect(store.getOverlayMessages(1, "SIDE-9")[0]).toMatchObject({
+        status: "sent",
+        errorKind: undefined,
+      });
+    });
+
+    it("leaves the envelope's own request intact so a manual retry replays the brand", async () => {
+      mockedCreateTicket
+        .mockRejectedValueOnce(new HttpError(422, { message: "disabled" }))
+        .mockResolvedValueOnce(makeTicket("SIDE-9"));
+      const envelope = brandedEnvelope("2");
+
+      await executeCreateMutation(client, boundary(), envelope);
+
+      expect(envelope.request.fields).toContainEqual({
+        key: TICKET_BRAND_FIELD_KEY,
+        value: "2",
+      });
+    });
+
+    it("does not retry when the request carries no brand", async () => {
+      mockedCreateTicket.mockRejectedValue(
+        new HttpError(422, { message: "Subject is required" })
+      );
+      const envelope = brandedEnvelope(null);
+
+      await expect(
+        executeCreateMutation(client, boundary(), envelope)
+      ).rejects.toBeInstanceOf(HttpError);
+
+      expect(mockedCreateTicket).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry on a non-422 status", async () => {
+      mockedCreateTicket.mockRejectedValue(new HttpError(500, null));
+
+      await expect(
+        executeCreateMutation(client, boundary(), brandedEnvelope("2"))
+      ).rejects.toBeInstanceOf(HttpError);
+
+      expect(mockedCreateTicket).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry on a network failure", async () => {
+      mockedCreateTicket.mockRejectedValue(new NetworkError(new Error("off")));
+
+      await expect(
+        executeCreateMutation(client, boundary(), brandedEnvelope("2"))
+      ).rejects.toBeInstanceOf(NetworkError);
+
+      expect(mockedCreateTicket).toHaveBeenCalledTimes(1);
+    });
+
+    it("surfaces the retry's own failure when the brand was not the problem", async () => {
+      mockedCreateTicket
+        .mockRejectedValueOnce(new HttpError(422, { message: "disabled" }))
+        .mockRejectedValueOnce(new HttpError(500, null));
+
+      await expect(
+        executeCreateMutation(client, boundary(), brandedEnvelope("2"))
+      ).rejects.toMatchObject({ status: 500 });
+
+      expect(mockedCreateTicket).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("executeCreateMutation → silent internal note + parent field (D-01/D-04/D-22)", () => {

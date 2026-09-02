@@ -17,7 +17,7 @@ import {
   GrispiEnvironment,
   buildAgentTicketUrl,
 } from "@/grispi/client/environment";
-import { NetworkError } from "@/grispi/client/http-handler";
+import { HttpError, NetworkError } from "@/grispi/client/http-handler";
 import {
   ConversationLifecycleStatus,
   parseConversationLifecycleStatus,
@@ -32,6 +32,7 @@ import {
 import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
 import {
   SIDE_CONVERSATION_PARENT_FIELD_KEY,
+  TICKET_BRAND_FIELD_KEY,
   formatInternalNoteBody,
   formatParentLinkNoteBody,
   isValidEmail,
@@ -831,6 +832,50 @@ export async function assertSideConversationLink(
   await postParentLinkNote(sideKey, parentKey, agentEmail, context);
 }
 
+/**
+ * quick-260902-dhy — creates the side ticket, retrying ONCE without
+ * `ts.brand` if the brand is what the server rejected.
+ *
+ * A parent ticket can carry a brand that was disabled afterwards; writing it
+ * back is refused with HTTP 422 (`"Brand 'X' is disabled and cannot be set on
+ * a ticket."`, live-probed on preprod). No ticket is created and no mail is
+ * sent on that path, so retrying is safe — and without the retry a disabled
+ * brand would make the conversation impossible to open at all. The error body
+ * carries no machine-readable code, only `message`, so the status is the only
+ * signal available.
+ *
+ * Bounded to a single extra request, and the filtered `fields` array is a
+ * COPY: `envelope.request` is replayed verbatim by manual retry, so it must
+ * come back out of here untouched.
+ */
+async function createTicketWithBrandFallback(
+  request: CreateTicketRequest
+): Promise<Ticket> {
+  try {
+    return await grispiAPI.tickets.createTicket(request);
+  } catch (error) {
+    const brandWasSent = request.fields.some(
+      (field) => field.key === TICKET_BRAND_FIELD_KEY
+    );
+    if (!(error instanceof HttpError && error.status === 422) || !brandWasSent) {
+      throw error;
+    }
+
+    console.warn(
+      "side-conversation",
+      "create rejected with 422 while sending",
+      TICKET_BRAND_FIELD_KEY,
+      "— retrying without it"
+    );
+    return grispiAPI.tickets.createTicket({
+      ...request,
+      fields: request.fields.filter(
+        (field) => field.key !== TICKET_BRAND_FIELD_KEY
+      ),
+    });
+  }
+}
+
 export async function executeCreateMutation(
   queryClient: QueryClient,
   boundary: MutationBoundary,
@@ -842,7 +887,7 @@ export async function executeCreateMutation(
 
   let sideKey: string;
   try {
-    const response = await grispiAPI.tickets.createTicket(envelope.request);
+    const response = await createTicketWithBrandFallback(envelope.request);
     sideKey = response.key;
   } catch (error) {
     boundary.activeConversation.mutationFailed(envelope, errorKind(error));
