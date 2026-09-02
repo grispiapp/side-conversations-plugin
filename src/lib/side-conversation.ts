@@ -12,6 +12,13 @@ import { Ticket } from "@/types/grispi.type";
 export const SIDE_CONVERSATION_PARENT_FIELD_KEY = "tp.side_conversation_parent";
 
 /**
+ * Grispi's brand SYSTEM field (`SystemFields.Keys.BRAND`, type `BRAND`), not
+ * a plugin custom field — its value is the brand's numeric id as a string.
+ * Hard-coded for the same D-01/D-02 reason as the parent key above.
+ */
+export const TICKET_BRAND_FIELD_KEY = "ts.brand";
+
+/**
  * `ts.requester` needs a colon-prefixed email to bind (existing or
  * newly-created) end-user to a ticket by address rather than by numeric id
  * (D-07; CONFIRMED live, Plan 02/01-01-PLAN Task 1 probe — see
@@ -167,4 +174,22 @@ export function parentKeyOfTicket(ticket: Ticket | null): string | null {
   const value = (ticket as Ticket).fieldMap[SIDE_CONVERSATION_PARENT_FIELD_KEY]
     ?.value;
   return typeof value === "string" ? value.trim() : null;
+}
+
+/**
+ * The parent ticket's brand id, or `null` when it has none (or the ticket
+ * isn't hydrated yet — `switchTicket`'s provisional `{ key }` object has no
+ * `fieldMap`, so this must degrade rather than throw).
+ *
+ * Copied onto the side ticket at create time because a branded ticket's
+ * outgoing mail is sent from that brand's default support address instead of
+ * the tenant default (grispi-api `TicketService.getSenderAddress`) — the
+ * whole point of propagating it.
+ */
+export function brandIdOfTicket(ticket: Ticket | null): string | null {
+  if (!isHydratedTicket(ticket)) return null;
+  const value = ticket.fieldMap[TICKET_BRAND_FIELD_KEY]?.value;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
 }

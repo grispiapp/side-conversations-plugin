@@ -1,5 +1,7 @@
 import {
   SIDE_CONVERSATION_PARENT_FIELD_KEY,
+  TICKET_BRAND_FIELD_KEY,
+  brandIdOfTicket,
   formatInternalNoteBody,
   formatParentLinkNoteBody,
   formatPrefillSubject,
@@ -16,6 +18,12 @@ describe("SIDE_CONVERSATION_PARENT_FIELD_KEY", () => {
     expect(SIDE_CONVERSATION_PARENT_FIELD_KEY).toBe(
       "tp.side_conversation_parent"
     );
+  });
+});
+
+describe("TICKET_BRAND_FIELD_KEY", () => {
+  it("is exactly ts.brand (D-01 / D-02 hard-code guard)", () => {
+    expect(TICKET_BRAND_FIELD_KEY).toBe("ts.brand");
   });
 });
 
@@ -222,5 +230,51 @@ describe("parentKeyOfTicket", () => {
 
   it("returns null for null", () => {
     expect(parentKeyOfTicket(null)).toBeNull();
+  });
+});
+
+function brandedTicket(fieldValue: unknown): Ticket {
+  return {
+    key: "TICKET-1",
+    fieldMap:
+      fieldValue === undefined
+        ? {}
+        : {
+            [TICKET_BRAND_FIELD_KEY]: {
+              key: TICKET_BRAND_FIELD_KEY,
+              value: fieldValue,
+            },
+          },
+  } as unknown as Ticket;
+}
+
+describe("brandIdOfTicket", () => {
+  it("returns the brand id for a branded ticket", () => {
+    expect(brandIdOfTicket(brandedTicket("1"))).toBe("1");
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(brandIdOfTicket(brandedTicket(" 7 "))).toBe("7");
+  });
+
+  it("returns null when the brand field is absent entirely", () => {
+    expect(brandIdOfTicket(brandedTicket(undefined))).toBeNull();
+  });
+
+  it("returns null when the brand field value is null", () => {
+    expect(brandIdOfTicket(brandedTicket(null))).toBeNull();
+  });
+
+  it("returns null when the brand field value is an empty string", () => {
+    expect(brandIdOfTicket(brandedTicket("  "))).toBeNull();
+  });
+
+  it("returns null and does not throw for the provisional (field-map-less) ticket", () => {
+    expect(() => brandIdOfTicket(provisionalTicket)).not.toThrow();
+    expect(brandIdOfTicket(provisionalTicket)).toBeNull();
+  });
+
+  it("returns null for null", () => {
+    expect(brandIdOfTicket(null)).toBeNull();
   });
 });
