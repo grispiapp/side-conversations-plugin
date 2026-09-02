@@ -116,8 +116,10 @@ Yan konuşma açılırken ana talebin `ts.brand` değeri okunup yeni talebin cre
 - `CI=true npm test -- --watchAll=false` → 35 suite / 581 test, tamamı yeşil (13 yeni test)
 - Canlı probe (preprod / `gsocial-test`): API sözleşmesi ve gönderen-adres etkisi ölçüldü — D5/D6
 
+## Prod durumu
+
+Multibranding prod'da (kullanıcı teyidi, 2026-09-02) — plugin varsayılan olarak prod'a bağlandığı için değişiklik canlıda etkin. `build/` yeniden üretilip commit'lendi (repo-as-host deploy: `grispi.app` `build/`'i doğrudan servis ediyor).
+
 ## Açık kalanlar (kapsam dışı, bilerek)
 
-- **Prod sürüm doğrulaması:** Multibranding `grispi-api` 1.63.0+ ile geldi ve `master`'da. Plugin varsayılan olarak prod'a bağlanıyor; prod'un ≥1.63.0 olduğu Grispi ekibinden teyit edilmeli. Değilse davranış bugünküyle aynı kalır (alan okunmaz → key gönderilmez), regresyon riski yok.
-- **`build/` yeniden üretilmedi.** Bu repo kendi deploy'u (repo-as-host, `grispi.app` `build/`'i doğrudan servis ediyor); bundle rebuild + commit ayrı ve dışa dönük bir adım, istenmediği için yapılmadı.
 - Reply/patch yollarına marka eklenmedi, UI'da marka gösterimi eklenmedi — planın `prohibitions` bölümünde kayıtlı.
