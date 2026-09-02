@@ -6,7 +6,11 @@ import {
   sanitizeUntrustedDraftHtml,
 } from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
-import { formatRequesterField, isValidEmail } from "@/lib/side-conversation";
+import {
+  TICKET_BRAND_FIELD_KEY,
+  formatRequesterField,
+  isValidEmail,
+} from "@/lib/side-conversation";
 import { MutationEnvelope } from "@/store/active-conversation-store";
 import { CreateTicketRequest } from "@/types/grispi.type";
 
@@ -167,13 +171,19 @@ export class ComposeStore {
    * inline-pasted image whose `objectUrl` no longer appears in the final
    * authored body is dropped). Defaults to `[]` so every pre-Plan-06 caller
    * (and test) keeps compiling without passing a fifth argument.
+   *
+   * `brandId` (quick-260902-dhy): the PARENT ticket's `ts.brand` value, so
+   * the side ticket's mail goes out from that brand's support address rather
+   * than the tenant default. Passed by the caller for the same reason as
+   * `agentEmail`/`parentKey` — the store never reads React context itself.
    */
   async submit(
     tenantId: string | null,
     agentEmail: string | null,
     parentKey: string,
     sessionKey: number,
-    attachmentIds: number[] = []
+    attachmentIds: number[] = [],
+    brandId: string | null = null
   ): Promise<Extract<MutationEnvelope, { kind: "create" }> | null> {
     if (this.submitting) return null; // D-17 — before any await
     this.submitting = true;
@@ -213,6 +223,9 @@ export class ComposeStore {
           value: formatRequesterField(this.recipientEmail),
         },
         { key: "tp.side_conversation_parent", value: effectiveParentKey },
+        // Omit-when-empty, same rule as `attachmentIds` above: an unbranded
+        // parent must send no `ts.brand` key at all, never an empty value.
+        ...(brandId ? [{ key: TICKET_BRAND_FIELD_KEY, value: brandId }] : []),
       ],
     };
 

@@ -15,7 +15,10 @@ import {
 import { useGrispi } from "@/contexts/grispi-context";
 import { useStore } from "@/contexts/store-context";
 import { htmlToText } from "@/lib/html-to-text";
-import { formatPrefillSubject } from "@/lib/side-conversation";
+import {
+  brandIdOfTicket,
+  formatPrefillSubject,
+} from "@/lib/side-conversation";
 import { useCreateSideConversationMutation } from "@/query/side-conversation-queries";
 
 /**
@@ -78,7 +81,8 @@ export const ComposeScreen = observer(() => {
       agentEmail,
       ticket.key,
       selected.sessionKey,
-      attachmentIds
+      attachmentIds,
+      brandIdOfTicket(ticket)
     );
     if (!envelope) {
       panelNav.cancelPendingConversationReservation(selected.sessionKey);

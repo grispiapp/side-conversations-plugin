@@ -17,6 +17,45 @@ describe("ComposeStore mutation-envelope seam", () => {
     root = new RootStore();
   });
 
+  it("sends ts.brand when the parent ticket carries a brand (quick-260902-dhy)", async () => {
+    root.compose.initSubject("[PARENT-1] Konu", "PARENT-1");
+    root.compose.selectFreeEmail("vendor@example.test");
+    root.compose.setMessage("<p>Merhaba</p>");
+
+    const envelope = await root.compose.submit(
+      "tenant-1",
+      "agent@example.test",
+      "PARENT-1",
+      1,
+      [],
+      "7"
+    );
+
+    expect(envelope!.request.fields).toContainEqual({
+      key: "ts.brand",
+      value: "7",
+    });
+  });
+
+  it("omits the ts.brand key entirely for an unbranded parent", async () => {
+    root.compose.initSubject("[PARENT-1] Konu", "PARENT-1");
+    root.compose.selectFreeEmail("vendor@example.test");
+    root.compose.setMessage("<p>Merhaba</p>");
+
+    const envelope = await root.compose.submit(
+      "tenant-1",
+      "agent@example.test",
+      "PARENT-1",
+      1,
+      [],
+      null
+    );
+
+    expect(
+      envelope!.request.fields.some((field) => field.key === "ts.brand")
+    ).toBe(false);
+  });
+
   it("keeps the pinned parent and returns one create envelope after the microtask-safe submit seam", async () => {
     root.compose.initSubject("[PARENT-OLD] Konu", "PARENT-OLD");
     root.compose.selectFreeEmail("vendor@example.test");
