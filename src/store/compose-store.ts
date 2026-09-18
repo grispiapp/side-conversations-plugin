@@ -2,15 +2,15 @@ import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
 import {
-  sanitizeAuthoredHtml,
-  sanitizeUntrustedDraftHtml,
-} from "@/lib/html-sanitizer";
-import {
   CcEntry,
   ccEntryIdentity,
   dedupeCcEntries,
   serializeEmailCcs,
 } from "@/lib/email-ccs";
+import {
+  sanitizeAuthoredHtml,
+  sanitizeUntrustedDraftHtml,
+} from "@/lib/html-sanitizer";
 import { htmlToText } from "@/lib/html-to-text";
 import {
   EMAIL_CCS_FIELD_KEY,

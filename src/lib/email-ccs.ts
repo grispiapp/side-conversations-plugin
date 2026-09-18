@@ -44,23 +44,36 @@ export function parseEmailCcsFieldValue(value: unknown): CcEntry[] {
 export function serializeEmailCcs(entries: readonly CcEntry[]): string {
   return entries
     .filter((entry) => entry.id != null || entry.email != null)
-    .map((entry) => (entry.id != null ? `${entry.id}:null:null` : `null:${entry.email}:null`))
+    .map((entry) =>
+      entry.id != null ? `${entry.id}:null:null` : `null:${entry.email}:null`
+    )
     .join(",");
 }
 
+/** Stable React key / removal handle. Id-first so an entry keeps the same
+ * handle before and after its email is resolved for display. */
 export function ccEntryIdentity(entry: CcEntry): string | null {
   if (entry.id != null) return String(entry.id);
   if (entry.email != null) return entry.email.trim().toLowerCase();
   return null;
 }
 
+/** Same person by EITHER key — an already-CC'd user arrives from the ticket
+ * as an id and from the input as a typed address, so matching on identity
+ * alone would let the same person be added twice. */
+export function ccEntriesMatch(left: CcEntry, right: CcEntry): boolean {
+  if (left.id != null && right.id != null) return left.id === right.id;
+  const leftEmail = left.email?.trim().toLowerCase();
+  const rightEmail = right.email?.trim().toLowerCase();
+  if (leftEmail && rightEmail) return leftEmail === rightEmail;
+  return ccEntryIdentity(left) === ccEntryIdentity(right);
+}
+
 export function dedupeCcEntries(entries: readonly CcEntry[]): CcEntry[] {
-  const seen = new Set<string>();
   const result: CcEntry[] = [];
   for (const entry of entries) {
-    const identity = ccEntryIdentity(entry);
-    if (identity === null || seen.has(identity)) continue;
-    seen.add(identity);
+    if (ccEntryIdentity(entry) === null) continue;
+    if (result.some((kept) => ccEntriesMatch(kept, entry))) continue;
     result.push(entry);
   }
   return result;

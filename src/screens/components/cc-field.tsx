@@ -2,7 +2,7 @@ import { Cross2Icon, EnvelopeClosedIcon } from "@radix-ui/react-icons";
 import { FocusEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { useGrispi } from "@/contexts/grispi-context";
-import { CcEntry, ccEntryIdentity } from "@/lib/email-ccs";
+import { CcEntry, ccEntriesMatch, ccEntryIdentity } from "@/lib/email-ccs";
 import { isValidEmail } from "@/lib/side-conversation";
 import { cn } from "@/lib/utils";
 import { useCustomersQuery } from "@/query/side-conversation-queries";
@@ -51,10 +51,9 @@ export function CcField({
   const searchSettled = panelOpen && !searchLoading && !customerQuery.isError;
 
   function isAlreadyAdded(entry: CcEntry): boolean {
-    const identity = ccEntryIdentity(entry);
     return (
-      identity !== null &&
-      entries.some((existing) => ccEntryIdentity(existing) === identity)
+      ccEntryIdentity(entry) !== null &&
+      entries.some((existing) => ccEntriesMatch(existing, entry))
     );
   }
 
@@ -96,7 +95,7 @@ export function CcField({
       setPopupOpen(false);
       return;
     }
-    if (event.key === "," ) {
+    if (event.key === ",") {
       event.preventDefault();
       tryAddFreeEmail();
       return;
@@ -160,9 +159,9 @@ export function CcField({
             return (
               <span
                 key={identity}
-                className="flex h-8 max-w-full items-center gap-1 rounded-full border border-border bg-muted/40 pl-2.5 pr-1 text-xs"
+                className="flex h-8 min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted/40 pl-2.5 pr-1 text-xs"
               >
-                <span className="max-w-full truncate">{label}</span>
+                <span className="min-w-0 truncate">{label}</span>
                 <button
                   type="button"
                   aria-label={`${label} adresini Cc'den çıkar`}
@@ -184,7 +183,9 @@ export function CcField({
             onFocus={() => setPopupOpen(true)}
             onKeyDown={handleKeyDown}
             className="h-8 min-w-[8rem] flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            placeholder={entries.length === 0 ? "Cc ekle veya e-posta yaz…" : ""}
+            placeholder={
+              entries.length === 0 ? "Cc ekle veya e-posta yaz…" : ""
+            }
             autoComplete="off"
             role="combobox"
             aria-expanded={hasResultOptions}
@@ -201,7 +202,8 @@ export function CcField({
         </div>
       </div>
       <span id={helpId} className="sr-only">
-        {helperText ?? "Cc alıcısı seçin veya geçerli bir e-posta adresi girin."}
+        {helperText ??
+          "Cc alıcısı seçin veya geçerli bir e-posta adresi girin."}
       </span>
 
       {panelOpen && hasResultOptions && (

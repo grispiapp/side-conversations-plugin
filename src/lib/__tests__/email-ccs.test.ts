@@ -38,7 +38,9 @@ describe("parseEmailCcsFieldValue", () => {
 
   it("silently drops a malformed non-numeric bare id, never throws", () => {
     expect(() => parseEmailCcsFieldValue("abc,41")).not.toThrow();
-    expect(parseEmailCcsFieldValue("abc,41")).toEqual([{ id: 41, email: null }]);
+    expect(parseEmailCcsFieldValue("abc,41")).toEqual([
+      { id: 41, email: null },
+    ]);
   });
 
   it("dedupes case-insensitively while parsing", () => {
@@ -87,5 +89,13 @@ describe("dedupeCcEntries", () => {
       { id: 41, email: "new@b.com" },
     ];
     expect(dedupeCcEntries(entries)).toEqual([{ id: 41, email: "old@b.com" }]);
+  });
+
+  it("drops a typed address that duplicates an id-based entry's email", () => {
+    const entries: CcEntry[] = [
+      { id: 41, email: "ali@b.com" },
+      { id: null, email: "ALI@b.com" },
+    ];
+    expect(dedupeCcEntries(entries)).toEqual([{ id: 41, email: "ali@b.com" }]);
   });
 });

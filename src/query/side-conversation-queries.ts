@@ -22,6 +22,7 @@ import {
   ConversationLifecycleStatus,
   parseConversationLifecycleStatus,
 } from "@/lib/conversation-status";
+import { CcEntry, parseEmailCcsFieldValue } from "@/lib/email-ccs";
 import {
   QuotedContextPart,
   sanitizeAuthoredHtml,
@@ -29,7 +30,6 @@ import {
   splitGeneratedReplyHtml,
   splitQuotedHtml,
 } from "@/lib/html-sanitizer";
-import { CcEntry, parseEmailCcsFieldValue } from "@/lib/email-ccs";
 import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
 import {
   EMAIL_CCS_FIELD_KEY,
@@ -546,7 +546,9 @@ export function normalizeSideConversationDetail(
     reopenable: lifecycle === "solved",
     messages,
     latestRelevantExternalAt,
-    ccEntries: parseEmailCcsFieldValue(ticket.fieldMap?.[EMAIL_CCS_FIELD_KEY]?.value),
+    ccEntries: parseEmailCcsFieldValue(
+      ticket.fieldMap?.[EMAIL_CCS_FIELD_KEY]?.value
+    ),
   };
 }
 
@@ -594,23 +596,18 @@ export async function resolveDetailCcEmails(
   );
   if (toResolve.length === 0) return detail;
 
-  const resolutions = await Promise.allSettled(
-    toResolve.map(async (entry) => {
-      try {
-        const user = await grispiAPI.users.getUser(entry.id as number);
-        return [entry.id as number, user?.primaryEmail ?? null] as const;
-      } catch {
-        return [entry.id as number, null] as const;
-      }
-    })
-  );
   const emailById = new Map(
-    resolutions
-      .filter(
-        (outcome): outcome is PromiseFulfilledResult<readonly [number, string | null]> =>
-          outcome.status === "fulfilled"
-      )
-      .map((outcome) => outcome.value)
+    await Promise.all(
+      toResolve.map(async (entry) => {
+        const id = entry.id as number;
+        try {
+          const user = await grispiAPI.users.getUser(id);
+          return [id, user?.primaryEmail ?? null] as const;
+        } catch {
+          return [id, null] as const;
+        }
+      })
+    )
   );
 
   return {
