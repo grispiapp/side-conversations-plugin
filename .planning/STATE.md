@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 Phase: 04.2 (uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-) — EXECUTED, UAT BEKLİYOR
 Plan: 10 of 10 (04.2-09, 04.2-10 gap kapanışı tamamlandı)
 Status: Doğrulama `human_needed`, 8/9 must-have (5/9 → 8/9). SC1 KAPANDI — `assertSideConversationLink` artık `isCurrent` kapısının önünde ve her dönüş yolunda await ediliyor. SC9'un "yazma her zaman denenir" yarısı kapandı; "alan gerçekten kalıcı olur" yarısı canlı ölçüm bekliyor. Sıradaki: `/gsd-verify-work 04.2` (7 madde)
-Last activity: 2026-09-02 — quick 260902-dhy: yan konuşma ana talebin markasını (`ts.brand`) devralıyor, disabled markada 422 fallback; test 581/581, tsc temiz. Canlı probe (preprod): markalı yan talebin e-postası markanın support address'inden çıkıyor. (Phase 04.2 doğrulaması hâlâ `human_needed` — sıradaki iş değişmedi.)
+Last activity: 2026-09-18 — quick 260918-fx7: yeni konuşma ve yanıt akışına CC (`ts.email_ccs`) desteği; test 594/594, tsc temiz. Wire formatı grispi-api kaynak okumasıyla doğrulandı (REPLACE semantiği + okuma formatı id listesi), canlı UAT bekliyor. (Phase 04.2 doğrulaması hâlâ `human_needed` — sıradaki iş değişmedi.)
 
 **SC9 kalan risk (kullanıcı kararı 2026-08-17 — bilinçli olarak canlı UAT'a bırakıldı):** mutlu yolda `tu.side_conversation_parent` yalnızca `/v2` PATCH'inin `fields` dizisiyle yazılıyor ve bu mekanizma hiç probe edilmedi; kanıtlanmış `public/v1` fields-only PATCH'i yalnızca `catch`'te. Aynı `/v2` yüzeyi POST'ta bu alanı 2/2 düşürmüştü. Ayrıntı + düzeltme reçetesi: `04.2-UAT.md` madde 7, `04.2-REVIEW-GAPS.md` CR-01, CONTEXT.md'deki D-22 düzeltme notu.
 
@@ -221,6 +221,7 @@ None yet.
 | 260821-p3c | İlişki field key'i `tu.side_conversation_parent` → `tp.side_conversation_parent`; dahili notlar `comment.channel` "WEB" yerine "INTEGRATION" gönderiyor | 2026-08-21 | 263bbf8 | — (gsd-fast, inline) |
 | 260821-itv | Sohbet ekranına manuel `Yenile` (menüde ilk sıra) + gereksiz liste refetch'lerinin temizliği; canlı ölçüm: konuşma açmak 5→1, çöz 10→2 istek | 2026-08-21 | fd8f948 | [260821-itv-chat-ekranina-manuel-yenileme-gereksiz-i](./quick/260821-itv-chat-ekranina-manuel-yenileme-gereksiz-i/) |
 | 260902-dhy | Yan konuşma açarken ana talebin markasını (`ts.brand`) devral; disabled markada 422 fallback. Markalı yan talebin e-postası artık markanın support address'inden çıkıyor | 2026-09-02 | b51f66c | [260902-dhy-yan-konusma-acarken-ana-talebin-markasin](./quick/260902-dhy-yan-konusma-acarken-ana-talebin-markasin/) |
+| 260918-fx7 | Yeni konuşma ve yanıt akışına CC (`ts.email_ccs`) desteği; REPLACE semantiği nedeniyle her yazmada tam küme, mevcut CC'ler id ile round-trip. Okuma yolu id→e-posta çözümlemesi | 2026-09-18 | cd116da | [260918-fx7-yeni-konusma-ve-yanit-akisina-cc-ts-emai](./quick/260918-fx7-yeni-konusma-ve-yanit-akisina-cc-ts-emai/) |
 
 ### Roadmap Evolution
 
