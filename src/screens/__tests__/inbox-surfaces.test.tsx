@@ -45,6 +45,13 @@ beforeEach(() => {
       recipientEmail: "vendor@example.test",
       recipientLabel: "Vendor <vendor@example.test>",
       subject: "[PARENT-1] Tedarik",
+      // quick-260918-fx7 (D-CC-6): CcField is real in this suite (only
+      // useCustomersQuery is mocked below), so it needs a real query string.
+      ccEntries: [],
+      ccQuery: "",
+      setCcQuery: jest.fn(),
+      addCc: jest.fn(),
+      removeCc: jest.fn(),
       message: "<p>Merhaba</p>",
       submitting: false,
       isDirty: true,
