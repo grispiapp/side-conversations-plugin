@@ -27,6 +27,9 @@ jest.mock("@/query/side-conversation-queries", () => ({
 jest.mock("../components/recipient-field", () => ({
   RecipientField: () => <div>Recipient</div>,
 }));
+jest.mock("../components/cc-field", () => ({
+  CcField: () => <div>Cc</div>,
+}));
 jest.mock("../components/subject-field", () => ({
   SubjectField: () => <div>Subject</div>,
 }));

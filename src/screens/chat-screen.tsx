@@ -1,3 +1,4 @@
+import { CcField } from "./components/cc-field";
 import { ConfirmDialog } from "./components/confirm-dialog";
 import { InfoBox } from "./components/info-box";
 import { RichTextComposer } from "./components/rich-text-composer";
@@ -151,6 +152,7 @@ export const ChatScreen = observer(() => {
     detail.data?.lifecycle ?? (detail.data?.solved ? "solved" : "open");
   const solved = lifecycle !== "open";
   const closed = lifecycle === "closed";
+  const ccCanonical = detail.data?.ccEntries ?? [];
 
   const closeMenu = useCallback((returnFocus = true) => {
     setMenuOpen(false);
@@ -264,6 +266,7 @@ export const ChatScreen = observer(() => {
       agentEmail,
       solved,
       attachmentIds,
+      ccValue: activeConversation.ccValue,
     });
     executeEnvelope(envelope);
     // Clear the reply attachment bucket only AFTER the envelope is built —
@@ -722,6 +725,21 @@ export const ChatScreen = observer(() => {
                 !sideKey ||
                 detail.isPending ||
                 detail.isError
+              }
+              ccSlot={
+                <CcField
+                  entries={activeConversation.ccEntriesFor(ccCanonical)}
+                  query={activeConversation.ccQuery}
+                  onQueryChange={(value) => activeConversation.setCcQuery(value)}
+                  onAdd={(entry) =>
+                    activeConversation.addCcEntry(ccCanonical, entry)
+                  }
+                  onRemove={(identity) =>
+                    activeConversation.removeCcEntry(ccCanonical, identity)
+                  }
+                  idPrefix="reply-cc"
+                  helperText="Cc değişikliği yanıtı gönderdiğinizde uygulanır."
+                />
               }
               onChange={(html) => activeConversation.setAuthoredDraftHtml(html)}
               onSubmit={submitReply}

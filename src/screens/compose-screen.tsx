@@ -1,3 +1,4 @@
+import { CcField } from "./components/cc-field";
 import { ConfirmDialog } from "./components/confirm-dialog";
 import { InfoBox } from "./components/info-box";
 import { MessageField } from "./components/message-field";
@@ -140,6 +141,14 @@ export const ComposeScreen = observer(() => {
         >
           <InfoBox dismissible={false} />
           <RecipientField />
+          <CcField
+            entries={compose.ccEntries}
+            query={compose.ccQuery}
+            onQueryChange={(value) => compose.setCcQuery(value)}
+            onAdd={(entry) => compose.addCc(entry)}
+            onRemove={(identity) => compose.removeCc(identity)}
+            idPrefix="compose-cc"
+          />
           <SubjectField />
           <MessageField
             submitDisabled={sendDisabled}

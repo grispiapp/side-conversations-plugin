@@ -291,6 +291,11 @@ export interface CreateTicketRequest {
  * `comment.channel` / `comment.attachmentIds` — same contract and same
  * omit-when-empty rule as `CreateTicketRequest.comment` (see that
  * doc-comment for the full rationale).
+ *
+ * `fields` (D-CC-7, quick-260918-fx7): optional and narrowed to the single
+ * `ts.email_ccs` key — a PATCH caller may resend CC state alongside the
+ * reply comment, but this type's own "no subject/requester/parent-link
+ * resend" invariant above stays enforced by the type system.
  */
 export interface ReplyTicketPatchRequest {
   comment: {
@@ -300,6 +305,7 @@ export interface ReplyTicketPatchRequest {
     channel?: "WEB";
     attachmentIds?: number[];
   };
+  fields?: Array<{ key: "ts.email_ccs"; value: string }>;
 }
 
 /**

@@ -2,6 +2,12 @@ import { RootStore } from "./root-store";
 import { makeAutoObservable } from "mobx";
 
 import {
+  CcEntry,
+  ccEntryIdentity,
+  dedupeCcEntries,
+  serializeEmailCcs,
+} from "@/lib/email-ccs";
+import {
   sanitizeAuthoredHtml,
   sanitizeUntrustedDraftHtml,
 } from "@/lib/html-sanitizer";
@@ -101,6 +107,13 @@ export interface ReplyParams {
    * Optional/omittable so every pre-Plan-06 caller keeps compiling.
    */
   attachmentIds?: number[];
+  /**
+   * D-CC-7/D-CC-8 (quick-260918-fx7): the full CC set to write alongside
+   * this reply, or `null`/omitted when CC was never touched this session
+   * (`ActiveConversationStore.ccValue` — see its own doc-comment for the
+   * `null` vs `""` distinction).
+   */
+  ccValue?: string | null;
 }
 
 export interface LifecycleParams {
@@ -168,6 +181,10 @@ export class ActiveConversationStore {
   lifecyclePending: "solve" | "reopen" | null = null;
   lifecycleError: LifecycleError | null = null;
 
+  /** `null` = "CC untouched this session" (D-CC-7/D-CC-8) — see `ccValue`. */
+  private ccDraft: CcEntry[] | null = null;
+  ccQuery = "";
+
   private activeSessionKey: number | null = null;
   private activeSideKey: string | null = null;
   private overlayRecords: OverlayRecord[] = [];
@@ -203,6 +220,35 @@ export class ActiveConversationStore {
     this.lifecycleError = null;
     this.focusRequest = null;
     this.scrollRequest = null;
+    // D-CC-8: CC state never carries over to a different conversation.
+    this.ccDraft = null;
+    this.ccQuery = "";
+  }
+
+  /** UI's CC render source (D-CC-7): the live draft once touched, else the
+   * canonical set read from `SideConversationDetail.ccEntries`. */
+  ccEntriesFor(canonical: readonly CcEntry[]): CcEntry[] {
+    return this.ccDraft ?? [...canonical];
+  }
+
+  addCcEntry(canonical: readonly CcEntry[], entry: CcEntry): void {
+    const base = this.ccDraft ?? [...canonical];
+    this.ccDraft = dedupeCcEntries([...base, entry]);
+  }
+
+  removeCcEntry(canonical: readonly CcEntry[], identity: string): void {
+    const base = this.ccDraft ?? [...canonical];
+    this.ccDraft = base.filter((entry) => ccEntryIdentity(entry) !== identity);
+  }
+
+  setCcQuery(value: string): void {
+    this.ccQuery = value;
+  }
+
+  /** `null` = untouched (no `fields` key sent); `""` is a REAL value — "clear
+   * every CC" (D-CC-3/D-CC-7). */
+  get ccValue(): string | null {
+    return this.ccDraft === null ? null : serializeEmailCcs(this.ccDraft);
   }
 
   startNew(
@@ -310,6 +356,11 @@ export class ActiveConversationStore {
         // Omit-when-empty (RESEARCH.md pitfall): never send `[]`.
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       },
+      // D-CC-7: gate is `!= null`, not truthy — `""` (clear all CCs) is a
+      // real value that must still be sent.
+      ...(params.ccValue != null
+        ? { fields: [{ key: "ts.email_ccs", value: params.ccValue }] }
+        : {}),
     };
     const clientMessageId = nextMessageId();
     const envelope = deepFreeze<Extract<MutationEnvelope, { kind: "reply" }>>({
@@ -324,6 +375,11 @@ export class ActiveConversationStore {
     });
 
     this.draftHtml = "";
+    // The server's set is now canonical for what this envelope sent; the
+    // draft returns to "untouched" (D-CC-7). Retry replays the frozen
+    // `request` above unchanged, so this reset never affects it.
+    this.ccDraft = null;
+    this.ccQuery = "";
     this.envelopes.set(clientMessageId, envelope);
     this.overlayRecords = [
       ...this.overlayRecords,

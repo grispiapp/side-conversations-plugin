@@ -5,8 +5,15 @@ import {
   sanitizeAuthoredHtml,
   sanitizeUntrustedDraftHtml,
 } from "@/lib/html-sanitizer";
+import {
+  CcEntry,
+  ccEntryIdentity,
+  dedupeCcEntries,
+  serializeEmailCcs,
+} from "@/lib/email-ccs";
 import { htmlToText } from "@/lib/html-to-text";
 import {
+  EMAIL_CCS_FIELD_KEY,
   TICKET_BRAND_FIELD_KEY,
   formatRequesterField,
   isValidEmail,
@@ -34,6 +41,9 @@ export class ComposeStore {
   recipientLabel = "";
 
   subject = "";
+
+  ccEntries: CcEntry[] = [];
+  ccQuery = "";
 
   message = "";
   submitting = false;
@@ -89,6 +99,20 @@ export class ComposeStore {
     this.subject = value;
   }
 
+  setCcQuery(value: string): void {
+    this.ccQuery = value;
+  }
+
+  addCc(entry: CcEntry): void {
+    this.ccEntries = dedupeCcEntries([...this.ccEntries, entry]);
+  }
+
+  removeCc(identity: string): void {
+    this.ccEntries = this.ccEntries.filter(
+      (entry) => ccEntryIdentity(entry) !== identity
+    );
+  }
+
   /**
    * One-time subject prefill (D-08/D-09) that ALSO pins the compose
    * session's parent ticket key (M-3b). Guarded so a re-mount or a
@@ -127,6 +151,8 @@ export class ComposeStore {
     if (this.query.trim() !== "") return true;
     if (this.recipientEmail.trim() !== "") return true;
     if (this.subject !== this.initialSubject) return true;
+    if (this.ccEntries.length > 0) return true;
+    if (this.ccQuery.trim() !== "") return true;
     if (this.rootStore.attachmentUpload.hasAttachments("compose")) return true;
     return htmlToText(sanitizeAuthoredHtml(this.message)) !== "";
   }
@@ -226,6 +252,16 @@ export class ComposeStore {
         // Omit-when-empty, same rule as `attachmentIds` above: an unbranded
         // parent must send no `ts.brand` key at all, never an empty value.
         ...(brandId ? [{ key: TICKET_BRAND_FIELD_KEY, value: brandId }] : []),
+        // Omit-when-empty (D-CC-6): a fresh ticket with no CC must send no
+        // `ts.email_ccs` key at all, never `""`.
+        ...(this.ccEntries.length > 0
+          ? [
+              {
+                key: EMAIL_CCS_FIELD_KEY,
+                value: serializeEmailCcs(this.ccEntries),
+              },
+            ]
+          : []),
       ],
     };
 
@@ -270,6 +306,8 @@ export class ComposeStore {
     this.initialSubject = "";
     this.subjectInitialized = false;
     this.pinnedParentKey = null;
+    this.ccEntries = [];
+    this.ccQuery = "";
     this.message = "";
     this.submitting = false;
     this.rootStore.attachmentUpload.reset("compose");

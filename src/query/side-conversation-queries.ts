@@ -29,8 +29,10 @@ import {
   splitGeneratedReplyHtml,
   splitQuotedHtml,
 } from "@/lib/html-sanitizer";
+import { CcEntry, parseEmailCcsFieldValue } from "@/lib/email-ccs";
 import { getLastSeenAt, setLastSeenAt } from "@/lib/last-seen-store";
 import {
+  EMAIL_CCS_FIELD_KEY,
   SIDE_CONVERSATION_PARENT_FIELD_KEY,
   TICKET_BRAND_FIELD_KEY,
   formatInternalNoteBody,
@@ -96,6 +98,7 @@ export interface SideConversationDetail {
   reopenable: boolean;
   messages: MessageVM[];
   latestRelevantExternalAt: number | null;
+  ccEntries: CcEntry[];
 }
 
 export interface SelectedMutationSession {
@@ -271,7 +274,11 @@ export function sideConversationDetailOptions(
         requireIdentity(sideKey, "sideKey")
       );
       const detail = normalizeSideConversationDetail(ticket);
-      return resolveDetailRecipientFallback(detail, ticket);
+      const withRecipient = await resolveDetailRecipientFallback(
+        detail,
+        ticket
+      );
+      return resolveDetailCcEmails(withRecipient);
     },
     enabled: Boolean(tenantId && sideKey),
     staleTime: DETAIL_STALE_TIME,
@@ -539,6 +546,7 @@ export function normalizeSideConversationDetail(
     reopenable: lifecycle === "solved",
     messages,
     latestRelevantExternalAt,
+    ccEntries: parseEmailCcsFieldValue(ticket.fieldMap?.[EMAIL_CCS_FIELD_KEY]?.value),
   };
 }
 
@@ -570,6 +578,49 @@ export async function resolveDetailRecipientFallback(
   } catch {
     return detail;
   }
+}
+
+/**
+ * D-CC-4 — resolves each `ccEntries` id to an email for display. The `id` is
+ * always kept regardless of resolution outcome: it is what gets round-tripped
+ * on the next write (D-CC-3), so a resolution failure must never drop anyone
+ * from the CC list, only leave their email unresolved.
+ */
+export async function resolveDetailCcEmails(
+  detail: SideConversationDetail
+): Promise<SideConversationDetail> {
+  const toResolve = detail.ccEntries.filter(
+    (entry) => entry.id != null && entry.email == null
+  );
+  if (toResolve.length === 0) return detail;
+
+  const resolutions = await Promise.allSettled(
+    toResolve.map(async (entry) => {
+      try {
+        const user = await grispiAPI.users.getUser(entry.id as number);
+        return [entry.id as number, user?.primaryEmail ?? null] as const;
+      } catch {
+        return [entry.id as number, null] as const;
+      }
+    })
+  );
+  const emailById = new Map(
+    resolutions
+      .filter(
+        (outcome): outcome is PromiseFulfilledResult<readonly [number, string | null]> =>
+          outcome.status === "fulfilled"
+      )
+      .map((outcome) => outcome.value)
+  );
+
+  return {
+    ...detail,
+    ccEntries: detail.ccEntries.map((entry) =>
+      entry.id != null && emailById.has(entry.id)
+        ? { ...entry, email: emailById.get(entry.id) ?? entry.email }
+        : entry
+    ),
+  };
 }
 
 function isCurrent(

@@ -19,6 +19,12 @@ export const SIDE_CONVERSATION_PARENT_FIELD_KEY = "tp.side_conversation_parent";
 export const TICKET_BRAND_FIELD_KEY = "ts.brand";
 
 /**
+ * `ts.email_ccs` — SYSTEM `MULTI_USER` field (D-CC-1). Same D-01/D-02
+ * hardcode reasoning as `TICKET_BRAND_FIELD_KEY` above.
+ */
+export const EMAIL_CCS_FIELD_KEY = "ts.email_ccs";
+
+/**
  * `ts.requester` needs a colon-prefixed email to bind (existing or
  * newly-created) end-user to a ticket by address rather than by numeric id
  * (D-07; CONFIRMED live, Plan 02/01-01-PLAN Task 1 probe — see

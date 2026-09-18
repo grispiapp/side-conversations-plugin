@@ -87,6 +87,9 @@ export interface RichTextComposerProps {
    * call and the failure toast (UI-SPEC §7).
    */
   onInlineImagePaste?: (file: File) => Promise<string | undefined>;
+  /** CC row (D-CC-8, quick-260918-fx7) — prop-driven, same architecture as
+   * `attachments`/`onAttachFiles`; the composer never reads CC state itself. */
+  ccSlot?: ReactNode;
 }
 
 type ToolbarCommand =
@@ -286,6 +289,7 @@ export const RichTextComposer = forwardRef<
       onRetryAttachment,
       attachmentsUploading = false,
       onInlineImagePaste,
+      ccSlot,
     },
     forwardedRef
   ) => {
@@ -1144,6 +1148,8 @@ export const RichTextComposer = forwardRef<
             <span className="truncate">{recipientLabel}</span>
           </p>
         )}
+
+        {ccSlot}
 
         <div
           ref={editorZoneRef}

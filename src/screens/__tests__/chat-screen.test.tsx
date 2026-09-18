@@ -54,6 +54,13 @@ jest.mock("@/query/side-conversation-queries", () => ({
   useStatusSideConversationMutation: () => mockStatusMutation,
 }));
 
+// quick-260918-fx7: CcField's own useCustomersQuery wiring is out of scope
+// for this suite (test fence) — mocked like RecipientField/SubjectField are
+// in compose-screen.test.tsx.
+jest.mock("../components/cc-field", () => ({
+  CcField: () => <div>Cc</div>,
+}));
+
 let container: HTMLDivElement;
 let root: Root;
 let scrollIntoViewMock: jest.Mock;
@@ -133,6 +140,7 @@ function makeDetail(overrides: Record<string, unknown> = {}) {
       reopenable: false,
       messages: canonicalMessages(),
       latestRelevantExternalAt: 1_000,
+      ccEntries: [],
     },
     isPending: false,
     isFetching: false,
@@ -164,6 +172,15 @@ function makeActive(overrides: Record<string, unknown> = {}) {
     getLocalPresentation: jest.fn(() => null),
     consumeScrollRequest: jest.fn(() => "comment-1"),
     consumeComposerFocus: jest.fn(() => false),
+    // quick-260918-fx7 (D-CC-7/D-CC-8): CcField is mocked below, so these are
+    // only ever read for their return VALUE by ChatScreen's own render —
+    // never invoked through a real CcField interaction in this suite.
+    ccEntriesFor: jest.fn(() => []),
+    ccQuery: "",
+    setCcQuery: jest.fn(),
+    addCcEntry: jest.fn(),
+    removeCcEntry: jest.fn(),
+    ccValue: null,
     ...overrides,
   };
 }
@@ -344,6 +361,7 @@ describe("ChatScreen Query-owned session wiring", () => {
       agentEmail: "agent@example.test",
       solved: false,
       attachmentIds: [],
+      ccValue: null,
     });
     expect(mockReplyMutation.mutate).toHaveBeenCalledWith(reply);
     expect(mockStore.attachmentUpload.reset).toHaveBeenCalledWith("reply");
