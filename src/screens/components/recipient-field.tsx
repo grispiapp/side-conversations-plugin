@@ -127,7 +127,7 @@ export const RecipientField = observer(({ ccTrigger }: RecipientFieldProps) => {
         Alıcı
       </label>
       {compose.recipientLabel ? (
-        <div className="flex min-h-12 min-w-0 items-center gap-3 px-4 text-sm">
+        <div className="flex min-h-12 min-w-0 items-center gap-2 px-4 text-sm">
           <span
             aria-hidden="true"
             className="w-12 shrink-0 text-muted-foreground"
@@ -152,6 +152,12 @@ export const RecipientField = observer(({ ccTrigger }: RecipientFieldProps) => {
         </div>
       ) : (
         <div className="flex min-h-12 min-w-0 items-center gap-2 px-4 text-sm">
+          <span
+            aria-hidden="true"
+            className="w-12 shrink-0 text-muted-foreground"
+          >
+            Kime
+          </span>
           <Input
             id="compose-recipient"
             value={compose.query}
@@ -162,7 +168,7 @@ export const RecipientField = observer(({ ccTrigger }: RecipientFieldProps) => {
             onFocus={() => setPopupOpen(true)}
             onKeyDown={handleKeyDown}
             className="h-12 w-auto min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-            placeholder="Alıcı ara veya e-posta yaz…"
+            placeholder="Ara veya e-posta yaz…"
             // Browser autofill only — our own listbox below is unaffected.
             // Its dropdown otherwise covers the listbox and fights
             // aria-activedescendant.
