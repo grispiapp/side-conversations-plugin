@@ -1,6 +1,13 @@
 import { Cross2Icon, EnvelopeClosedIcon } from "@radix-ui/react-icons";
 import { observer } from "mobx-react-lite";
-import { FocusEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import {
+  FocusEvent,
+  KeyboardEvent,
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Input } from "@/components/ui/input";
 import { useGrispi } from "@/contexts/grispi-context";
@@ -9,13 +16,20 @@ import { isValidEmail } from "@/lib/side-conversation";
 import { cn } from "@/lib/utils";
 import { useCustomersQuery } from "@/query/side-conversation-queries";
 
+export interface RecipientFieldProps {
+  /** Optional trailing control rendered at the row's right edge (K-2) —
+   * lets ComposeScreen place its Cc disclosure trigger inside the Alıcı
+   * row without RecipientField knowing anything about Cc semantics. */
+  ccTrigger?: ReactNode;
+}
+
 /**
  * Recipient autocomplete (COMP-02, D-04/05/06/07). No combobox analogue
  * exists in this codebase (02-PATTERNS.md), so it uses the Input primitive
  * and a full-width inline results surface. ComposeStore owns the typed and
  * selected values; the tenant-scoped Query hook owns debounced remote state.
  */
-export const RecipientField = observer(() => {
+export const RecipientField = observer(({ ccTrigger }: RecipientFieldProps) => {
   const { tenantId } = useGrispi();
   const compose = useStore().compose;
   const customerQuery = useCustomersQuery(tenantId, compose.query);
@@ -123,6 +137,7 @@ export const RecipientField = observer(() => {
           <span className="min-w-0 flex-1 truncate text-left">
             {compose.recipientLabel}
           </span>
+          {ccTrigger}
           <button
             type="button"
             aria-label="Alıcıyı değiştir"
@@ -136,33 +151,36 @@ export const RecipientField = observer(() => {
           </button>
         </div>
       ) : (
-        <Input
-          id="compose-recipient"
-          value={compose.query}
-          onChange={(event) => {
-            compose.setQuery(event.target.value);
-            setPopupOpen(true);
-          }}
-          onFocus={() => setPopupOpen(true)}
-          onKeyDown={handleKeyDown}
-          className="h-12 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-          placeholder="Alıcı ara veya e-posta yaz…"
-          // Browser autofill only — our own listbox below is unaffected.
-          // Its dropdown otherwise covers the listbox and fights
-          // aria-activedescendant.
-          autoComplete="off"
-          role="combobox"
-          aria-expanded={hasResultOptions}
-          aria-controls={hasResultOptions ? listboxId : undefined}
-          aria-activedescendant={
-            hasResultOptions && highlightedIndex >= 0
-              ? `compose-recipient-option-${highlightedIndex}`
-              : undefined
-          }
-          aria-describedby={helpId}
-          aria-autocomplete="list"
-          aria-haspopup={hasResultOptions ? "listbox" : undefined}
-        />
+        <div className="flex min-h-12 min-w-0 items-center gap-2 px-4 text-sm">
+          <Input
+            id="compose-recipient"
+            value={compose.query}
+            onChange={(event) => {
+              compose.setQuery(event.target.value);
+              setPopupOpen(true);
+            }}
+            onFocus={() => setPopupOpen(true)}
+            onKeyDown={handleKeyDown}
+            className="h-12 w-auto min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            placeholder="Alıcı ara veya e-posta yaz…"
+            // Browser autofill only — our own listbox below is unaffected.
+            // Its dropdown otherwise covers the listbox and fights
+            // aria-activedescendant.
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={hasResultOptions}
+            aria-controls={hasResultOptions ? listboxId : undefined}
+            aria-activedescendant={
+              hasResultOptions && highlightedIndex >= 0
+                ? `compose-recipient-option-${highlightedIndex}`
+                : undefined
+            }
+            aria-describedby={helpId}
+            aria-autocomplete="list"
+            aria-haspopup={hasResultOptions ? "listbox" : undefined}
+          />
+          {ccTrigger}
+        </div>
       )}
       <span id={helpId} className="sr-only">
         Müşteri seçin veya geçerli bir e-posta adresi girin.

@@ -43,6 +43,11 @@ export const ComposeScreen = observer(() => {
   });
 
   const [discardOpen, setDiscardOpen] = useState(false);
+  // K-1/K-5: visibility decision lives on the screen, not CcField — the
+  // trigger is a disclosure (stays open forever once revealed), never a
+  // toggle, and a non-empty existing CC set is never hidden behind it.
+  const [ccRevealed, setCcRevealed] = useState(false);
+  const ccVisible = ccRevealed || compose.ccEntries.length > 0;
 
   const isDirty = compose.isDirty;
 
@@ -120,6 +125,14 @@ export const ComposeScreen = observer(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket?.key]);
 
+  // Move focus into the Cc row the moment it's revealed by the trigger.
+  // Optional chaining is required: some test suites mock CcField away, so
+  // the element never exists.
+  useEffect(() => {
+    if (!ccRevealed) return;
+    document.getElementById("compose-cc-input")?.focus();
+  }, [ccRevealed]);
+
   return (
     <Screen>
       <ScreenHeader
@@ -140,15 +153,32 @@ export const ComposeScreen = observer(() => {
           aria-label="Yeni konuşma e-postası"
         >
           <InfoBox dismissible={false} />
-          <RecipientField />
-          <CcField
-            entries={compose.ccEntries}
-            query={compose.ccQuery}
-            onQueryChange={(value) => compose.setCcQuery(value)}
-            onAdd={(entry) => compose.addCc(entry)}
-            onRemove={(identity) => compose.removeCc(identity)}
-            idPrefix="compose-cc"
+          <RecipientField
+            ccTrigger={
+              !ccVisible && (
+                <button
+                  type="button"
+                  onClick={() => setCcRevealed(true)}
+                  aria-label="Cc alanını göster"
+                  className="flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Cc
+                </button>
+              )
+            }
           />
+          {/* K-1: visibility decision lives here, not in the shared
+           * CcField — chat/reply's ccSlot usage is untouched. */}
+          {ccVisible && (
+            <CcField
+              entries={compose.ccEntries}
+              query={compose.ccQuery}
+              onQueryChange={(value) => compose.setCcQuery(value)}
+              onAdd={(entry) => compose.addCc(entry)}
+              onRemove={(identity) => compose.removeCc(identity)}
+              idPrefix="compose-cc"
+            />
+          )}
           <SubjectField />
           <MessageField
             submitDisabled={sendDisabled}

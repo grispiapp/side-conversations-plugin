@@ -77,6 +77,9 @@ describe("ComposeScreen create mutation wiring", () => {
         message: "<p>Merhaba</p>",
         submitting: false,
         isDirty: true,
+        // quick-260922-stt: ccVisible reads this directly in ComposeScreen
+        // (RecipientField/CcField themselves are mocked away in this file).
+        ccEntries: [],
         initSubject: jest.fn(),
         getEffectiveParentKey: jest.fn(() => "PARENT-PINNED"),
         submit: jest.fn(async () => createdEnvelope),
