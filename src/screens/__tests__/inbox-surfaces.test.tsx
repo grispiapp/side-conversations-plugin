@@ -468,4 +468,56 @@ describe("unified compose surface", () => {
     act(() => subject?.focus());
     expect(input?.getAttribute("aria-expanded")).toBe("false");
   });
+
+  it("Cc satırını gizler, tetikleyiciyle açar ve Alıcı ile aynı etiket kolonunu paylaşır", () => {
+    const remountCompose = () => {
+      act(() => root.render(<></>));
+      act(() => root.render(<ComposeScreen />));
+    };
+
+    // 1. Varsayılan: boş ccEntries iken Cc satırı hiç render edilmez.
+    act(() => root.render(<ComposeScreen />));
+    expect(container.querySelector("#compose-cc-input")).toBeNull();
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Cc alanını göster"]'
+    );
+    expect(trigger).not.toBeNull();
+    expect(trigger?.tagName).toBe("BUTTON");
+
+    // 2. Açığa çıkarma: tetikleyiciye tıklanınca Cc satırı render olur ve
+    // tetikleyici kaybolur.
+    act(() => trigger?.click());
+    expect(
+      container.querySelector("#compose-cc-input")
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Cc alanını göster"]')
+    ).toBeNull();
+
+    // 3. Kolon paritesi: jsdom'da layout yok, bu yüzden Kime/Cc etiket
+    // span'lerinin ve satır div'lerinin sınıf pariteleri ölçülür.
+    const kimeLabel = Array.from(container.querySelectorAll("span")).find(
+      (span) => span.textContent?.trim() === "Kime"
+    );
+    const ccLabel = Array.from(container.querySelectorAll("span")).find(
+      (span) => span.textContent?.trim() === "Cc"
+    );
+    expect(kimeLabel?.className).toContain("w-12");
+    expect(kimeLabel?.className).toContain("shrink-0");
+    expect(ccLabel?.className).toContain("w-12");
+    expect(ccLabel?.className).toContain("shrink-0");
+    expect(kimeLabel?.parentElement?.className).toContain("px-4");
+    expect(kimeLabel?.parentElement?.className).toContain("gap-2");
+    expect(ccLabel?.parentElement?.className).toContain("px-4");
+    expect(ccLabel?.parentElement?.className).toContain("gap-2");
+
+    // 4. Mevcut CC'de otomatik açık: hiç tıklama olmadan Cc satırı görünür,
+    // tetikleyici hiç render edilmez.
+    mockStore.compose.ccEntries = [{ id: null, email: "cc@example.test" }];
+    remountCompose();
+    expect(container.querySelector("#compose-cc-input")).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Cc alanını göster"]')
+    ).toBeNull();
+  });
 });
