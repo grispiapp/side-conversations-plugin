@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
 current_phase: 04.2
 current_phase_name: uat-geri-bildirimleri-ili-ki-notu-ticket-navigasyonu-kimlik-
 status: verifying
-stopped_at: Phase 04.2 executed 8/8 — verification gaps_found (SC1/SC9)
-last_updated: "2026-08-17T16:59:04.355Z"
-last_activity: 2026-08-21
+stopped_at: Completed 260922-stt quick task (compose alici/cc hizasi + cc disclosure)
+last_updated: "2026-09-22T17:59:38.644Z"
+last_activity: 2026-09-18
 last_activity_desc: "quick 260821-itv: sohbet ekranına manuel Yenile + gereksiz liste refetch temizliği; test 564/564"
+state_head: 20bcbc5834e900f9f2bfff9df5ad6897a848d825
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 4
   total_plans: 41
   completed_plans: 41
-  percent: 88
+milestone_name: milestone
 ---
 
 # Project State
@@ -99,6 +99,11 @@ Progress: [███████░░░] 75%
 | Phase 04.2 P08 | 3min | 2 tasks | 1 files |
 | Phase 04.2 P09 | 4min | 3 tasks | 5 files |
 | Phase 04.2 P10 | 2min | 1 tasks | 1 files |
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase quick-260922-stt P01 | 25min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -191,6 +196,7 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 04.2, Plan 09]: D-23 retry body built fresh as its own TicketFieldsPatchRequest literal (never derived from InternalNotePatchRequest) so the type system guarantees the retry cannot carry a comment
 - [Phase ?]: [Phase 04.2, Plan 10]: Comment-stripping in environment-static.test.ts is two-stage and order-dependent — block comments stripped first, then only leading-// lines dropped, never mid-line // (would truncate GRISPI_BASE_URLS's https:// URL values)
 - [Phase ?]: [Phase 04.2, Plan 10]: Static gate reads environment.ts via path.join(__dirname, '..', 'environment.ts') + readFileSync, never require.resolve, to guarantee it reads the literal TS source on disk
+- [Phase 04.2]: quick-260922-stt: Cc gorunurluk karari ComposeScreen'de (K-1), RecipientField ccTrigger slot-prop aliyor (K-2), kolon hizasi gap-2 uzerinde birlesti (K-3), Konu satirina bilincli dokunulmadi (K-4)
 
 ### Pending Todos
 
@@ -222,6 +228,7 @@ None yet.
 | 260821-itv | Sohbet ekranına manuel `Yenile` (menüde ilk sıra) + gereksiz liste refetch'lerinin temizliği; canlı ölçüm: konuşma açmak 5→1, çöz 10→2 istek | 2026-08-21 | fd8f948 | [260821-itv-chat-ekranina-manuel-yenileme-gereksiz-i](./quick/260821-itv-chat-ekranina-manuel-yenileme-gereksiz-i/) |
 | 260902-dhy | Yan konuşma açarken ana talebin markasını (`ts.brand`) devral; disabled markada 422 fallback. Markalı yan talebin e-postası artık markanın support address'inden çıkıyor | 2026-09-02 | b51f66c | [260902-dhy-yan-konusma-acarken-ana-talebin-markasin](./quick/260902-dhy-yan-konusma-acarken-ana-talebin-markasin/) |
 | 260918-fx7 | Yeni konuşma ve yanıt akışına CC (`ts.email_ccs`) desteği; REPLACE semantiği nedeniyle her yazmada tam küme, mevcut CC'ler id ile round-trip. Okuma yolu id→e-posta çözümlemesi | 2026-09-18 | cd116da | [260918-fx7-yeni-konusma-ve-yanit-akisina-cc-ts-emai](./quick/260918-fx7-yeni-konusma-ve-yanit-akisina-cc-ts-emai/) |
+| 260922-stt | Compose ekranında Alıcı/Cc satırları tek sol etiket kolonunu (`w-12 shrink-0`, `px-4 gap-2`) paylaşıyor; Cc satırı varsayılan gizli, Alıcı satırındaki tetikleyiciyle açılıyor, mevcut CC varsa zaten açık | 2026-09-22 | 20bcbc5 | [260922-stt-compose-ekraninda-alici-cc-satirlarinin-](./quick/260922-stt-compose-ekraninda-alici-cc-satirlarinin-/) |
 
 ### Roadmap Evolution
 
@@ -240,7 +247,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-17T16:58:25.438Z
-Stopped at: Completed 04.2-04-PLAN.md
+Last session: 2026-09-22T17:59:11.978Z
+Stopped at: Completed 260922-stt quick task (compose alici/cc hizasi + cc disclosure)
 Resume file: 
 None
